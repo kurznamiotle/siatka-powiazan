@@ -565,4 +565,13 @@ let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(layout, 60); });
 if (document.fonts) document.fonts.ready.then(layout);
 if (!(ls.get(SAVE.last) === "random" && resumeRandom())) dailyCase();
+
+/* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
+function openHowto() {
+  const H = window.SiatkaHowto; if (!H) return;
+  const t = Date.now(); setPending(null);
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); });
+}
+$("howtoBtn").onclick = openHowto;
+window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(); });
 })();

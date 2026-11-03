@@ -11,6 +11,7 @@ index.html            gra (ładuje skrypty poniżej; otwórz w przeglądarce)
 js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wynik,
                       zapis postępu, haptyka, pełny ekran
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
+js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
 sw.js                 service worker (offline); nowy plik gry dopisz do SHELL
 manifest.webmanifest  PWA; ikony w icons/ (rysuje je tools/icons.js)
 engine/engine.js      RNG z seedem, solver, generator spraw, sprawa dnia
@@ -85,6 +86,8 @@ Docelowo kilka archetypów spraw (kłamiący świadek, wspólnicy, czas z zegark
 Zrobione: warstwa epoki 1989–1999 + 7 miast, solver, generator archetypu `single_culprit_one_reason_each` ze zmienną wielkością (3–6 podejrzanych, 2–4 miejsca i dowody, 3–6 reguł), 4 typy zbrodni, 20 scen, 6 cech, modułowe portrety, dynamiczny układ tablicy, ekran „Nowa sprawa” (miasto, rok, wielkość), sprawa dnia z seeda daty (#1 = 3.11.2026), rosnąca w tygodniu (pon.–wt. S, śr.–czw. M, pt.–sob. L, niedz. XL). Każde miasto ma 2 własne miejsca z własnymi dowodami. Uduszenia działają we wszystkich wielkościach. Test: 4000/4000 spraw poprawnych.
 
 Interfejs: PWA (manifest, offline przez service worker), deploy na GitHub Pages. Zapis postępu w localStorage: osobno sprawa dnia i ostatnia losowa, razem z całym JSON-em sprawy. Zegar stoi, gdy gra jest w tle. Pinezka ma strefę dotyku 46 px, a sznurek przyciąga się do pinezki w promieniu 44 px. Po dotknięciu pinezki pulsują węzły innego typu (nigdy tylko te z pokryciem w faktach, bo to zdradzałoby odpowiedź). Połączenia w obrębie jednego typu są zablokowane. W aktach i notatniku wyróżnione są godziny, miejsca (`forms` na węźle miejsca), klucze, alibi i auta. Haptyka: `navigator.vibrate` na Androidzie, trik z `<input switch>` na iOS 18+, a wszędzie sprężyste animacje CSS. Dźwięk i muzyka są domyślnie: efekty włączone, muzyka wyłączona. Po wylosowaniu „Nowej sprawy” losowanie jest zablokowane na 2 minuty (poza `#dev`).
+
+Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i spod przycisku „Jak grać”. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
 
 ## Najbliższe kroki
 

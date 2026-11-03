@@ -198,7 +198,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
+      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button><button class="mode" id="howtoBtn">Jak grać</button></div>
     </div>
   </header>
 
@@ -251,6 +251,18 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     </div>
   </div>
 
+  <div class="overlay howto" id="howto" hidden>
+    <div class="card hw-card" id="hwCard" role="dialog" aria-modal="true" aria-labelledby="hwTitle">
+      <div class="hw-top"><span class="hw-step" id="hwStep"></span><button class="hw-skip" id="hwSkip">Pomiń</button></div>
+      <div class="hw-stage" id="hwStage" role="img"></div>
+      <h3 id="hwTitle"></h3>
+      <p class="hw-txt" id="hwTxt"></p>
+      <p class="hw-tip" id="hwTip"></p>
+      <div class="hw-dots" id="hwDots"></div>
+      <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
+    </div>
+  </div>
+
   <div class="overlay" id="result" hidden>
     <div class="card" id="resultCard"></div>
   </div>
@@ -261,5 +273,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script src="data/cities.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
+<script src="js/tutorial.js"></script>
 </body>
 </html>
