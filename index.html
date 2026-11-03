@@ -161,6 +161,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .fx-k{text-decoration:underline;text-decoration-color:rgba(43,34,27,.45);text-underline-offset:2px}
 .fx-v{font-variant:small-caps}
 /* przyciski-ikony w nagłówku */
+.meta .ic+.ic{margin-left:-4px}
 .ic{width:28px;height:28px;display:grid;place-items:center;padding:0;background:transparent;border:2px solid var(--desk-edge);color:var(--muted)}
 .ic:hover{color:var(--fg);border-color:var(--muted)}
 .ic[aria-pressed="true"]{color:var(--brass)}
@@ -225,7 +226,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     <div class="tline">
       <h1>Siatka Powiązań</h1>
       <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
-        <button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
+        <button class="ic" id="fsBtn" hidden></button><button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>

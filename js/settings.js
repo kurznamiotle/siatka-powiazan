@@ -1,6 +1,7 @@
 /*
  * Siatka Powiązań — ustawienia (zębatka w nagłówku) i instalacja gry.
- * Okno: Jak grać, Statystyki, efekty dźwiękowe, muzyka, wibracje, pełny ekran, instalacja.
+ * Okno: Jak grać, Statystyki, efekty dźwiękowe, muzyka, wibracje, instalacja.
+ * Pełny ekran: osobny przycisk w nagłówku (tylko w przeglądarce, która go obsługuje).
  * Instalacja: Android i Chrome na komputerze — systemowe okno (beforeinstallprompt);
  * iPhone/iPad — instrukcja (Safari nie ma przycisku instalacji); zainstalowana — informacja.
  * API: SiatkaPrefs.haptic, SiatkaInstall.{available(), installed(), ios, run(), hintHtml()}
@@ -22,7 +23,7 @@ const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform ==
 const installed = () => matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches || navigator.standalone === true;
 let deferred = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; refresh(); });
-window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); });
+window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); paintFs(); });
 const available = () => !installed() && (!!deferred || ios);
 async function run(where) {
   if (deferred) {
@@ -46,7 +47,17 @@ function toggleFs() {
   const r = root.requestFullscreen ? root.requestFullscreen({ navigationUI: "hide" }) : root.webkitRequestFullscreen && root.webkitRequestFullscreen();
   if (r && r.then) r.then(() => { try { screen.orientation.lock("portrait").catch(() => {}); } catch (_) {} }).catch(() => {});
 }
-["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, refresh));
+const FS_ON = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg>`;
+const FS_OFF = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h2v5H1V4h3zM10 1h2v3h3v2h-5zM1 10h5v5H4v-3H1zM10 10h5v2h-3v3h-2z"/></svg>`;
+function paintFs() {
+  const b = $("fsBtn"), on = fsActive();
+  b.hidden = !fsSupported || installed();
+  b.innerHTML = on ? FS_OFF : FS_ON;
+  b.title = on ? "Wyjdź z pełnego ekranu" : "Pełny ekran"; b.setAttribute("aria-label", b.title);
+}
+$("fsBtn").onclick = () => { tap(6); toggleFs(); };
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, paintFs));
+paintFs();
 
 /* ---------- okno ustawień ---------- */
 const hapticAvailable = typeof navigator.vibrate === "function" || ios;
@@ -64,7 +75,6 @@ function render() {
     ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
     ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
     ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
-    ${fsSupported && !installed() ? `<div class="lbl">Ekran</div>${sw("swFs", "Pełny ekran", fsActive())}` : ""}
     ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
     <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
     <p class="set-foot">siatkapowiazan.pl</p>`;
@@ -74,7 +84,6 @@ function render() {
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
-  if ($("swFs")) $("swFs").onclick = () => { tap(6); toggleFs(); };
   if ($("setInstall")) $("setInstall").onclick = () => run("ustawienia");
 }
 function refresh() { if (!$("menu").hidden) render(); }
