@@ -11,11 +11,12 @@ index.html            gra (ładuje skrypty poniżej; otwórz w przeglądarce)
 js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wynik,
                       zapis postępu, haptyka
 js/settings.js        okno Ustawienia (zębatka): Jak grać, Statystyki, dźwięk, muzyka,
-                      wibracje, instalacja gry (PWA), zgłoszenia uwag; przycisk pełnego
+                      wibracje, osiągnięcia, instalacja gry (PWA), zgłoszenia uwag; przycisk pełnego
                       ekranu w nagłówku
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
 js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
 js/stats.js           seria i statystyki spraw dnia (localStorage)
+js/achievements.js    osiągnięcia: lista, pikselowe odznaki, plansza z fanfarą (CSS w pliku)
 js/track.js           analityka GoatCounter: zdarzenia i powroty
 sw.js                 service worker (offline); nowy plik gry dopisz do SHELL
 manifest.webmanifest  PWA; ikony w icons/ (rysuje je tools/icons.js)
@@ -100,9 +101,11 @@ Zgłoszenia uwag: Formularz Google (odpowiedzi w arkuszu autora), otwierany z Us
 
 Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i z Ustawień („Jak grać”). Przy pierwszym uruchomieniu ostatnia plansza zaprasza do instalacji, gdy jest możliwa. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
 
-Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `instalacja/zgoda|odmowa-samouczek|ustawienia`, `instalacja/zainstalowana`, `ustawienia/muzyka-wl|wyl`, `uwagi/ustawienia|wynik`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
+Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `instalacja/zgoda|odmowa-samouczek|ustawienia`, `instalacja/zainstalowana`, `ustawienia/muzyka-wl|wyl`, `uwagi/ustawienia|wynik`, `seria/N` (3, 7, 14, 30…), `osiagniecie/<id>`, `osiagniecia/otwarte`, `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
 
 Seria i statystyki: tylko sprawy dnia, zapis po numerze sprawy (`siatka-stats`). Sprawa dnia jeszcze nierozegrana nie przerywa serii. Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
+
+Osiągnięcia: 18 odznak w trzech klasach (brąz, srebro, złoto), lista `ACH` w `js/achievements.js`, zapis w `siatka-ach` (zdobyte z datą + zebrane miasta, lata i typy zbrodni). Liczba rozwiązanych spraw i seria pochodzą z `siatka-stats`. Po zamkniętej sprawie `game.js` woła `SiatkaAch.onFinish(...)`, a nowe odznaki pokazują się kolejno na planszy (dźwięk `medal`, iskry, wibracja) nad wynikiem. Lista z postępem jest w Ustawieniach.
 
 ## Najbliższe kroki
 

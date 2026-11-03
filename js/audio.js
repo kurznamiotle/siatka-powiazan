@@ -86,6 +86,17 @@ const SFX = {
     tone("sine", 1760, t, 1.6, 0.16, sfxBus); tone("sine", 1760 * 2.76, t, 0.6, 0.04, sfxBus); // dzwonek maszyny
     [62, 65, 69, 72, 76].forEach((m, i) => tone("triangle", mtof(m), t + 0.25 + i * 0.09, 2.2 - i * 0.2, 0.07, sfxBus, { attack: 0.01, lp: 2400 }));
   },
+  /* osiągnięcie: mosiężna fanfara w D-dur + iskry; tier 1–3 dokłada coraz wyższe dzwoneczki */
+  medal(t, tier = 1) {
+    [[62, 0], [66, 0.1], [69, 0.2], [74, 0.34]].forEach(([m, d], i) => {
+      const len = i === 3 ? 1.5 : 0.32;
+      tone("sawtooth", mtof(m), t + d, len, 0.045, sfxBus, { attack: 0.025, lp: 1700, vib: i === 3 ? 7 : 0 });
+      tone("triangle", mtof(m - 12), t + d, len, 0.08, sfxBus, { attack: 0.01 });
+    });
+    noise(t + 0.34, 0.9, 0.05, sfxBus, "highpass", 6500, { attack: 0.02 }); // talerz
+    const bells = [86, 90, 93, 98, 102].slice(0, 2 + tier);
+    bells.forEach((m, i) => tone("sine", mtof(m), t + 0.5 + i * 0.07, 0.6, 0.04, sfxBus));
+  },
   lose(t) { [62, 60, 58, 57].forEach((m, i) => tone("triangle", mtof(m - 12), t + i * 0.28, 1.1, 0.12, sfxBus, { lp: 900, attack: 0.02 })); }
 };
 function sfx(name, arg) {

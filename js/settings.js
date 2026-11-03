@@ -1,6 +1,6 @@
 /*
  * Siatka Powiązań — ustawienia (zębatka w nagłówku) i instalacja gry.
- * Okno: Jak grać, Statystyki, efekty dźwiękowe, muzyka, wibracje, instalacja.
+ * Okno: Jak grać, Statystyki, Osiągnięcia, efekty dźwiękowe, muzyka, wibracje, instalacja.
  * Pełny ekran: osobny przycisk w nagłówku (tylko w przeglądarce, która go obsługuje).
  * Instalacja: Android i Chrome na komputerze — systemowe okno (beforeinstallprompt);
  * iPhone/iPad — instrukcja (Safari nie ma przycisku instalacji); zainstalowana — informacja.
@@ -95,6 +95,7 @@ function render() {
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
     <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
+      ${window.SiatkaAch ? (c => `<button class="pick wide set-ach" id="setAch">Osiągnięcia <small>${c.got}/${c.all}</small></button>`)(window.SiatkaAch.count()) : ""}
       <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
     <div class="lbl">Dźwięk</div>
     ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
@@ -106,6 +107,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };

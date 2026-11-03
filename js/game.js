@@ -453,6 +453,13 @@ function finish(win) {
   const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
   if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
   showResult();
+  if (window.SiatkaAch) {
+    const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length;
+    const people = CASE.nodes.filter(n => n.type === "person" && n.id !== CASE.solution.culprit);
+    SiatkaAch.onFinish({ win, stars: starsOf(), wrong: S.wrong, hints: S.hints, ms: S.tEnd - S.t0, size: CASE.size,
+      city: CASE.city, year: CASE.year, crime: CASE.crime, good, bad: strs.length - good, chain: chainKeys.every(k => S.strings.has(k)),
+      allOut: people.every(n => S.out.has(n.id)) && !S.out.has(CASE.solution.culprit), hour: new Date().getHours() });
+  }
 }
 const starsOf = () => S.win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
 const URL_GRY = "siatkapowiazan.pl";
