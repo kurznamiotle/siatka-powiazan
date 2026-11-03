@@ -240,6 +240,7 @@ function showResult() {
     try { navigator.clipboard.writeText(share).then(() => b.textContent = "Skopiowano", sel); } catch (_) { sel(); }
   };
   $("againBtn").onclick = openNewCase;
+  paintCooldown();
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
 
@@ -272,13 +273,32 @@ function openNewCase() {
   chips("optSize", [["", "Losowo"], ...Object.entries(sz).map(([k, v]) => [k, v.name, `${v.n} os.`])], "size");
   $("newCase").hidden = false;
 }
+/* Blokada losowania: po nowej sprawie kolejną można wylosować dopiero po 2 minutach.
+   Czas trzymany w localStorage, żeby odświeżenie strony go nie zerowało. W #dev bez blokady. */
+const COOLDOWN_MS = 2 * 60 * 1000;
+const cooldown = {
+  until() { try { return +localStorage.getItem("siatka-next-case") || 0; } catch (_) { return 0; } },
+  start() { try { localStorage.setItem("siatka-next-case", String(Date.now() + COOLDOWN_MS)); } catch (_) {} },
+  left() { return DEV() ? 0 : Math.max(0, this.until() - Date.now()); }
+};
+function paintCooldown() {
+  const ms = cooldown.left();
+  const s = Math.ceil(ms / 1000);
+  const label = ms ? `Nowa sprawa ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Nowa sprawa";
+  ["newBtn", "againBtn"].forEach(id => { const b = $(id); if (b) { b.disabled = !!ms; b.textContent = label; } });
+}
+setInterval(paintCooldown, 1000);
+
 let randomN = 0;
 function newCase() {
+  if (cooldown.left()) { paintCooldown(); return; }
+  cooldown.start();
   randomN++;
   const seed = "losowa-" + Date.now().toString(36) + "-" + randomN;
   const o = DEV() ? OPT : {};
   if (DEV()) store.set(OPT);
   load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }), "Sprawa z archiwum");
+  paintCooldown();
 }
 function dailyCase() { const c = Siatka.dailyCase(WORLD); load(c, `Sprawa #${String(c.number).padStart(3, "0")}`); }
 $("dailyBtn").onclick = dailyCase;
@@ -291,4 +311,5 @@ let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(layout, 60); });
 if (document.fonts) document.fonts.ready.then(layout);
 dailyCase();
+paintCooldown();
 })();

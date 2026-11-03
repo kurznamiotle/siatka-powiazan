@@ -1,7 +1,6 @@
 {
   "name": "siatka-powiazan",
   "private": true,
-  "type": "module",
   "scripts": {
     "test": "node --test",
     "solve": "node scripts/solve.js"
