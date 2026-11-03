@@ -176,6 +176,21 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .mode{white-space:nowrap;background:transparent;border:2px solid var(--desk-edge);color:var(--muted);font-family:var(--f-pixel);font-size:12px;padding:3px 8px}
 .mode:hover{color:var(--fg);border-color:var(--muted)}
 .mode:disabled{opacity:.45;cursor:default;color:var(--muted);border-color:var(--desk-edge)}
+.mode.icon{padding:3px 6px;display:grid;place-items:center}
+.mode.icon svg{width:14px;height:14px;display:block;shape-rendering:crispEdges}
+/* statystyki */
+.st-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px;text-align:center}
+.st-grid div{background:var(--paper-shade);padding:8px 2px}
+.st-grid b{display:block;font-family:var(--f-pixel);font-size:24px;line-height:1.1}
+.st-grid span{font-family:var(--f-body);font-size:11px;color:var(--ink-soft)}
+.st-grid.mini{margin-top:0}.st-grid.mini b{font-size:18px}
+.st-row{display:grid;grid-template-columns:76px 1fr 28px;align-items:center;gap:8px;margin:5px 0;font-family:var(--f-body);font-size:13px}
+.st-k{color:var(--brass);font-family:var(--f-pixel);letter-spacing:1px;-webkit-text-stroke:.3px var(--ink)}
+.st-row:last-of-type .st-k{color:var(--ink-soft);-webkit-text-stroke:0;letter-spacing:0}
+.st-bar{height:14px;background:rgba(0,0,0,.06)}
+.st-bar i{display:block;height:100%;background:var(--ink-soft)}
+.st-bar i.here{background:var(--stamp)}
+.st-v{text-align:right;font-variant-numeric:tabular-nums}
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .opts .chip{font-size:13px;padding:5px 9px}
 .opts .chip small{font-family:var(--f-body);font-size:11px;opacity:.75;margin-left:4px}
@@ -198,7 +213,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button><button class="mode" id="howtoBtn">Jak grać</button></div>
+      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button><button class="mode" id="howtoBtn">Jak grać</button><button class="mode icon" id="statsBtn" aria-label="Statystyki" title="Statystyki"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 13h14v2H1zM2 8h3v4H2zM7 4h3v8H7zM12 1h3v11h-3z"/></svg></button></div>
     </div>
   </header>
 
@@ -261,6 +276,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       <div class="hw-dots" id="hwDots"></div>
       <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
     </div>
+  </div>
+
+  <div class="overlay" id="stats" hidden>
+    <div class="card" id="statsCard" role="dialog" aria-modal="true"></div>
   </div>
 
   <div class="overlay" id="result" hidden>
@@ -1888,6 +1907,52 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 </script>
 <script>
 /*
+ * Siatka Powiązań — analityka (GoatCounter, bez ciasteczek i bez danych osobowych).
+ * Panel: https://kurznamiotle.goatcounter.com
+ * Zdarzenia to ścieżki, np. „sprawa/wygrana/daily”. Nic nie wychodzi lokalnie, z pliku ani w trybie #dev.
+ * Powroty: gra pamięta tylko dzień pierwszej wizyty (w tej przeglądarce) i raz wysyła
+ * „powrot/po-N-dniach”, gdy gracz wróci co najmniej N dni później. „gracz/nowy” to mianownik.
+ * API: SiatkaTrack(ścieżka, tytuł?)
+ */
+(() => {
+const OFF = location.hash === "#dev" || !/^https?:$/.test(location.protocol) ||
+  /^(localhost|127\.|10\.|192\.168\.|0\.0\.0\.0)/.test(location.hostname);
+if (OFF) window.goatcounter = { no_onload: true, no_events: true };
+
+const q = [];
+let timer = null;
+function flush() {
+  const gc = window.goatcounter;
+  if (!gc || typeof gc.count !== "function") return false;
+  while (q.length) { const [path, title] = q.shift(); try { gc.count({ path, title: title || path, event: true }); } catch (_) {} }
+  return true;
+}
+function track(path, title) {
+  if (OFF) return;
+  q.push([path, title]);
+  if (flush() || timer) return;
+  let n = 0; // skrypt GoatCountera ładuje się asynchronicznie; czekamy na niego do 15 s
+  timer = setInterval(() => { if (flush() || ++n > 30) { clearInterval(timer); timer = null; } }, 500);
+}
+window.SiatkaTrack = track;
+
+/* powroty: dzień pierwszej wizyty i jednorazowe zdarzenia po 1, 3, 7, 14, 30 dniach */
+try {
+  const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+  let first = +localStorage.getItem("siatka-first-day");
+  if (!first) { first = day; localStorage.setItem("siatka-first-day", String(day)); track("gracz/nowy", "Nowy gracz"); }
+  const sent = JSON.parse(localStorage.getItem("siatka-ret") || "[]"), since = day - first;
+  const label = { 1: "po-1-dniu", 3: "po-3-dniach", 7: "po-7-dniach", 14: "po-14-dniach", 30: "po-30-dniach" };
+  for (const n of [1, 3, 7, 14, 30]) {
+    if (since >= n && !sent.includes(n)) { track("powrot/" + label[n], `Powrót po ${n} ${n === 1 ? "dniu" : "dniach"}`); sent.push(n); }
+  }
+  localStorage.setItem("siatka-ret", JSON.stringify(sent));
+} catch (_) {}
+})();
+
+</script>
+<script>
+/*
  * Siatka Powiązań — dźwięk (Web Audio, bez plików).
  * Efekty: pinezka, szuranie sznurka, cięcie, papier, maszyna, pieczątka, dzwonek wygranej.
  * Muzyka: generowany na żywo wolny jazz noir w d-moll (pad, kontrabas, miotełki, sordyna z echem, trzask płyty).
@@ -2072,6 +2137,7 @@ const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const track = (path, title) => { if (window.SiatkaTrack) window.SiatkaTrack(path, title); };
 
 let CASE, byId, supportedSet, chainKeys, S, META, RICH, els = {};
 const key = (a, b) => [a, b].sort().join("|");
@@ -2166,6 +2232,7 @@ function load(c, label, meta, saved) {
   renderLives(); hideToast(); renderTabs(); renderSheet(); paintCooldown();
   window.scrollTo(0, 0);
   saveNow();
+  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
 /* ---------- tablica: układ zależny od liczby węzłów ---------- */
@@ -2448,6 +2515,7 @@ $("hintBtn").onclick = () => {
   AU.sfx("hint"); haptic(10);
   S.hints++; $("hintBtn").textContent = `Podpowiedź (${max - S.hints})`; if (S.hints >= max) $("hintBtn").disabled = true;
   saveSoon();
+  track(`podpowiedz/${S.hints}`, `Podpowiedź ${S.hints}`);
 };
 setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent = fmt(Date.now() - S.t0); }, 1000);
 /* zegar stoi, gdy gra jest w tle */
@@ -2490,16 +2558,26 @@ function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
-  saveNow(); showResult();
+  saveNow();
+  if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
+  if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
+  const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
+  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
+  showResult();
 }
+const starsOf = () => S.win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
+const URL_GRY = "siatkapowiazan.pl";
 
 function showResult() {
   const win = S.win, time = fmt(S.tEnd - S.t0);
-  const stars = win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
+  const stars = starsOf();
+  const sum = META.kind === "daily" && window.SiatkaStats ? SiatkaStats.summary() : null;
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
-  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}`;
+  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}` +
+    (sum && sum.cur >= 2 ? `\nSeria: ${sum.cur} 🔥` : "") + `\n${URL_GRY}`;
   $("resultCard").innerHTML = `
     <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
     <h3></h3>
@@ -2510,16 +2588,21 @@ function showResult() {
     <div class="lbl">Twoja tablica</div>
     <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label} → ${wpn.label}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
     ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
+    ${sum ? `<div class="lbl">Twoje sprawy dnia</div>
+    <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">Kopiuj wynik</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
+    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
   $("copyBtn").onclick = e => {
     const b = e.currentTarget;
     const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Zaznaczono, skopiuj"; };
-    try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); }, sel); } catch (_) { sel(); }
+    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", "Wynik skopiowany"); }, sel); } catch (_) { sel(); } };
+    // telefon: systemowe „Udostępnij”; anulowanie nic nie robi, brak wsparcia → kopiowanie
+    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
+    else copy();
   };
   $("againBtn").onclick = openNewCase;
   paintCooldown();
@@ -2639,13 +2722,15 @@ if (document.fonts) document.fonts.ready.then(layout);
 if (!(ls.get(SAVE.last) === "random" && resumeRandom())) dailyCase();
 
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
-function openHowto() {
+function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
+  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
   const t = Date.now(); setPending(null);
   H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); });
 }
-$("howtoBtn").onclick = openHowto;
-window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(); });
+$("howtoBtn").onclick = () => openHowto();
+window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
+$("statsBtn").onclick = () => { if (window.SiatkaStats) SiatkaStats.open(); };
 })();
 
 </script>
@@ -2888,7 +2973,7 @@ function render() {
 function go(d) {
   const j = i + d;
   if (j < 0) return;
-  if (j >= SLIDES.length) return close();
+  if (j >= SLIDES.length) return close(true);
   i = j; AU.sfx("paper"); render();
 }
 function open(cb) {
@@ -2896,15 +2981,17 @@ function open(cb) {
   after = cb || null; i = 0; render();
   $("howto").hidden = false; $("hwNext").focus({ preventScroll: true });
 }
-function close() {
+const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
+function close(done) {
   if ($("howto").hidden) return;
   $("howto").hidden = true;
+  track(done === true ? "samouczek/ukonczony" : `samouczek/pominiety-krok-${i + 1}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
   try { localStorage.setItem(KEY, "1"); } catch (_) {}
   const cb = after; after = null; if (cb) cb();
 }
 $("hwNext").onclick = () => go(1);
 $("hwPrev").onclick = () => go(-1);
-$("hwSkip").onclick = close;
+$("hwSkip").onclick = () => close();
 $("hwDots").addEventListener("click", e => { const b = e.target.closest("[data-j]"); if (b) { i = +b.dataset.j; AU.sfx("paper"); render(); } });
 document.addEventListener("keydown", e => {
   if ($("howto").hidden) return;
@@ -2925,5 +3012,72 @@ window.SiatkaHowto = {
 })();
 
 </script>
+<script>
+/*
+ * Siatka Powiązań — seria i statystyki (localStorage, ta przeglądarka).
+ * Sprawy dnia: zapis po numerze sprawy (jedna próba na dzień), seria = kolejne wygrane sprawy dnia.
+ * Sprawa dnia, której jeszcze dziś nie rozegrano, nie przerywa serii.
+ * Sprawy z archiwum (losowe): tylko licznik rozegranych i rozwiązanych.
+ * API: SiatkaStats.record(rodzaj, numer, {win, stars, ms}), .summary(), .open()
+ */
+(() => {
+const $ = id => document.getElementById(id);
+const KEY = "siatka-stats";
+const empty = () => ({ daily: {}, random: { played: 0, won: 0 } });
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); return s && s.daily ? Object.assign(empty(), s) : empty(); } catch (_) { return empty(); }
+}
+function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (_) {} }
+
+function record(kind, num, r) {
+  const s = load();
+  if (kind === "daily") {
+    if (s.daily[num]) return summary(s); // sprawa dnia liczy się raz
+    s.daily[num] = { w: r.win ? 1 : 0, s: r.stars, m: Math.round(r.ms / 1000) };
+  } else {
+    s.random.played++; if (r.win) s.random.won++;
+  }
+  save(s);
+  return summary(s);
+}
+function summary(s = load()) {
+  const today = Siatka.dailyNumber(), D = s.daily;
+  const nums = Object.keys(D).map(Number).sort((a, b) => a - b);
+  const played = nums.length, won = nums.filter(n => D[n].w).length;
+  let cur = 0, n = D[today] ? today : today - 1;
+  while (D[n] && D[n].w) { cur++; n--; }
+  let best = 0, run = 0, prev = null;
+  for (const k of nums) { run = D[k].w ? (prev === k - 1 && run > 0 ? run + 1 : 1) : 0; best = Math.max(best, run); prev = k; }
+  const dist = { 3: 0, 2: 0, 1: 0, 0: 0 };
+  nums.forEach(k => { dist[D[k].w ? D[k].s : 0]++; });
+  return { played, won, pct: played ? Math.round(won / played * 100) : 0, cur, best, dist, today: D[today] || null, random: s.random };
+}
+
+function open() {
+  const m = summary(), max = Math.max(1, ...Object.values(m.dist));
+  const row = (k, label) => {
+    const v = m.dist[k], here = m.today && (m.today.w ? m.today.s : 0) === +k;
+    return `<div class="st-row"><span class="st-k">${label}</span><span class="st-bar"><i class="${here ? "here" : ""}" style="width:${Math.max(v ? 8 : 0, v / max * 100)}%"></i></span><span class="st-v">${v}</span></div>`;
+  };
+  $("statsCard").innerHTML = `<h3>Statystyki</h3><p class="sub">Sprawy dnia w tej przeglądarce.</p>
+    <div class="st-grid">
+      <div><b>${m.played}</b><span>rozegrane</span></div><div><b>${m.pct}%</b><span>wygrane</span></div>
+      <div><b>${m.cur}</b><span>seria</span></div><div><b>${m.best}</b><span>rekord</span></div>
+    </div>
+    <div class="lbl">Gwiazdki</div>
+    ${row(3, "★★★")}${row(2, "★★☆")}${row(1, "★☆☆")}${row(0, "umorzone")}
+    <p class="stat">Sprawy z archiwum: rozwiązane ${m.random.won} z ${m.random.played}.</p>
+    <div class="foot"><button class="btn ghost" id="statsClose">Zamknij</button></div>`;
+  $("stats").hidden = false;
+  $("statsClose").onclick = () => { $("stats").hidden = true; };
+  if (window.SiatkaTrack) SiatkaTrack("statystyki/otwarte", "Statystyki otwarte");
+}
+$("stats").addEventListener("click", e => { if (e.target.id === "stats") e.currentTarget.hidden = true; });
+
+window.SiatkaStats = { record, summary, open };
+})();
+
+</script>
+<script data-goatcounter="https://kurznamiotle.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>

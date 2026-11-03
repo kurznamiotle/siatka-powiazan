@@ -12,6 +12,8 @@ js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wy
                       zapis postępu, haptyka, pełny ekran
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
 js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
+js/stats.js           seria i statystyki spraw dnia (localStorage)
+js/track.js           analityka GoatCounter: zdarzenia i powroty
 sw.js                 service worker (offline); nowy plik gry dopisz do SHELL
 manifest.webmanifest  PWA; ikony w icons/ (rysuje je tools/icons.js)
 engine/engine.js      RNG z seedem, solver, generator spraw, sprawa dnia
@@ -89,10 +91,13 @@ Interfejs: PWA (manifest, offline przez service worker), deploy na GitHub Pages.
 
 Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i spod przycisku „Jak grać”. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
 
+Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
+
+Seria i statystyki: tylko sprawy dnia, zapis po numerze sprawy (`siatka-stats`). Sprawa dnia jeszcze nierozegrana nie przerywa serii. Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
+
 ## Najbliższe kroki
 
 1. Przeczytać 12 spraw z `cases/generated/` i poprawić teksty, które brzmią sztucznie.
-2. Streak i statystyki w localStorage.
 5. Kolejne archetypy: fakty pośrednie (alibi potwierdzone w aktach innej osoby), kłamiący świadek, wspólnicy.
 7. Sprawdzić realia lat i nazwy miejsc w paczkach miast (to fikcja, ale ma brzmieć wiarygodnie).
 

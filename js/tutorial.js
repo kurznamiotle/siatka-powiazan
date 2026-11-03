@@ -236,7 +236,7 @@ function render() {
 function go(d) {
   const j = i + d;
   if (j < 0) return;
-  if (j >= SLIDES.length) return close();
+  if (j >= SLIDES.length) return close(true);
   i = j; AU.sfx("paper"); render();
 }
 function open(cb) {
@@ -244,15 +244,17 @@ function open(cb) {
   after = cb || null; i = 0; render();
   $("howto").hidden = false; $("hwNext").focus({ preventScroll: true });
 }
-function close() {
+const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
+function close(done) {
   if ($("howto").hidden) return;
   $("howto").hidden = true;
+  track(done === true ? "samouczek/ukonczony" : `samouczek/pominiety-krok-${i + 1}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
   try { localStorage.setItem(KEY, "1"); } catch (_) {}
   const cb = after; after = null; if (cb) cb();
 }
 $("hwNext").onclick = () => go(1);
 $("hwPrev").onclick = () => go(-1);
-$("hwSkip").onclick = close;
+$("hwSkip").onclick = () => close();
 $("hwDots").addEventListener("click", e => { const b = e.target.closest("[data-j]"); if (b) { i = +b.dataset.j; AU.sfx("paper"); render(); } });
 document.addEventListener("keydown", e => {
   if ($("howto").hidden) return;

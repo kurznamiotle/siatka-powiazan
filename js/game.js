@@ -8,6 +8,7 @@ const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const track = (path, title) => { if (window.SiatkaTrack) window.SiatkaTrack(path, title); };
 
 let CASE, byId, supportedSet, chainKeys, S, META, RICH, els = {};
 const key = (a, b) => [a, b].sort().join("|");
@@ -102,6 +103,7 @@ function load(c, label, meta, saved) {
   renderLives(); hideToast(); renderTabs(); renderSheet(); paintCooldown();
   window.scrollTo(0, 0);
   saveNow();
+  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
 /* ---------- tablica: układ zależny od liczby węzłów ---------- */
@@ -384,6 +386,7 @@ $("hintBtn").onclick = () => {
   AU.sfx("hint"); haptic(10);
   S.hints++; $("hintBtn").textContent = `Podpowiedź (${max - S.hints})`; if (S.hints >= max) $("hintBtn").disabled = true;
   saveSoon();
+  track(`podpowiedz/${S.hints}`, `Podpowiedź ${S.hints}`);
 };
 setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent = fmt(Date.now() - S.t0); }, 1000);
 /* zegar stoi, gdy gra jest w tle */
@@ -426,16 +429,26 @@ function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
-  saveNow(); showResult();
+  saveNow();
+  if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
+  if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
+  const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
+  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
+  showResult();
 }
+const starsOf = () => S.win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
+const URL_GRY = "siatkapowiazan.pl";
 
 function showResult() {
   const win = S.win, time = fmt(S.tEnd - S.t0);
-  const stars = win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
+  const stars = starsOf();
+  const sum = META.kind === "daily" && window.SiatkaStats ? SiatkaStats.summary() : null;
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
-  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}`;
+  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}` +
+    (sum && sum.cur >= 2 ? `\nSeria: ${sum.cur} 🔥` : "") + `\n${URL_GRY}`;
   $("resultCard").innerHTML = `
     <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
     <h3></h3>
@@ -446,16 +459,21 @@ function showResult() {
     <div class="lbl">Twoja tablica</div>
     <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label} → ${wpn.label}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
     ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
+    ${sum ? `<div class="lbl">Twoje sprawy dnia</div>
+    <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">Kopiuj wynik</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
+    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
   $("copyBtn").onclick = e => {
     const b = e.currentTarget;
     const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Zaznaczono, skopiuj"; };
-    try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); }, sel); } catch (_) { sel(); }
+    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", "Wynik skopiowany"); }, sel); } catch (_) { sel(); } };
+    // telefon: systemowe „Udostępnij”; anulowanie nic nie robi, brak wsparcia → kopiowanie
+    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
+    else copy();
   };
   $("againBtn").onclick = openNewCase;
   paintCooldown();
@@ -575,11 +593,13 @@ if (document.fonts) document.fonts.ready.then(layout);
 if (!(ls.get(SAVE.last) === "random" && resumeRandom())) dailyCase();
 
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
-function openHowto() {
+function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
+  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
   const t = Date.now(); setPending(null);
   H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); });
 }
-$("howtoBtn").onclick = openHowto;
-window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(); });
+$("howtoBtn").onclick = () => openHowto();
+window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
+$("statsBtn").onclick = () => { if (window.SiatkaStats) SiatkaStats.open(); };
 })();
