@@ -32,12 +32,13 @@
   --spring-l:linear(0,.009,.035 2.1%,.141,.281 6.7%,.723 12.9%,.938 16.7%,1.017,1.077,1.121,1.149 24.3%,1.159,1.163,1.161,1.154 29.9%,1.129 32.8%,1.051 39.6%,1.017 43.1%,.991,.977 51%,.974 53.8%,.975 57.1%,.997 69.8%,1.003 76.9%,1.004 83.8%,1);
 }
 html,body{min-height:100%}
-body{background:var(--room);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+/* gra wypełnia wysokość ekranu; na wysokich ekranach (komputer) jest wyśrodkowana */
+body{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;background:var(--room);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 button{font:inherit;color:inherit;cursor:pointer}
 button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
-.app{min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;gap:10px;position:relative}
+.app{width:100%;height:100vh;height:100dvh;max-height:1100px;max-width:520px;margin:auto;display:flex;flex-direction:column;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:max(10px,env(safe-area-inset-top,0px));padding-bottom:max(10px,env(safe-area-inset-bottom,0px));gap:10px;position:relative}
 
 /* header */
 .top{display:flex;flex-direction:column;gap:6px}
@@ -50,7 +51,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .lives i.lost{background:transparent;outline:2px solid var(--desk-edge);outline-offset:-2px;box-shadow:none}
 
 /* board */
-.board{position:relative;flex:0 0 auto;height:380px;border-radius:4px;overflow:hidden;touch-action:none;
+.board{position:relative;flex:1 1 auto;min-height:200px;border-radius:4px;overflow:hidden;touch-action:none;
   background:
     radial-gradient(circle at 20% 30%, rgba(0,0,0,.13) 0 1.5px, transparent 2px) 0 0/9px 11px,
     radial-gradient(circle at 70% 60%, rgba(255,230,190,.10) 0 1px, transparent 1.6px) 0 0/7px 8px,
@@ -120,7 +121,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .tabs{display:flex;gap:6px}
 .tab{flex:1;background:transparent;border:2px solid var(--desk-edge);padding:6px 8px;font-family:var(--f-pixel);font-size:14px;color:var(--muted)}
 .tab[aria-selected="true"]{background:var(--desk-edge);color:var(--fg)}
-.sheet{background:var(--paper);color:var(--ink);padding:12px 14px;min-height:148px;max-height:30vh;overflow:auto;font-family:var(--f-type);font-size:14px;line-height:1.5;
+.sheet{background:var(--paper);color:var(--ink);padding:12px 14px;height:clamp(96px,24vh,320px);height:clamp(96px,24dvh,320px);overflow:auto;font-family:var(--f-type);font-size:14px;line-height:1.5;
   background-image:repeating-linear-gradient(transparent 0 22px, rgba(90,120,160,.16) 22px 23px);background-position:0 8px}
 .sheet h2{margin:0 0 2px;font-family:var(--f-pixel);font-weight:600;font-size:17px;line-height:1.2;text-wrap:balance}
 .sheet .kind{font-family:var(--f-body);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
@@ -183,6 +184,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:400px){.top h1{font-size:19px}}
 @media (max-width:370px){.top h1{font-size:17px}.meta{gap:7px}}
+/* niskie ekrany: ciaśniej, żeby tablica miała więcej miejsca */
+@media (max-height:720px){.app{gap:7px}.top{gap:4px}.desk{gap:7px;padding:8px}.tab{padding:4px 8px}.btn{padding:9px 10px}.sheet{padding:10px 12px;height:clamp(84px,20vh,320px);height:clamp(84px,20dvh,320px)}}
 </style>
 </head>
 <body>

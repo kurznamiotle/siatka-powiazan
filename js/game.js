@@ -133,34 +133,52 @@ function rowsOf() {
   rows.push(of("location"), of("item"));
   return rows;
 }
-function layout() {
-  if (!CASE) return;
-  const W = board.clientWidth, pad = 12;
-  const rows = rowsOf();
-  const maxPer = Math.max(4, ...rows.map(r => r.length));
-  const nodeW = Math.round(Math.min(100, (W - pad * 2) / maxPer * 0.84));
-  const lbfs = nodeW < 70 ? "9.5px" : nodeW < 82 ? "10.5px" : "11.5px";
+/* Tablica dostaje wysokość z CSS (cała przestrzeń między nagłówkiem a szufladą).
+   Karty mają szerokość z szerokości tablicy, a gdy rzędy nie mieszczą się w pionie, kurczą się
+   (do MIN_W). Wolne miejsce w pionie rozkłada się równo między rzędy, a całość jest wyśrodkowana.
+   Gdy nawet najmniejsze karty się nie mieszczą, tablica rośnie i strona się przewija. */
+const MIN_W = 46, PAD_X = 12, MAX_GAP = 64;
+function sizeCards(nodeW) {
+  const lbfs = nodeW < 60 ? 8.5 : nodeW < 70 ? 9.5 : nodeW < 82 ? 10.5 : 11.5;
   for (const id in els) {
     // długie pojedyncze słowa (np. „Pogrzebacz”) dostają mniejszą czcionkę zamiast łamania
     const longest = Math.max(...els[id].n.label.split(/\s+/).map(w => w.length));
     const fit = Math.floor((nodeW - 14) / (longest * 0.6) * 10) / 10;
     els[id].card.style.width = nodeW + "px";
-    els[id].card.style.setProperty("--lbfs", Math.min(parseFloat(lbfs), fit) + "px");
+    els[id].card.style.setProperty("--lbfs", Math.min(lbfs, fit) + "px");
   }
-  const nodeH = Math.max(...Object.values(els).map(e => e.card.offsetHeight));
-  const gapY = 22;
-  let y = 20;
+  return Math.max(...Object.values(els).map(e => e.card.offsetHeight));
+}
+function layout() {
+  if (!CASE) return;
+  board.style.minHeight = "";
+  const W = board.clientWidth, H = board.clientHeight;
+  const rows = rowsOf(), R = rows.length;
+  const tight = H < 360, PAD_Y = tight ? 10 : 16, MIN_GAP = tight ? 10 : 16; // niska tablica: ciaśniej
+  const maxPer = Math.max(4, ...rows.map(r => r.length));
+  let nodeW = Math.round(Math.min(104, (W - PAD_X * 2) / maxPer * 0.84));
+  let nodeH = sizeCards(nodeW);
+  const room = H - PAD_Y * 2 - MIN_GAP * (R - 1);
+  // podpis nie maleje proporcjonalnie do zdjęcia, więc zmniejszamy, aż się zmieści
+  for (let i = 0; i < 40 && R * nodeH > room && nodeW > MIN_W; i++) {
+    nodeW = Math.max(MIN_W, Math.min(nodeW - 2, Math.floor(nodeW * room / (R * nodeH))));
+    nodeH = sizeCards(nodeW);
+  }
+  const need = R * nodeH + MIN_GAP * (R - 1) + PAD_Y * 2;
+  if (need > H) board.style.minHeight = Math.ceil(need) + "px";
+  const BH = Math.max(H, need);
+  const gap = Math.max(MIN_GAP, Math.min(MAX_GAP, (BH - PAD_Y * 2 - R * nodeH) / Math.max(1, R - 1)));
+  let y = (BH - (R * nodeH + gap * (R - 1))) / 2;
   rows.forEach(row => {
-    const slot = (W - pad * 2) / row.length;
+    const slot = (W - PAD_X * 2) / row.length;
     row.forEach((n, i) => {
       const free = Math.max(0, slot - nodeW);
-      const x = pad + slot * i + free / 2 + (h01(n.id + "x") - .5) * free * .5;
-      const yy = y + (h01(n.id + "y") - .5) * 8;
+      const x = PAD_X + slot * i + free / 2 + (h01(n.id + "x") - .5) * free * .5;
+      const yy = y + (h01(n.id + "y") - .5) * Math.min(8, gap / 3);
       els[n.id].card.style.left = Math.round(x) + "px"; els[n.id].card.style.top = Math.round(yy) + "px";
     });
-    y += nodeH + gapY;
+    y += nodeH + gap;
   });
-  board.style.height = Math.round(y - gapY + 18) + "px";
   placePins();
 }
 function placePins() {
