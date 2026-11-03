@@ -55,6 +55,7 @@ Komendy:
 ## Ustalenia, których się trzymamy
 
 - **Tryb gracza vs deweloperski:** gracze dostają tylko losowe sprawy („Nowa sprawa” od razu generuje). Wybór miasta, roku i wielkości działa po dopisaniu `#dev` do adresu.
+- **Tempo dla nowych graczy:** wielkość losowej sprawy zależy od liczby ukończonych gier (sprawy dnia + losowe, z `siatka-stats`): gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L, od 11. pełna losowość (`rampSize` w `js/game.js`). Sprawa dnia zostaje wspólna dla wszystkich. Nowy gracz (0 gier), który trafi na dzień L/XL, dostaje najpierw „Sprawę na rozgrzewkę” (S, poza serią), a jej wynik prowadzi przyciskiem do sprawy dnia.
 
 - **Platforma:** najpierw PWA na GitHub Pages (walidacja przez link). Do sklepów: opakowanie tego samego kodu w Capacitora, bez przepisywania na Fluttera.
 - **Stack:** czysty HTML/CSS/JS, bez frameworka, dopóki nie będzie realnej potrzeby. Tablica to DOM + SVG. Generator i solver w JS (Node), żeby jeden kod działał w przeglądarce i w skryptach.

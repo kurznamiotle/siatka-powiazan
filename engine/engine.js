@@ -577,13 +577,14 @@
     const d = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
     return Math.floor((d - EPOCH) / 86400000) + 1;
   }
+  const dailySize = (date = new Date()) => WEEK_SIZES[date.getDay()];
   function dailyCase(world, date = new Date()) {
     const n = dailyNumber(date);
-    const c = generateCase(world, "daily-" + n, { size: WEEK_SIZES[date.getDay()] });
+    const c = generateCase(world, "daily-" + n, { size: dailySize(date) });
     c.number = n; return c;
   }
 
-  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, SIZES };
+  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

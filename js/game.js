@@ -480,7 +480,7 @@ function showResult() {
     <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>
+    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button>${S.label === WARMUP ? `<button class="btn red" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red" id="againBtn">Nowa sprawa</button>`}</div>
     <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
@@ -493,7 +493,8 @@ function showResult() {
     if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
     else copy();
   };
-  $("againBtn").onclick = openNewCase;
+  if ($("againBtn")) $("againBtn").onclick = openNewCase;
+  if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
   $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
   paintCooldown();
 }
@@ -540,13 +541,34 @@ function paintCooldown() {
 }
 setInterval(paintCooldown, 1000);
 
+/* Tempo dla nowych graczy: liczymy ukończone gry (sprawy dnia + losowe, ze statystyk) i przez pierwsze
+   10 gier losowa sprawa jest mała: gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L. Od 11. pełna losowość. */
+function gamesDone() {
+  const s = ls.get("siatka-stats") || {};
+  return Object.keys(s.daily || {}).length + ((s.random || {}).played || 0);
+}
+function rampSize() {
+  const g = gamesDone() + 1, any = a => a[Math.floor(Math.random() * a.length)];
+  return g <= 3 ? "S" : g <= 5 ? any(["S", "M"]) : g <= 7 ? "M" : g <= 10 ? any(["M", "L"]) : undefined;
+}
+/* Rozgrzewka: nowy gracz (0 ukończonych gier), który trafia na sprawę dnia L lub XL, dostaje najpierw małą
+   sprawę spoza serii. Sprawa dnia zostaje wspólna dla wszystkich i czeka pod przyciskiem. */
+const WARMUP = "Sprawa na rozgrzewkę";
+function warmupCase() {
+  const sv = ls.get(SAVE.daily);
+  if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
+  if (sv && sv.case && sv.case.number === Siatka.dailyNumber()) return false; // sprawa dnia już zaczęta
+  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S" }), WARMUP, { kind: "random" });
+  return true;
+}
+
 let randomN = 0;
 function newCase() {
   if (cooldown.left()) { paintCooldown(); return; }
   cooldown.start();
   randomN++;
   const seed = "losowa-" + Date.now().toString(36) + "-" + randomN;
-  const o = DEV() ? OPT : {};
+  const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
   load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }), "Sprawa z archiwum", { kind: "random" });
@@ -586,7 +608,7 @@ if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
 let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(layout, 60); });
 if (document.fonts) document.fonts.ready.then(layout);
-if (!(ls.get(SAVE.last) === "random" && resumeRandom())) dailyCase();
+if (!(ls.get(SAVE.last) === "random" && resumeRandom()) && !warmupCase()) dailyCase();
 
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
 function openHowto(auto) {
