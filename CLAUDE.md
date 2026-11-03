@@ -8,7 +8,11 @@ Pełny opis produktu: `docs/brief.md`. Wzorcowa ręcznie ułożona sprawa: `case
 
 ```
 index.html            gra (ładuje skrypty poniżej; otwórz w przeglądarce)
-js/game.js            interfejs: tablica, sznurki, akta, oskarżenie, wynik
+js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wynik,
+                      zapis postępu, haptyka, pełny ekran
+js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
+sw.js                 service worker (offline); nowy plik gry dopisz do SHELL
+manifest.webmanifest  PWA; ikony w icons/ (rysuje je tools/icons.js)
 engine/engine.js      RNG z seedem, solver, generator spraw, sprawa dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc i przedmiotów
 data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
@@ -25,6 +29,8 @@ Komendy:
 - `node tools/generate.js 12 out [miasto] [rok] [S|M|L|XL]` — zapisuje sprawy do `cases/generated/` do przeczytania, np. `12 out poznan 1993 XL`.
 - `node tools/bundle.js` — buduje `dist/siatka.html`.
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
+- `npm test` — 1000 spraw z generatora + weryfikacja `case_001.json`.
+- `node tools/icons.js` — rysuje ikony PWA do `icons/`.
 
 ## Biblioteka treści (data/*.js)
 
@@ -78,12 +84,12 @@ Docelowo kilka archetypów spraw (kłamiący świadek, wspólnicy, czas z zegark
 
 Zrobione: warstwa epoki 1989–1999 + 7 miast, solver, generator archetypu `single_culprit_one_reason_each` ze zmienną wielkością (3–6 podejrzanych, 2–4 miejsca i dowody, 3–6 reguł), 4 typy zbrodni, 20 scen, 6 cech, modułowe portrety, dynamiczny układ tablicy, ekran „Nowa sprawa” (miasto, rok, wielkość), sprawa dnia z seeda daty (#1 = 3.11.2026), rosnąca w tygodniu (pon.–wt. S, śr.–czw. M, pt.–sob. L, niedz. XL). Każde miasto ma 2 własne miejsca z własnymi dowodami. Uduszenia działają we wszystkich wielkościach. Test: 4000/4000 spraw poprawnych.
 
+Interfejs: PWA (manifest, offline przez service worker), deploy na GitHub Pages. Zapis postępu w localStorage: osobno sprawa dnia i ostatnia losowa, razem z całym JSON-em sprawy. Zegar stoi, gdy gra jest w tle. Pinezka ma strefę dotyku 46 px, a sznurek przyciąga się do pinezki w promieniu 44 px. Po dotknięciu pinezki pulsują węzły innego typu (nigdy tylko te z pokryciem w faktach, bo to zdradzałoby odpowiedź). Połączenia w obrębie jednego typu są zablokowane. W aktach i notatniku wyróżnione są godziny, miejsca (`forms` na węźle miejsca), klucze, alibi i auta. Haptyka: `navigator.vibrate` na Androidzie, trik z `<input switch>` na iOS 18+, a wszędzie sprężyste animacje CSS. Dźwięk i muzyka są domyślnie: efekty włączone, muzyka wyłączona. Po wylosowaniu „Nowej sprawy” losowanie jest zablokowane na 2 minuty (poza `#dev`).
+
 ## Najbliższe kroki
 
 1. Przeczytać 12 spraw z `cases/generated/` i poprawić teksty, które brzmią sztucznie.
-2. Streak i statystyki w localStorage, zapis postępu bieżącej sprawy.
-3. Manifest i service worker (PWA, offline).
-4. Deploy na GitHub Pages.
+2. Streak i statystyki w localStorage.
 5. Kolejne archetypy: fakty pośrednie (alibi potwierdzone w aktach innej osoby), kłamiący świadek, wspólnicy.
 7. Sprawdzić realia lat i nazwy miejsc w paczkach miast (to fikcja, ale ma brzmieć wiarygodnie).
 

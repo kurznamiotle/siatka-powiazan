@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#16120e">
 <title>Siatka Powiązań</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Siatka">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Special+Elite&family=Courier+Prime:wght@400;700&display=swap">
 <style>body{margin:0}[hidden]{display:none!important}</style>
@@ -21,6 +28,8 @@
   --f-type:"Special Elite", "Courier New", monospace;
   --f-body:"Courier Prime", "Courier New", monospace;
   color-scheme:dark;
+  /* sprężyna (linear() z nadbiciem); przeglądarki bez linear() zostają przy cubic-bezier podanym obok */
+  --spring-l:linear(0,.009,.035 2.1%,.141,.281 6.7%,.723 12.9%,.938 16.7%,1.017,1.077,1.121,1.149 24.3%,1.159,1.163,1.161,1.154 29.9%,1.129 32.8%,1.051 39.6%,1.017 43.1%,.991,.977 51%,.974 53.8%,.975 57.1%,.997 69.8%,1.003 76.9%,1.004 83.8%,1);
 }
 html,body{min-height:100%}
 body{background:var(--room);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
@@ -52,6 +61,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .strings .s{fill:none;stroke:var(--string);stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 2px 1px rgba(0,0,0,.45))}
 .strings .hit{fill:none;stroke:transparent;stroke-width:22;pointer-events:stroke;cursor:pointer}
 .strings .tmp{fill:none;stroke:var(--string);stroke-width:2.4;stroke-dasharray:6 5;opacity:.85}
+.strings .tmp.on{stroke-dasharray:none;opacity:1}
 .strings .cut{animation:cut .28s ease-out forwards}
 @keyframes cut{to{opacity:0;stroke-width:0}}
 
@@ -69,10 +79,38 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   linear-gradient(-45deg,transparent 46%,var(--stamp) 46% 54%,transparent 54%);opacity:.9}
 .node.unread .lb::before{content:"";position:absolute;top:1px;right:1px;width:7px;height:7px;background:var(--stamp)}
 
-.pin{position:absolute;z-index:3;width:30px;height:30px;margin:-15px 0 0 -15px;border:none;background:transparent;padding:0;touch-action:none}
-.pin::before{content:"";position:absolute;left:8px;top:8px;width:14px;height:14px;border-radius:50%;
-  background:radial-gradient(circle at 35% 35%,#fff3c4 0 2px,var(--brass) 3px,#8a6420 100%);box-shadow:0 2px 2px rgba(0,0,0,.5)}
+/* pinezka: mała główka, duża strefa dotyku (46 px) */
+.pin{position:absolute;z-index:3;width:46px;height:46px;margin:-23px 0 0 -23px;border:none;background:transparent;padding:0;touch-action:none;border-radius:50%}
+.pin::before{content:"";position:absolute;left:16px;top:16px;width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff3c4 0 2px,var(--brass) 3px,#8a6420 100%);box-shadow:0 2px 2px rgba(0,0,0,.5);
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
 .pin.pending::before{box-shadow:0 0 0 4px rgba(217,166,72,.45),0 2px 2px rgba(0,0,0,.5)}
+.pin.snap::before{transform:scale(1.45);box-shadow:0 0 0 4px rgba(194,42,42,.55),0 2px 2px rgba(0,0,0,.5)}
+/* „połącz mnie tutaj”: pasujące węzły pulsują */
+.pin.can::after{content:"";position:absolute;left:11px;top:11px;width:24px;height:24px;border-radius:50%;border:2px solid var(--brass);opacity:.7;animation:beckon 1.3s ease-out infinite;pointer-events:none}
+@keyframes beckon{0%{transform:scale(.55);opacity:.95}100%{transform:scale(1.7);opacity:0}}
+.node.can{animation:breathe 1.3s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 0 0 3px rgba(217,166,72,.55),0 3px 10px rgba(0,0,0,.5)}}
+.node.dim{filter:brightness(.72) saturate(.7)}
+.node.out.dim{filter:grayscale(1) brightness(.6)}
+/* sprężyste mikroanimacje */
+.pin.pop{animation:pop .5s}
+@keyframes pop{0%{transform:scale(1)}28%{transform:scale(1.5)}52%{transform:scale(.86)}74%{transform:scale(1.08)}100%{transform:scale(1)}}
+.node.bump{animation:bump .55s}
+@keyframes bump{0%{transform:rotate(var(--r)) scale(1)}25%{transform:rotate(var(--r)) translateY(-4px) scale(1.07)}50%{transform:rotate(var(--r)) scale(.97)}72%{transform:rotate(var(--r)) translateY(-1px) scale(1.02)}100%{transform:rotate(var(--r)) scale(1)}}
+.node.nope{animation:nope .38s}
+@keyframes nope{20%{transform:rotate(calc(var(--r) - 5deg))}45%{transform:rotate(calc(var(--r) + 4deg))}70%{transform:rotate(calc(var(--r) - 2deg))}100%{transform:rotate(var(--r))}}
+.node.squish{animation:squish .45s}
+@keyframes squish{0%{transform:rotate(var(--r)) scale(1)}30%{transform:rotate(var(--r)) scale(.9,.94)}65%{transform:rotate(var(--r)) scale(1.04)}100%{transform:rotate(var(--r)) scale(1)}}
+.btn,.mode,.chip,.pick,.tab,.ic{transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+.btn:active:not(:disabled),.mode:active:not(:disabled),.chip:active,.pick:active,.tab:active,.ic:active{transform:scale(.93);transition-duration:.06s}
+.overlay:not([hidden]) .card{animation:rise .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes rise{0%{transform:translateY(48px);opacity:0}60%{transform:translateY(-6px);opacity:1}80%{transform:translateY(2px)}100%{transform:none}}
+.sheet.flip{animation:flip .32s ease-out}
+@keyframes flip{0%{opacity:.25;transform:translateY(6px)}100%{opacity:1;transform:none}}
+.lives i.pop{animation:pop .5s}
+@supports (transition-timing-function:linear(0,1)){.pin::before,.btn,.mode,.chip,.pick,.tab,.ic{transition-timing-function:var(--spring-l)}}
+.overlay:not([hidden]) .card.shake{animation:shake .35s}
 
 .hint-toast{position:absolute;left:12px;right:12px;bottom:12px;z-index:4;background:var(--paper);color:var(--ink);font-family:var(--f-type);font-size:13.5px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,.5);transform:rotate(-.6deg)}
 .hint-toast b{font-family:var(--f-pixel);font-weight:600;color:var(--stamp);display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
@@ -113,6 +151,20 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
 .stamp{display:inline-block;font-family:var(--f-pixel);font-weight:700;font-size:22px;letter-spacing:.08em;color:var(--stamp);border:3px solid var(--stamp);padding:2px 10px;transform:rotate(-4deg);margin:4px 0 8px}
 .stamp.ok{color:var(--ok);border-color:var(--ok)}
+.stamp{animation:slam .55s cubic-bezier(.34,1.56,.64,1) .15s both}
+@keyframes slam{0%{transform:rotate(-4deg) scale(2.4);opacity:0}55%{transform:rotate(-4deg) scale(.9);opacity:1}78%{transform:rotate(-4deg) scale(1.04)}100%{transform:rotate(-4deg) scale(1)}}
+/* mikrofakty w aktach i notatniku */
+.fx{font-weight:700}
+.fx-t{color:#8e1d1d;font-family:var(--f-body);letter-spacing:-.01em}
+.fx-l{background:linear-gradient(transparent 58%,rgba(217,166,72,.42) 58% 92%,transparent 92%);padding:0 1px}
+.fx-k{text-decoration:underline;text-decoration-color:rgba(43,34,27,.45);text-underline-offset:2px}
+.fx-v{font-variant:small-caps}
+/* przyciski-ikony w nagłówku */
+.tools{display:flex;gap:4px}
+.ic{width:28px;height:28px;display:grid;place-items:center;padding:0;background:transparent;border:2px solid var(--desk-edge);color:var(--muted)}
+.ic:hover{color:var(--fg);border-color:var(--muted)}
+.ic[aria-pressed="true"]{color:var(--brass)}
+.ic svg{width:16px;height:16px;display:block;shape-rendering:crispEdges}
 .why{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .stars{font-family:var(--f-pixel);font-size:26px;color:var(--brass);letter-spacing:4px}
 .share{white-space:pre;font-family:var(--f-body);font-size:13px;background:var(--paper-shade);padding:10px;margin-top:8px;overflow-x:auto;user-select:all}
@@ -130,6 +182,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:400px){.top h1{font-size:19px}}
+@media (max-width:370px){.top h1{font-size:17px}.meta{gap:7px}}
 </style>
 </head>
 <body>
@@ -137,7 +190,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   <header class="top">
     <div class="tline">
       <h1>Siatka Powiązań</h1>
-      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span></div>
+      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
+        <span class="tools"><button class="ic" id="fsBtn" hidden></button><button class="ic" id="sfxBtn"></button><button class="ic" id="musBtn"></button></span></div>
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>
@@ -202,6 +256,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script src="engine/engine.js"></script>
 <script src="data/base.js"></script>
 <script src="data/cities.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

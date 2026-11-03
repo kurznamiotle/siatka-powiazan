@@ -446,7 +446,8 @@
       if (here.length > 1) text.push(`Tego wieczoru zniknęły stąd dwie rzeczy: ${plList(here.map(it => it.name.toLowerCase()))}.`);
       if (hasK) { const h = holders(li); text.push(h.length ? `${h.length > 1 ? "Klucze mają" : "Klucz ma"} ${plList(h)}. Zamek nieuszkodzony.` : "Nikt z podejrzanych nie ma tu klucza. Zamek nieuszkodzony."); }
       else text.push(T(R.pick(loc.open || ["Drzwi zwykle stoją otwarte, wejść mógł każdy."])));
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: "Miejsce", sprite: { kind: "loc", icon: loc.icon }, text });
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: "Miejsce", sprite: { kind: "loc", icon: loc.icon }, text,
+        forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
     });
     I.forEach((it, i) => {
       const gone = { m: "Zniknął", f: "Zniknęła", n: "Zniknęło" }[it.g];
