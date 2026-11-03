@@ -38,6 +38,30 @@ async function run(where) {
 const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
 window.SiatkaInstall = { available, installed, ios, run, hintHtml: () => IOS_HINT };
 
+/* ---------- zgłoszenia uwag: Formularz Google z polami wypełnionymi przez grę ---------- */
+const FORM = "https://docs.google.com/forms/d/e/1FAIpQLScKYARw2jVB8sYKwlY0Ue2KvTVkwWzCV5SKCSZY3tNwRsRD-w/viewform";
+const F = { category: "entry.1002894547", caseInfo: "entry.866292582", device: "entry.1138988463" }; // opis i e-mail wpisuje gracz
+function device() {
+  const ua = navigator.userAgent, v = re => { const m = ua.match(re); return m ? m[1].replace(/_/g, ".") : ""; };
+  const os = /Android/.test(ua) ? "Android " + v(/Android ([\d.]+)/)
+    : /iPhone|iPad|iPod/.test(ua) ? (/iPad/.test(ua) ? "iPadOS " : "iOS ") + v(/OS ([\d_]+)/)
+    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "inny system";
+  const br = /SamsungBrowser/.test(ua) ? "Samsung Internet " + v(/SamsungBrowser\/(\d+)/)
+    : /EdgA?\//.test(ua) ? "Edge " + v(/EdgA?\/(\d+)/) : /CriOS/.test(ua) ? "Chrome " + v(/CriOS\/(\d+)/)
+    : /FxiOS|Firefox/.test(ua) ? "Firefox " + v(/(?:FxiOS|Firefox)\/(\d+)/) : /Chrome\//.test(ua) ? "Chrome " + v(/Chrome\/(\d+)/)
+    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : "inna przeglądarka";
+  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? "aplikacja" : "przeglądarka"}`;
+}
+function feedback(where, category) {
+  const p = new URLSearchParams({ usp: "pp_url" });
+  if (category) p.set(F.category, category);
+  const info = window.SiatkaGame && window.SiatkaGame.caseInfo(); if (info) p.set(F.caseInfo, info);
+  p.set(F.device, device());
+  window.open(FORM + "?" + p.toString(), "_blank", "noopener");
+  track("uwagi/" + where, "Zgłoszenie uwagi: " + where);
+}
+window.SiatkaFeedback = { open: feedback, device };
+
 /* ---------- pełny ekran ---------- */
 const root = document.documentElement;
 const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -70,7 +94,8 @@ function render() {
   else if (ios) app = `<p class="set-note">${IOS_HINT}</p>`;
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
-    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button></div>
+    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
+      <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
     <div class="lbl">Dźwięk</div>
     ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
     ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
@@ -81,6 +106,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  $("setFeedback").onclick = () => feedback("ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };

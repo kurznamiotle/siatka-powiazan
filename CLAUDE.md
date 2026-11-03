@@ -11,7 +11,8 @@ index.html            gra (ładuje skrypty poniżej; otwórz w przeglądarce)
 js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wynik,
                       zapis postępu, haptyka
 js/settings.js        okno Ustawienia (zębatka): Jak grać, Statystyki, dźwięk, muzyka,
-                      wibracje, instalacja gry (PWA); przycisk pełnego ekranu w nagłówku
+                      wibracje, instalacja gry (PWA), zgłoszenia uwag; przycisk pełnego
+                      ekranu w nagłówku
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
 js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
 js/stats.js           seria i statystyki spraw dnia (localStorage)
@@ -94,9 +95,11 @@ Interfejs: PWA (manifest, offline przez service worker), deploy na GitHub Pages.
 
 Nagłówek: zegar, próby, pełny ekran (tylko w przeglądarce, która go obsługuje, nie w zainstalowanej grze) i zębatka. Reszta jest w oknie Ustawienia. Instalacja: na Androidzie i w Chrome na komputerze przycisk wywołuje systemowe okno (`beforeinstallprompt`), na iOS jest instrukcja (Udostępnij → Do ekranu początkowego), a w zainstalowanej grze informacja. Preferencje poza dźwiękiem: `siatka-prefs` (`haptic`).
 
+Zgłoszenia uwag: Formularz Google (odpowiedzi w arkuszu autora), otwierany z Ustawień i spod wyniku sprawy. Gra sama wypełnia pola „Sprawa” (etykieta, miasto, rok, wielkość, seed i stan, wystarczy do odtworzenia) i „Urządzenie”, a spod wyniku także kategorię „Błąd w sprawie/logice”. Identyfikatory pól (`entry.…`) są w `js/settings.js`. Po zmianie pytań w formularzu trzeba je pobrać na nowo (link do wypełnionego wstępnie formularza).
+
 Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i z Ustawień („Jak grać”). Przy pierwszym uruchomieniu ostatnia plansza zaprasza do instalacji, gdy jest możliwa. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
 
-Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `instalacja/zgoda|odmowa-samouczek|ustawienia`, `instalacja/zainstalowana`, `ustawienia/muzyka-wl|wyl`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
+Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `instalacja/zgoda|odmowa-samouczek|ustawienia`, `instalacja/zainstalowana`, `ustawienia/muzyka-wl|wyl`, `uwagi/ustawienia|wynik`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
 
 Seria i statystyki: tylko sprawy dnia, zapis po numerze sprawy (`siatka-stats`). Sprawa dnia jeszcze nierozegrana nie przerywa serii. Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
 

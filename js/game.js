@@ -464,7 +464,8 @@ function showResult() {
     <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
+    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>
+    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
@@ -477,6 +478,7 @@ function showResult() {
     else copy();
   };
   $("againBtn").onclick = openNewCase;
+  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
   paintCooldown();
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
@@ -572,5 +574,11 @@ function openHowto(auto) {
   H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
 }
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p) };
+/* opis bieżącej sprawy do zgłoszeń: wystarczy, żeby ją odtworzyć (seed + miasto, rok, wielkość) */
+function caseInfo() {
+  if (!CASE || !S) return "";
+  const st = S.done ? (S.win ? "rozwiązana" : "umorzona") : "w trakcie";
+  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
+}
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
 })();

@@ -203,6 +203,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .switch[aria-checked="true"]{background:var(--stamp);border-color:var(--stamp)}
 .switch[aria-checked="true"] i{left:23px;background:#fff4ea}
 .set-install{width:100%}
+.set-go .wide{grid-column:1/-1;font-size:14px;padding:8px}
+.fb-line{margin:12px 0 0;text-align:center}
+.linkish{background:none;border:none;padding:6px;font-family:var(--f-body);font-size:13px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
 .set-note{margin:6px 0 0;font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
 .set-note b{color:var(--ink)}
 .set-foot{margin:10px 0 0;text-align:center;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
@@ -2630,7 +2633,8 @@ function showResult() {
     <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>`;
+    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>
+    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
@@ -2643,6 +2647,7 @@ function showResult() {
     else copy();
   };
   $("againBtn").onclick = openNewCase;
+  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
   paintCooldown();
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
@@ -2738,7 +2743,13 @@ function openHowto(auto) {
   H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
 }
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p) };
+/* opis bieżącej sprawy do zgłoszeń: wystarczy, żeby ją odtworzyć (seed + miasto, rok, wielkość) */
+function caseInfo() {
+  if (!CASE || !S) return "";
+  const st = S.done ? (S.win ? "rozwiązana" : "umorzona") : "w trakcie";
+  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
+}
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
 })();
 
 </script>
@@ -3136,6 +3147,30 @@ async function run(where) {
 const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
 window.SiatkaInstall = { available, installed, ios, run, hintHtml: () => IOS_HINT };
 
+/* ---------- zgłoszenia uwag: Formularz Google z polami wypełnionymi przez grę ---------- */
+const FORM = "https://docs.google.com/forms/d/e/1FAIpQLScKYARw2jVB8sYKwlY0Ue2KvTVkwWzCV5SKCSZY3tNwRsRD-w/viewform";
+const F = { category: "entry.1002894547", caseInfo: "entry.866292582", device: "entry.1138988463" }; // opis i e-mail wpisuje gracz
+function device() {
+  const ua = navigator.userAgent, v = re => { const m = ua.match(re); return m ? m[1].replace(/_/g, ".") : ""; };
+  const os = /Android/.test(ua) ? "Android " + v(/Android ([\d.]+)/)
+    : /iPhone|iPad|iPod/.test(ua) ? (/iPad/.test(ua) ? "iPadOS " : "iOS ") + v(/OS ([\d_]+)/)
+    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "inny system";
+  const br = /SamsungBrowser/.test(ua) ? "Samsung Internet " + v(/SamsungBrowser\/(\d+)/)
+    : /EdgA?\//.test(ua) ? "Edge " + v(/EdgA?\/(\d+)/) : /CriOS/.test(ua) ? "Chrome " + v(/CriOS\/(\d+)/)
+    : /FxiOS|Firefox/.test(ua) ? "Firefox " + v(/(?:FxiOS|Firefox)\/(\d+)/) : /Chrome\//.test(ua) ? "Chrome " + v(/Chrome\/(\d+)/)
+    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : "inna przeglądarka";
+  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? "aplikacja" : "przeglądarka"}`;
+}
+function feedback(where, category) {
+  const p = new URLSearchParams({ usp: "pp_url" });
+  if (category) p.set(F.category, category);
+  const info = window.SiatkaGame && window.SiatkaGame.caseInfo(); if (info) p.set(F.caseInfo, info);
+  p.set(F.device, device());
+  window.open(FORM + "?" + p.toString(), "_blank", "noopener");
+  track("uwagi/" + where, "Zgłoszenie uwagi: " + where);
+}
+window.SiatkaFeedback = { open: feedback, device };
+
 /* ---------- pełny ekran ---------- */
 const root = document.documentElement;
 const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -3168,7 +3203,8 @@ function render() {
   else if (ios) app = `<p class="set-note">${IOS_HINT}</p>`;
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
-    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button></div>
+    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
+      <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
     <div class="lbl">Dźwięk</div>
     ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
     ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
@@ -3179,6 +3215,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  $("setFeedback").onclick = () => feedback("ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
