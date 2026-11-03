@@ -2,7 +2,6 @@
   "name": "siatka-powiazan",
   "private": true,
   "scripts": {
-    "test": "node --test",
-    "solve": "node scripts/solve.js"
+    "test": "node tools/generate.js 1000 && node tools/generate.js verify cases/case_001.json"
   }
 }

@@ -49,3 +49,4 @@ if (a2 === "out") {
   out.forEach((c, i) => fs.writeFileSync(path.join(dir, `gen_${String(i + 1).padStart(3, "0")}_${c.city}_${c.year}_${c.size}.json`), JSON.stringify(c, null, 2)));
   console.log("Zapisano do", dir);
 }
+if (fail || bad.length) process.exit(1);
