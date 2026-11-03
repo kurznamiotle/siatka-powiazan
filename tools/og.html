@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Siatka Powiązań — grafika podglądu</title>
+<!-- Źródło grafiki do udostępniania (Open Graph, 1200×630). Zrzut robi: node tools/og.js -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@600;700&family=Special+Elite&family=Courier+Prime:wght@700&display=block">
+<style>
+:root{--cork:#a3744a;--cork-deep:#7c5433;--paper:#ece3cf;--paper-shade:#d9cdb3;--ink:#2b221b;--ink-soft:#6b5d4f;--string:#c22a2a;--brass:#d9a648;--stamp:#b3261e}
+html,body{margin:0;width:1200px;height:630px;overflow:hidden;background:#16120e}
+.board{position:absolute;inset:22px;border-radius:6px;
+  background:
+    radial-gradient(circle at 20% 30%,rgba(0,0,0,.14) 0 2.5px,transparent 3.2px) 0 0/15px 18px,
+    radial-gradient(circle at 70% 60%,rgba(255,230,190,.10) 0 1.6px,transparent 2.4px) 0 0/11px 13px,
+    radial-gradient(circle at 40% 80%,rgba(0,0,0,.10) 0 1.6px,transparent 2.4px) 0 0/21px 10px,
+    radial-gradient(ellipse at 40% 40%,var(--cork) 0%,var(--cork-deep) 125%);
+  box-shadow:inset 0 0 0 12px #4a3423,inset 0 0 0 16px #2c1f15,inset 0 0 90px rgba(0,0,0,.5)}
+.p{position:absolute;width:168px;padding:12px 12px 0;background:var(--paper);box-shadow:0 8px 16px rgba(0,0,0,.5),0 0 0 1px rgba(0,0,0,.08);text-align:center}
+.p .ph{display:block;aspect-ratio:1/1;background:#2a2622}
+.p.t .ph{background:#3b4a52}
+.p svg{display:block;width:100%;height:100%;shape-rendering:crispEdges}
+.p .lb{display:block;font-family:"Special Elite",monospace;font-size:21px;color:var(--ink);padding:9px 0 13px;white-space:nowrap}
+.pin{position:absolute;z-index:3;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3c4 0 4px,var(--brass) 7px,#8a6420 100%);box-shadow:0 4px 4px rgba(0,0,0,.5)}
+svg.str{position:absolute;inset:0;z-index:2}
+svg.str path{fill:none;stroke:var(--string);stroke-width:6;stroke-linecap:round;filter:drop-shadow(0 4px 2px rgba(0,0,0,.45))}
+.card{position:absolute;left:640px;top:96px;width:470px;padding:34px 38px 30px;background:var(--paper);color:var(--ink);transform:rotate(-1.6deg);box-shadow:0 14px 30px rgba(0,0,0,.55);
+  background-image:repeating-linear-gradient(transparent 0 39px,rgba(90,120,160,.16) 39px 41px);background-position:0 26px}
+.card h1{margin:0;font-family:"Pixelify Sans",monospace;font-weight:700;font-size:64px;line-height:1;letter-spacing:.01em}
+.card p{margin:18px 0 0;font-family:"Special Elite",monospace;font-size:28px;line-height:1.35}
+.card .url{margin-top:24px;font-family:"Courier Prime",monospace;font-weight:700;font-size:24px;color:var(--ink-soft)}
+.stamp{position:absolute;right:30px;bottom:-30px;font-family:"Pixelify Sans",monospace;font-weight:700;font-size:30px;letter-spacing:.08em;color:var(--stamp);border:5px solid var(--stamp);padding:4px 14px;transform:rotate(-7deg);background:rgba(236,227,207,.85)}
+.tape{position:absolute;left:50%;top:-18px;width:120px;height:34px;margin-left:-60px;background:rgba(236,227,207,.55);transform:rotate(3deg);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+</style>
+</head>
+<body>
+<div class="board"></div>
+<div id="scene"></div>
+<div class="card"><i class="tape"></i>
+  <h1>Siatka<br>Powiązań</h1>
+  <p>Codzienna sprawa detektywistyczna z lat 90. Czytaj akta, łącz fakty sznurkiem, wskaż sprawcę.</p>
+  <div class="url">siatkapowiazan.pl</div>
+  <div class="stamp">SPRAWA DNIA</div>
+</div>
+<script src="../engine/sprites.js"></script>
+<script src="../engine/engine.js"></script>
+<script src="../data/base.js"></script>
+<script src="../data/cities.js"></script>
+<script>
+const c = Siatka.generateCase({ base: SIATKA_BASE, cities: SIATKA_CITIES }, "samouczek", { size: "S", city: "warszawa", year: 1994 });
+const of = t => c.nodes.filter(n => n.type === t), sprite = SiatkaSprites.svg;
+const pick = [[of("person")[0], 76, 74, -4], [of("location")[0], 370, 120, 3], [of("item")[1], 190, 330, -2]];
+let h = "", pins = [];
+for (const [n, x, y, r] of pick) {
+  const w = 168, lb = n.type === "person" ? n.label : n.label.split(" ")[0];
+  h += `<div class="p ${n.type === "person" ? "" : "t"}" style="left:${x}px;top:${y}px;transform:rotate(${r}deg)"><span class="ph">${sprite(n.sprite)}</span><span class="lb">${lb}</span></div>`;
+  const px = x + w / 2 + 16 * Math.sin(r * Math.PI / 180) * -1, py = y + 10;
+  pins.push([px, py]); h += `<i class="pin" style="left:${px}px;top:${py}px"></i>`;
+}
+const sag = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]); return `M${a[0]},${a[1]} Q${(a[0] + b[0]) / 2},${(a[1] + b[1]) / 2 + 18 + d * .08} ${b[0]},${b[1]}`; };
+h += `<svg class="str" width="1200" height="630"><path d="${sag(pins[0], pins[1])}"/><path d="${sag(pins[1], pins[2])}"/></svg>`;
+document.getElementById("scene").innerHTML = h;
+document.fonts.ready.then(() => document.body.dataset.ready = "1");
+</script>
+</body>
+</html>

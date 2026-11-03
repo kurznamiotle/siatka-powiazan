@@ -36,6 +36,7 @@ Komendy:
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
 - `npm test` — 1000 spraw z generatora + weryfikacja `case_001.json`.
 - `node tools/icons.js` — rysuje ikony PWA do `icons/`.
+- `node tools/og.js` — robi grafikę podglądu linku `icons/og.jpg` (1200×630) z `tools/og.html` (wymaga Chrome).
 
 ## Biblioteka treści (data/*.js)
 
