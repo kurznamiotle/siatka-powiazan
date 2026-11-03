@@ -229,7 +229,7 @@ function connect(a, b) {
   const k = key(a, b); S.strings.add(k);
   drawStrings(k);
   [a, b].forEach(id => { bounce(els[id].card, "bump"); bounce(els[id].pin, "pop"); });
-  AU.sfx("pluck", (S.strings.size - 1) % 8); haptic(18);
+  AU.sfx("attach"); haptic(18);
   if (S.sel) renderSheet(true);
   saveSoon();
 }
@@ -279,6 +279,14 @@ window.addEventListener("pointermove", e => {
 });
 function dragFrame() {
   raf = 0; if (!drag || !lastPt) return;
+  // szuranie: krótkie ziarna co ≥70 ms, tylko gdy palec się rusza; głośność zależy od szybkości
+  const now = performance.now(), prev = drag.rub;
+  if (!prev) drag.rub = { x: lastPt.x, y: lastPt.y, t: now };
+  else if (now - prev.t >= 70) {
+    const v = Math.hypot(lastPt.x - prev.x, lastPt.y - prev.y) / (now - prev.t); // px/ms
+    if (v > 0.08) AU.sfx("rub", Math.min(1, v / 1.2));
+    drag.rub = { x: lastPt.x, y: lastPt.y, t: now };
+  }
   const t = targetAt(lastPt.x, lastPt.y, drag.id), snap = t.ok ? t.id : null;
   if (snap !== drag.snap) {
     if (drag.snap) els[drag.snap].pin.classList.remove("snap");

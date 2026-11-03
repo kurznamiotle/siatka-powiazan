@@ -1889,7 +1889,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script>
 /*
  * Siatka Powiązań — dźwięk (Web Audio, bez plików).
- * Efekty: pinezka, szarpnięcie sznurka, cięcie, papier, maszyna, pieczątka, dzwonek wygranej.
+ * Efekty: pinezka, szuranie sznurka, cięcie, papier, maszyna, pieczątka, dzwonek wygranej.
  * Muzyka: generowany na żywo wolny jazz noir w d-moll (pad, kontrabas, miotełki, sordyna z echem, trzask płyty).
  * API: SiatkaAudio.unlock(), .sfx(nazwa, arg), .setSfx(bool), .setMusic(bool), .pref
  */
@@ -1951,29 +1951,18 @@ function noise(t, dur, gain, dest, type, freq, o = {}) {
   s.connect(f); f.connect(g); g.connect(dest);
   s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
 }
-/* szarpnięta struna (Karplus-Strong) — bufory w cache po wysokości */
-const plucks = {};
-function pluckBuf(f) {
-  const k = Math.round(f);
-  if (plucks[k]) return plucks[k];
-  const sr = ctx.sampleRate, len = Math.floor(sr * 1.1), b = ctx.createBuffer(1, len, sr), y = b.getChannelData(0);
-  const n = Math.max(2, Math.round(sr / f));
-  for (let i = 0; i < n; i++) y[i] = Math.random() * 2 - 1;
-  for (let i = n; i < len; i++) y[i] = 0.497 * (y[i - n] + y[i - n - 1 < 0 ? 0 : i - n - 1]);
-  return (plucks[k] = b);
-}
-function pluck(f, t, gain) {
-  const s = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
-  s.buffer = pluckBuf(f); lp.type = "lowpass"; lp.frequency.value = 3200; g.gain.value = gain;
-  s.connect(lp); lp.connect(g); g.connect(sfxBus); s.start(t);
-}
 
 /* ---------- efekty ---------- */
-const PENTA = [50, 53, 55, 57, 60, 62, 65, 67]; // d-moll pentatonika
 const SFX = {
-  pin(t) { noise(t, 0.035, 0.22, sfxBus, "bandpass", 2600, { Q: 2 }); tone("sine", 230, t, 0.07, 0.22, sfxBus, { fEnd: 110 }); },
-  tick(t) { noise(t, 0.014, 0.1, sfxBus, "highpass", 4500); },
-  pluck(t, n = 0) { const m = PENTA[Math.min(PENTA.length - 1, Math.max(0, n))]; pluck(mtof(m), t, 0.55); pluck(mtof(m + 12), t + 0.004, 0.12); },
+  pin(t) { noise(t, 0.03, 0.1, sfxBus, "bandpass", 2600, { Q: 2 }); tone("sine", 230, t, 0.06, 0.1, sfxBus, { fEnd: 110 }); },
+  tick(t) { noise(t, 0.012, 0.045, sfxBus, "highpass", 4500); },
+  /* szuranie sznurka po korku w trakcie przeciągania; v = 0..1 (szybkość palca) */
+  rub(t, v = 0.5) { noise(t, rnd(0.04, 0.07), 0.012 + 0.03 * v, sfxBus, "bandpass", rnd(1700, 2700), { Q: 0.9, attack: 0.012 }); },
+  /* sznurek zaczepiony o pinezkę: krótkie, miękkie szurnięcie + ciche stuknięcie */
+  attach(t) {
+    noise(t, 0.12, 0.06, sfxBus, "bandpass", 2600, { Q: 1, fEnd: 1300, attack: 0.008 });
+    tone("sine", 320, t + 0.02, 0.05, 0.035, sfxBus, { fEnd: 190 });
+  },
   snip(t) { noise(t, 0.02, 0.28, sfxBus, "highpass", 5200); noise(t + 0.055, 0.025, 0.24, sfxBus, "highpass", 4600); tone("triangle", 1900, t, 0.06, 0.05, sfxBus, { fEnd: 900 }); },
   paper(t) { noise(t, 0.2, 0.1, sfxBus, "bandpass", 900, { Q: 0.7, fEnd: 3800, attack: 0.04 }); },
   type(t) { noise(t, 0.025, 0.22, sfxBus, "bandpass", 1900, { Q: 1.2 }); tone("square", 95, t, 0.03, 0.04, sfxBus, { lp: 900 }); },
@@ -2304,7 +2293,7 @@ function connect(a, b) {
   const k = key(a, b); S.strings.add(k);
   drawStrings(k);
   [a, b].forEach(id => { bounce(els[id].card, "bump"); bounce(els[id].pin, "pop"); });
-  AU.sfx("pluck", (S.strings.size - 1) % 8); haptic(18);
+  AU.sfx("attach"); haptic(18);
   if (S.sel) renderSheet(true);
   saveSoon();
 }
@@ -2354,6 +2343,14 @@ window.addEventListener("pointermove", e => {
 });
 function dragFrame() {
   raf = 0; if (!drag || !lastPt) return;
+  // szuranie: krótkie ziarna co ≥70 ms, tylko gdy palec się rusza; głośność zależy od szybkości
+  const now = performance.now(), prev = drag.rub;
+  if (!prev) drag.rub = { x: lastPt.x, y: lastPt.y, t: now };
+  else if (now - prev.t >= 70) {
+    const v = Math.hypot(lastPt.x - prev.x, lastPt.y - prev.y) / (now - prev.t); // px/ms
+    if (v > 0.08) AU.sfx("rub", Math.min(1, v / 1.2));
+    drag.rub = { x: lastPt.x, y: lastPt.y, t: now };
+  }
   const t = targetAt(lastPt.x, lastPt.y, drag.id), snap = t.ok ? t.id : null;
   if (snap !== drag.snap) {
     if (drag.snap) els[drag.snap].pin.classList.remove("snap");
