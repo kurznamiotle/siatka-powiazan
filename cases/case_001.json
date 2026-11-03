@@ -1,0 +1,340 @@
+{
+  "case_id": "case_001",
+  "theme": "praga_1994",
+  "archetype": "single_culprit_one_reason_each",
+  "title": "Zegarmistrz z Ząbkowskiej",
+  "intro": "Praga, ul. Ząbkowska, listopad 1994. Zegarmistrz Zenon Wrzos zostaje znaleziony martwy w swojej pracowni w oficynie. Zginął od ciosu ciężkim, metalowym przedmiotem. Tego samego wieczoru z podwórka zniknęły dwa takie przedmioty.",
+  "victim": {
+    "id": "zenon",
+    "name": "Zenon Wrzos",
+    "role": "zegarmistrz"
+  },
+  "crime_scene": "pracownia",
+  "nodes": [
+    {
+      "id": "roman",
+      "type": "person",
+      "label": "Roman K.",
+      "name": "Roman Kulesza",
+      "kind": "Kierowca Żuka, sąsiad"
+    },
+    {
+      "id": "halina",
+      "type": "person",
+      "label": "Halina M.",
+      "name": "Halina Morawska",
+      "kind": "Aptekarka"
+    },
+    {
+      "id": "edek",
+      "type": "person",
+      "label": "Edek W.",
+      "name": "Edward „Edek” Wrzos",
+      "kind": "Bratanek ofiary"
+    },
+    {
+      "id": "bozena",
+      "type": "person",
+      "label": "Bożena S.",
+      "name": "Bożena Sitek",
+      "kind": "Dozorczyni kamienicy"
+    },
+    {
+      "id": "garaz",
+      "type": "location",
+      "label": "Garaż",
+      "name": "Garaż na podwórku",
+      "kind": "Miejsce"
+    },
+    {
+      "id": "apteka",
+      "type": "location",
+      "label": "Apteka",
+      "name": "Apteka „Pod Orłem”",
+      "kind": "Miejsce"
+    },
+    {
+      "id": "lewar",
+      "type": "item",
+      "label": "Lewar",
+      "name": "Żeliwny lewar",
+      "kind": "Przedmiot"
+    },
+    {
+      "id": "mozdzierz",
+      "type": "item",
+      "label": "Moździerz",
+      "name": "Mosiężny moździerz",
+      "kind": "Przedmiot"
+    }
+  ],
+  "facts": [
+    {
+      "type": "has_key",
+      "who": "roman",
+      "where": "garaz"
+    },
+    {
+      "type": "has_key",
+      "who": "bozena",
+      "where": "apteka",
+      "note": "klucz do tylnych drzwi od podwórka"
+    },
+    {
+      "type": "has_key",
+      "who": "bozena",
+      "where": "garaz"
+    },
+    {
+      "type": "has_key",
+      "who": "halina",
+      "where": "apteka"
+    },
+    {
+      "type": "presence",
+      "who": "roman",
+      "where": "garaz",
+      "at": "19:10",
+      "source": "sąsiad"
+    },
+    {
+      "type": "presence",
+      "who": "bozena",
+      "where": "garaz",
+      "at": "19:20",
+      "source": "sama przyznaje"
+    },
+    {
+      "type": "presence",
+      "who": "halina",
+      "where": "apteka",
+      "from": "19:00",
+      "to": "19:50",
+      "source": "inwentaryzacja"
+    },
+    {
+      "type": "presence",
+      "who": "edek",
+      "where": "apteka",
+      "at": "19:45",
+      "note": "pod tylnymi drzwiami, bez klucza"
+    },
+    {
+      "type": "alibi",
+      "who": "roman",
+      "from": "19:50",
+      "to": "22:00",
+      "confirmed": true,
+      "source": "barman + 3 świadków, bar „Pod Kogutem”"
+    },
+    {
+      "type": "alibi",
+      "who": "halina",
+      "from": "20:00",
+      "to": "22:00",
+      "confirmed": false,
+      "claim": "sama w domu"
+    },
+    {
+      "type": "alibi",
+      "who": "edek",
+      "from": "20:00",
+      "to": "21:00",
+      "confirmed": false,
+      "claim": "włóczył się po Pradze"
+    },
+    {
+      "type": "alibi",
+      "who": "bozena",
+      "from": "20:00",
+      "to": "22:00",
+      "confirmed": false,
+      "claim": "spała"
+    },
+    {
+      "type": "trait",
+      "who": "roman",
+      "trait": "hand",
+      "value": "left"
+    },
+    {
+      "type": "trait",
+      "who": "halina",
+      "trait": "hand",
+      "value": "right"
+    },
+    {
+      "type": "trait",
+      "who": "edek",
+      "trait": "hand",
+      "value": "left"
+    },
+    {
+      "type": "trait",
+      "who": "bozena",
+      "trait": "hand",
+      "value": "left"
+    },
+    {
+      "type": "item_origin",
+      "what": "lewar",
+      "where": "garaz"
+    },
+    {
+      "type": "item_origin",
+      "what": "mozdzierz",
+      "where": "apteka"
+    },
+    {
+      "type": "item_moved",
+      "what": "lewar",
+      "from": "19:00",
+      "to": "19:30"
+    },
+    {
+      "type": "item_moved",
+      "what": "mozdzierz",
+      "from": "19:30",
+      "to": "20:00"
+    },
+    {
+      "type": "motive",
+      "who": "edek",
+      "text": "dług 40 mln zł wobec wuja"
+    }
+  ],
+  "rules": [
+    {
+      "id": "r1",
+      "text": "Zgon nastąpił między 20:00 a 20:30. Sprawca nie ma potwierdzonego alibi na ten czas.",
+      "type": "alibi"
+    },
+    {
+      "id": "r2",
+      "text": "Cios zadano z lewej strony. Sprawca jest leworęczny.",
+      "type": "trait",
+      "trait": "hand",
+      "value": "left"
+    },
+    {
+      "id": "r3",
+      "text": "Sprawca osobiście zabrał narzędzie z miejsca, w którym leżało, w czasie, gdy zniknęło.",
+      "type": "window"
+    },
+    {
+      "id": "r4",
+      "text": "W garażu i w aptece nie ma śladów włamania. Kto zabrał narzędzie, otworzył drzwi własnym kluczem.",
+      "type": "key"
+    }
+  ],
+  "eliminations": {
+    "roman": "r1",
+    "halina": "r2",
+    "edek": "r4"
+  },
+  "red_herring": {
+    "item": "mozdzierz",
+    "why": "Bożena ma klucz do apteki, ale nie było jej tam, gdy znikał moździerz (r3)."
+  },
+  "solution": {
+    "culprit": "bozena",
+    "weapon": "lewar"
+  },
+  "supported_connections": [
+    [
+      "roman",
+      "garaz"
+    ],
+    [
+      "bozena",
+      "garaz"
+    ],
+    [
+      "halina",
+      "apteka"
+    ],
+    [
+      "edek",
+      "apteka"
+    ],
+    [
+      "garaz",
+      "lewar"
+    ],
+    [
+      "apteka",
+      "mozdzierz"
+    ],
+    [
+      "roman",
+      "lewar"
+    ],
+    [
+      "bozena",
+      "lewar"
+    ],
+    [
+      "halina",
+      "mozdzierz"
+    ],
+    [
+      "bozena",
+      "apteka"
+    ]
+  ],
+  "culprit_chain": [
+    [
+      "bozena",
+      "garaz"
+    ],
+    [
+      "garaz",
+      "lewar"
+    ],
+    [
+      "bozena",
+      "lewar"
+    ]
+  ],
+  "hints": [
+    {
+      "points_to_rule": "r1",
+      "text": "Zacznij od reguły 1. Kto ma potwierdzone alibi na 20:00–20:30? Przeczytaj akta Romana."
+    },
+    {
+      "points_to_rule": "r2",
+      "text": "Reguła 2: kto fizycznie nie mógł zadać ciosu lewą ręką?"
+    },
+    {
+      "points_to_rule": "r4",
+      "text": "Reguła 4: kto był przy narzędziu w odpowiednim czasie, ale nie miał klucza?"
+    }
+  ],
+  "flavor": {
+    "roman": [
+      "Podczas przesłuchania przytrzymywał kubek z kawą lewą ręką i nią się podpisał."
+    ],
+    "halina": [
+      "Recepty podpisuje prawą ręką. Lewą ma od miesiąca w gipsie po złamaniu."
+    ],
+    "edek": [
+      "Był winien wujowi 40 milionów złotych i od tygodni unikał spotkania."
+    ],
+    "bozena": [
+      "W zeszycie dozorczyni pisze lewą ręką i rozmazuje atrament.",
+      "Ma klucz do tylnych drzwi apteki od podwórka."
+    ],
+    "lewar": [
+      "Znaleziony rano w śmietniku na podwórku, starannie wytarty."
+    ],
+    "mozdzierz": [
+      "Dotąd nie odnaleziony."
+    ]
+  },
+  "time": {
+    "crime": {
+      "from": "20:00",
+      "to": "20:30"
+    }
+  }
+}

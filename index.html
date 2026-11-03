@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16120e">
+<title>Siatka Powiązań</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Special+Elite&family=Courier+Prime:wght@400;700&display=swap">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<style>
+/* Layout: one phone-width column — case header, cork board (pins + red string), desk drawer with case file / notebook. Single committed noir look. */
+:root{
+  --room:#16120e; --desk:#231b15; --desk-edge:#3a2d22;
+  --cork:#a3744a; --cork-deep:#7c5433;
+  --paper:#ece3cf; --paper-shade:#d9cdb3; --ink:#2b221b; --ink-soft:#6b5d4f;
+  --string:#c22a2a; --brass:#d9a648; --stamp:#b3261e; --ok:#3f7a4a;
+  --fg:#efe6d4; --muted:#a8998a;
+  --f-pixel:"Pixelify Sans", "Courier New", monospace;
+  --f-type:"Special Elite", "Courier New", monospace;
+  --f-body:"Courier Prime", "Courier New", monospace;
+  color-scheme:dark;
+}
+html,body{min-height:100%}
+body{background:var(--room);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+.app{min-height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;gap:10px;position:relative}
+
+/* header */
+.top{display:flex;flex-direction:column;gap:6px}
+.tline{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.top h1{margin:0;font-family:var(--f-pixel);font-weight:700;font-size:22px;letter-spacing:.02em;line-height:1;color:var(--fg)}
+.top .case{font-family:var(--f-type);font-size:13px;color:var(--muted);min-width:0}
+.meta{display:flex;align-items:center;gap:10px;font-family:var(--f-pixel);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lives{display:flex;gap:4px}
+.lives i{width:10px;height:10px;background:var(--string);display:block;box-shadow:inset -2px -2px 0 rgba(0,0,0,.3)}
+.lives i.lost{background:transparent;outline:2px solid var(--desk-edge);outline-offset:-2px;box-shadow:none}
+
+/* board */
+.board{position:relative;flex:0 0 auto;height:380px;border-radius:4px;overflow:hidden;touch-action:none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,.13) 0 1.5px, transparent 2px) 0 0/9px 11px,
+    radial-gradient(circle at 70% 60%, rgba(255,230,190,.10) 0 1px, transparent 1.6px) 0 0/7px 8px,
+    radial-gradient(circle at 40% 80%, rgba(0,0,0,.10) 0 1px, transparent 1.6px) 0 0/13px 6px,
+    radial-gradient(ellipse at 50% 40%, var(--cork) 0%, var(--cork-deep) 120%);
+  box-shadow:inset 0 0 0 6px #4a3423, inset 0 0 0 8px #2c1f15, inset 0 0 40px rgba(0,0,0,.45)}
+.strings{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.strings .s{fill:none;stroke:var(--string);stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 2px 1px rgba(0,0,0,.45))}
+.strings .hit{fill:none;stroke:transparent;stroke-width:22;pointer-events:stroke;cursor:pointer}
+.strings .tmp{fill:none;stroke:var(--string);stroke-width:2.4;stroke-dasharray:6 5;opacity:.85}
+.strings .cut{animation:cut .28s ease-out forwards}
+@keyframes cut{to{opacity:0;stroke-width:0}}
+
+.node{position:absolute;z-index:1;width:84px;padding:6px 6px 0;background:var(--paper);color:var(--ink);border:none;text-align:center;
+  box-shadow:0 3px 6px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.08);transform:rotate(var(--r,0deg));transition:transform .15s, filter .2s}
+.node:hover{transform:rotate(var(--r,0deg)) translateY(-2px)}
+.node.sel{box-shadow:0 0 0 3px var(--brass),0 4px 10px rgba(0,0,0,.55)}
+.node .ph{display:block;aspect-ratio:1/1;max-width:100%;background:#2a2622;image-rendering:pixelated}
+.node .ph svg{display:block;width:100%;height:100%}
+.node.loc .ph,.node.item .ph{background:#3b4a52}
+.node .lb{display:block;font-family:var(--f-type);font-size:var(--lbfs,11.5px);line-height:1.15;padding:5px 0 7px;overflow-wrap:normal}
+.node.out{filter:grayscale(1) brightness(.78)}
+.node.out::after{content:"";position:absolute;inset:6px 6px 26px;background:
+  linear-gradient(45deg,transparent 46%,var(--stamp) 46% 54%,transparent 54%),
+  linear-gradient(-45deg,transparent 46%,var(--stamp) 46% 54%,transparent 54%);opacity:.9}
+.node.unread .lb::before{content:"";position:absolute;top:1px;right:1px;width:7px;height:7px;background:var(--stamp)}
+
+.pin{position:absolute;z-index:3;width:30px;height:30px;margin:-15px 0 0 -15px;border:none;background:transparent;padding:0;touch-action:none}
+.pin::before{content:"";position:absolute;left:8px;top:8px;width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff3c4 0 2px,var(--brass) 3px,#8a6420 100%);box-shadow:0 2px 2px rgba(0,0,0,.5)}
+.pin.pending::before{box-shadow:0 0 0 4px rgba(217,166,72,.45),0 2px 2px rgba(0,0,0,.5)}
+
+.hint-toast{position:absolute;left:12px;right:12px;bottom:12px;z-index:4;background:var(--paper);color:var(--ink);font-family:var(--f-type);font-size:13.5px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,.5);transform:rotate(-.6deg)}
+.hint-toast b{font-family:var(--f-pixel);font-weight:600;color:var(--stamp);display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+
+/* desk drawer */
+.desk{flex:0 0 auto;background:var(--desk);border-top:3px solid var(--desk-edge);border-radius:4px;display:flex;flex-direction:column;gap:10px;padding:10px}
+.tabs{display:flex;gap:6px}
+.tab{flex:1;background:transparent;border:2px solid var(--desk-edge);padding:6px 8px;font-family:var(--f-pixel);font-size:14px;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--desk-edge);color:var(--fg)}
+.sheet{background:var(--paper);color:var(--ink);padding:12px 14px;min-height:148px;max-height:30vh;overflow:auto;font-family:var(--f-type);font-size:14px;line-height:1.5;
+  background-image:repeating-linear-gradient(transparent 0 22px, rgba(90,120,160,.16) 22px 23px);background-position:0 8px}
+.sheet h2{margin:0 0 2px;font-family:var(--f-pixel);font-weight:600;font-size:17px;line-height:1.2;text-wrap:balance}
+.sheet .kind{font-family:var(--f-body);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+.sheet ul,.sheet ol{margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.sheet p{margin:6px 0 0}
+.sheet .how{font-family:var(--f-body);font-size:12.5px;color:var(--ink-soft);border-top:1px dashed var(--paper-shade);margin-top:10px;padding-top:8px}
+.sheet .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{border:2px solid var(--ink);background:transparent;color:var(--ink);padding:4px 10px;font-family:var(--f-pixel);font-size:13px}
+.chip.on{background:var(--ink);color:var(--paper)}
+
+.actions{display:flex;gap:8px}
+.btn{flex:1;border:none;padding:11px 10px;font-family:var(--f-pixel);font-weight:600;font-size:15px;letter-spacing:.02em;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3)}
+.btn.ghost{background:var(--desk-edge);color:var(--fg)}
+.btn.red{background:var(--stamp);color:#fff4ea}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* overlays */
+.overlay{position:fixed;inset:0;z-index:10;background:rgba(10,8,6,.78);display:flex;align-items:flex-end;justify-content:center;padding:12px max(16px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.card{width:100%;max-width:488px;max-height:100%;overflow:auto;background:var(--paper);color:var(--ink);padding:16px;font-family:var(--f-type);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.card h3{margin:0 0 4px;font-family:var(--f-pixel);font-size:20px;font-weight:700;text-wrap:balance}
+.card .lbl{font-family:var(--f-body);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin:12px 0 6px}
+.card .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pick{border:2px solid var(--ink);background:transparent;color:var(--ink);padding:8px;font-family:var(--f-type);font-size:14px;text-align:left}
+.pick.on{background:var(--ink);color:var(--paper)}
+.card .foot{display:flex;gap:8px;margin-top:14px}
+.card .msg{min-height:1.4em;margin-top:10px;color:var(--stamp);font-size:14px}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+.stamp{display:inline-block;font-family:var(--f-pixel);font-weight:700;font-size:22px;letter-spacing:.08em;color:var(--stamp);border:3px solid var(--stamp);padding:2px 10px;transform:rotate(-4deg);margin:4px 0 8px}
+.stamp.ok{color:var(--ok);border-color:var(--ok)}
+.why{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.stars{font-family:var(--f-pixel);font-size:26px;color:var(--brass);letter-spacing:4px}
+.share{white-space:pre;font-family:var(--f-body);font-size:13px;background:var(--paper-shade);padding:10px;margin-top:8px;overflow-x:auto;user-select:all}
+.stat{font-family:var(--f-body);font-size:13px;color:var(--ink-soft);margin-top:6px}
+.epi{font-size:14.5px;margin:6px 0 0;padding:10px 12px;background:var(--paper-shade);border-left:3px solid var(--stamp)}
+.quip{font-family:var(--f-body);font-style:italic;font-size:13px;color:var(--ink-soft);margin:12px 0 0}
+.modes{display:flex;gap:6px}
+.mode{white-space:nowrap;background:transparent;border:2px solid var(--desk-edge);color:var(--muted);font-family:var(--f-pixel);font-size:12px;padding:3px 8px}
+.mode:hover{color:var(--fg);border-color:var(--muted)}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts .chip{font-size:13px;padding:5px 9px}
+.opts .chip small{font-family:var(--f-body);font-size:11px;opacity:.75;margin-left:4px}
+.card .sub{font-family:var(--f-body);font-size:13px;color:var(--ink-soft);margin:0}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:400px){.top h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="tline">
+      <h1>Siatka Powiązań</h1>
+      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span></div>
+    </div>
+    <div class="tline">
+      <div class="case" id="caseLine">Ładowanie sprawy…</div>
+      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
+    </div>
+  </header>
+
+  <main class="board" id="board" aria-label="Tablica korkowa">
+    <svg class="strings" id="strings"></svg>
+    <div class="hint-toast" id="toast" hidden></div>
+  </main>
+
+  <section class="desk">
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-akta" role="tab" aria-selected="true">Akta</button>
+      <button class="tab" id="tab-notes" role="tab" aria-selected="false">Notatnik</button>
+    </div>
+    <div class="sheet" id="sheet" tabindex="0"></div>
+    <div class="actions">
+      <button class="btn ghost" id="hintBtn">Podpowiedź (3)</button>
+      <button class="btn red" id="accuseBtn">Oskarż</button>
+    </div>
+  </section>
+
+  <div class="overlay" id="accuse" hidden>
+    <div class="card" id="accuseCard">
+      <h3>Akt oskarżenia</h3>
+      <div class="lbl">Sprawca</div>
+      <div class="grid" id="pickWho"></div>
+      <div class="lbl" id="toolLbl">Narzędzie zbrodni</div>
+      <div class="grid" id="pickWhat"></div>
+      <div class="msg" id="accuseMsg"></div>
+      <div class="foot">
+        <button class="btn ghost" id="accuseCancel">Wróć do tablicy</button>
+        <button class="btn red" id="accuseGo" disabled>Wnieś oskarżenie</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="newCase" hidden>
+    <div class="card">
+      <h3>Nowa sprawa</h3>
+      <p class="sub">Wybierz miasto, rok i wielkość śledztwa. „Losowo” zostawia wybór generatorowi.</p>
+      <div class="lbl">Miasto</div>
+      <div class="opts" id="optCity"></div>
+      <div class="lbl">Rok</div>
+      <div class="opts" id="optYear"></div>
+      <div class="lbl">Wielkość</div>
+      <div class="opts" id="optSize"></div>
+      <div class="foot">
+        <button class="btn ghost" id="newCancel">Anuluj</button>
+        <button class="btn red" id="newGo">Otwórz sprawę</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="result" hidden>
+    <div class="card" id="resultCard"></div>
+  </div>
+</div>
+<script src="engine/sprites.js"></script>
+<script src="engine/engine.js"></script>
+<script src="data/base.js"></script>
+<script src="data/cities.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
