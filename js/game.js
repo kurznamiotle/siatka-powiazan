@@ -24,9 +24,24 @@ const ls = {
 /* Zapis postępu: osobno sprawa dnia i ostatnia losowa. Zapisujemy całą sprawę, nie tylko seed,
    żeby zmiana danych po deployu nie podmieniła graczowi rozpoczętej sprawy. */
 const SAVE = { daily: "siatka-save-daily", random: "siatka-save-random", last: "siatka-last" };
+/* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
+   pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
+   starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
+const sameCase = sv => !!(sv && sv.case && CASE && sv.case.seed === CASE.seed);
+function closedElsewhere() {
+  if (!S || !META || S.done) return null;
+  const sv = ls.get(SAVE[META.kind]);
+  return sameCase(sv) && sv.done ? sv : null;
+}
+function adoptClosed() {
+  const sv = closedElsewhere();
+  if (sv) load(sv.case, S.label, META, sv);
+}
+window.addEventListener("storage", e => { if (e.key === SAVE.daily || e.key === SAVE.random) adoptClosed(); });
 function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
+  if (closedElsewhere()) return;
   ls.set(SAVE[META.kind], { v: 1, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
@@ -394,7 +409,7 @@ setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { hiddenAt = Date.now(); saveNow(); }
-  else if (hiddenAt) { if (S && !S.done) S.t0 += Date.now() - hiddenAt; hiddenAt = 0; }
+  else { if (hiddenAt) { if (S && !S.done) S.t0 += Date.now() - hiddenAt; hiddenAt = 0; } adoptClosed(); }
 });
 window.addEventListener("pagehide", saveNow);
 
@@ -428,6 +443,7 @@ goBtn.onclick = () => {
 function renderLives() { document.querySelectorAll("#lives i").forEach((i, ix) => i.classList.toggle("lost", ix >= 3 - S.wrong)); }
 function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
+  $("clock").textContent = fmt(S.tEnd - S.t0); // ten sam czas co w wyniku i po powrocie
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
@@ -539,6 +555,12 @@ function newCase() {
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
   const label = `Sprawa #${String(n).padStart(3, "0")}`;
+  /* Statystyki mówią, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
+     gry): zamykamy ją z wynikiem ze statystyk. Sprawy dnia nie da się rozegrać drugi raz. */
+  const st = ((ls.get("siatka-stats") || {}).daily || {})[n]; // stats.js ładuje się później, więc czytamy wprost
+  if (st && sv && sv.case && sv.case.number === n && !sv.done) {
+    Object.assign(sv, { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 });
+  }
   if (sv && sv.case && sv.case.number === n) return load(sv.case, label, { kind: "daily" }, sv);
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" });
 }
