@@ -9,7 +9,9 @@ Pełny opis produktu: `docs/brief.md`. Wzorcowa ręcznie ułożona sprawa: `case
 ```
 index.html            gra (ładuje skrypty poniżej; otwórz w przeglądarce)
 js/game.js            interfejs: tablica, sznurki i gesty, akta, oskarżenie, wynik,
-                      zapis postępu, haptyka, pełny ekran
+                      zapis postępu, haptyka
+js/settings.js        okno Ustawienia (zębatka): Jak grać, Statystyki, dźwięk, muzyka,
+                      wibracje, pełny ekran, instalacja gry (PWA)
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
 js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
 js/stats.js           seria i statystyki spraw dnia (localStorage)
@@ -89,9 +91,11 @@ Zrobione: warstwa epoki 1989–1999 + 7 miast, solver, generator archetypu `sing
 
 Interfejs: PWA (manifest, offline przez service worker), deploy na GitHub Pages. Zapis postępu w localStorage: osobno sprawa dnia i ostatnia losowa, razem z całym JSON-em sprawy. Zegar stoi, gdy gra jest w tle. Pinezka ma strefę dotyku 46 px, a sznurek przyciąga się do pinezki w promieniu 44 px. Po dotknięciu pinezki pulsują węzły innego typu (nigdy tylko te z pokryciem w faktach, bo to zdradzałoby odpowiedź). Połączenia w obrębie jednego typu są zablokowane. W aktach i notatniku wyróżnione są godziny, miejsca (`forms` na węźle miejsca), klucze, alibi i auta. Haptyka: `navigator.vibrate` na Androidzie, trik z `<input switch>` na iOS 18+, a wszędzie sprężyste animacje CSS. Dźwięk i muzyka są domyślnie: efekty włączone, muzyka wyłączona. Po wylosowaniu „Nowej sprawy” losowanie jest zablokowane na 2 minuty (poza `#dev`).
 
-Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i spod przycisku „Jak grać”. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
+Nagłówek: zegar, próby i zębatka. Wszystko inne jest w oknie Ustawienia. Instalacja: na Androidzie i w Chrome na komputerze przycisk wywołuje systemowe okno (`beforeinstallprompt`), na iOS jest instrukcja (Udostępnij → Do ekranu początkowego), a w zainstalowanej grze informacja. Preferencje poza dźwiękiem: `siatka-prefs` (`haptic`).
 
-Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
+Samouczek: otwiera się sam przy pierwszym uruchomieniu (flaga `siatka-howto` w localStorage) i z Ustawień („Jak grać”). Przy pierwszym uruchomieniu ostatnia plansza zaprasza do instalacji, gdy jest możliwa. Zegar sprawy stoi, gdy jest otwarty. Portrety i nazwy pochodzą ze sprawy demonstracyjnej (seed `samouczek`, Warszawa 1994, S). Gdy zmienisz zasady gry (gwiazdki, próby, podpowiedzi), popraw też teksty plansz.
+
+Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i danych osobowych. Wyłączona na localhost, z pliku i w `#dev`. Zdarzenia wysyła `SiatkaTrack(ścieżka, tytuł)`: `gracz/nowy`, `sprawa/start|wygrana|przegrana/…`, `wynik/N-gwiazdki`, `wynik/kopiuj|udostepnij`, `podpowiedz/N`, `samouczek/start-auto|start-przycisk|ukonczony|pominiety-krok-N`, `statystyki/otwarte`, `instalacja/zgoda|odmowa-samouczek|ustawienia`, `instalacja/zainstalowana`, `ustawienia/muzyka-wl|wyl`, `seria/N` (3, 7, 14, 30…), `powrot/po-N-dniach` (raz na przeglądarkę, gdy gracz wróci co najmniej N dni po pierwszej wizycie). Retencja ≈ `powrot/…` ÷ `gracz/nowy`.
 
 Seria i statystyki: tylko sprawy dnia, zapis po numerze sprawy (`siatka-stats`). Sprawa dnia jeszcze nierozegrana nie przerywa serii. Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
 

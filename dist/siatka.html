@@ -161,7 +161,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .fx-k{text-decoration:underline;text-decoration-color:rgba(43,34,27,.45);text-underline-offset:2px}
 .fx-v{font-variant:small-caps}
 /* przyciski-ikony w nagłówku */
-.tools{display:flex;gap:4px}
 .ic{width:28px;height:28px;display:grid;place-items:center;padding:0;background:transparent;border:2px solid var(--desk-edge);color:var(--muted)}
 .ic:hover{color:var(--fg);border-color:var(--muted)}
 .ic[aria-pressed="true"]{color:var(--brass)}
@@ -176,8 +175,25 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .mode{white-space:nowrap;background:transparent;border:2px solid var(--desk-edge);color:var(--muted);font-family:var(--f-pixel);font-size:12px;padding:3px 8px}
 .mode:hover{color:var(--fg);border-color:var(--muted)}
 .mode:disabled{opacity:.45;cursor:default;color:var(--muted);border-color:var(--desk-edge)}
-.mode.icon{padding:3px 6px;display:grid;place-items:center}
-.mode.icon svg{width:14px;height:14px;display:block;shape-rendering:crispEdges}
+/* ustawienia */
+.set-go{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.set-go .pick{text-align:center;font-family:var(--f-pixel);font-size:15px;padding:10px 8px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--paper-shade)}
+.set-row:last-child{border-bottom:none}
+.set-l{font-family:var(--f-type);font-size:15px}
+.set-row small{display:block;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
+.switch{flex:0 0 auto;position:relative;width:46px;height:26px;padding:0;border:2px solid var(--ink);background:transparent}
+.switch i{position:absolute;left:3px;top:3px;width:16px;height:16px;background:var(--ink);transition:left .3s cubic-bezier(.34,1.56,.64,1)}
+.switch[aria-checked="true"]{background:var(--stamp);border-color:var(--stamp)}
+.switch[aria-checked="true"] i{left:23px;background:#fff4ea}
+.set-install{width:100%}
+.set-note{margin:6px 0 0;font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
+.set-note b{color:var(--ink)}
+.set-foot{margin:10px 0 0;text-align:center;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
+.hw-install{margin-top:10px;padding:10px;background:var(--paper-shade);font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
+.hw-install .btn{width:100%;margin-bottom:6px}
+.hw-install b{color:var(--ink)}
+.hw-install small{display:block;text-align:center}
 /* statystyki */
 .st-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px;text-align:center}
 .st-grid div{background:var(--paper-shade);padding:8px 2px}
@@ -209,11 +225,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     <div class="tline">
       <h1>Siatka Powiązań</h1>
       <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
-        <span class="tools"><button class="ic" id="fsBtn" hidden></button><button class="ic" id="sfxBtn"></button><button class="ic" id="musBtn"></button></span></div>
+        <button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button><button class="mode" id="howtoBtn">Jak grać</button><button class="mode icon" id="statsBtn" aria-label="Statystyki" title="Statystyki"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 13h14v2H1zM2 8h3v4H2zM7 4h3v8H7zM12 1h3v11h-3z"/></svg></button></div>
+      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
     </div>
   </header>
 
@@ -273,9 +289,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       <h3 id="hwTitle"></h3>
       <p class="hw-txt" id="hwTxt"></p>
       <p class="hw-tip" id="hwTip"></p>
+      <div class="hw-install" id="hwInstall" hidden></div>
       <div class="hw-dots" id="hwDots"></div>
       <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
     </div>
+  </div>
+
+  <div class="overlay" id="menu" hidden>
+    <div class="card" id="menuCard" role="dialog" aria-modal="true" aria-label="Ustawienia"></div>
   </div>
 
   <div class="overlay" id="stats" hidden>
@@ -2178,6 +2199,7 @@ const iosTap = (() => {
   return l;
 })();
 function haptic(p) {
+  if (window.SiatkaPrefs && !window.SiatkaPrefs.haptic) return; // wyłączone w ustawieniach
   if (canVibrate) { try { navigator.vibrate(p); } catch (_) {} }
   else if (iosTap) { try { iosTap.click(); } catch (_) {} }
 }
@@ -2679,37 +2701,8 @@ $("newCancel").onclick = () => { $("newCase").hidden = true; };
 $("newGo").onclick = newCase;
 $("newCase").addEventListener("click", e => { if (e.target.id === "newCase") e.currentTarget.hidden = true; });
 
-/* ---------- pełny ekran, dźwięk, muzyka ---------- */
-const ICON = {
-  fsOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg>`,
-  fsOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h2v5H1V4h3zM10 1h2v3h3v2h-5zM1 10h5v5H4v-3H1zM10 10h5v2h-3v3h-2z"/></svg>`,
-  sndOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 5h3l4-4v14l-4-4H1zM10 5h2v6h-2zM13 3h2v10h-2z"/></svg>`,
-  sndOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 5h3l4-4v14l-4-4H1zM10 5h2v2h-2zM14 5h2v2h-2zM12 7h2v2h-2zM10 9h2v2h-2zM14 9h2v2h-2z"/></svg>`,
-  musOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 1h10v11h-1v1h-3v-1h-1v-3h1V8h2V5H7v7H6v1H3v-1H2V9h1V8h2z"/></svg>`,
-  musOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" opacity=".45"><path d="M5 1h10v11h-1v1h-3v-1h-1v-3h1V8h2V5H7v7H6v1H3v-1H2V9h1V8h2z"/></svg>`
-};
-const root = document.documentElement;
-const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-const installed = matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches || navigator.standalone === true;
-const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-function paintTools() {
-  const fb = $("fsBtn"), on = fsActive();
-  fb.hidden = !fsSupported || installed;
-  fb.innerHTML = on ? ICON.fsOff : ICON.fsOn; fb.title = on ? "Wyjdź z pełnego ekranu" : "Pełny ekran"; fb.setAttribute("aria-label", fb.title);
-  const sb = $("sfxBtn"), mb = $("musBtn");
-  sb.innerHTML = AU.pref.sfx ? ICON.sndOn : ICON.sndOff; sb.title = "Dźwięki"; sb.setAttribute("aria-label", "Dźwięki"); sb.setAttribute("aria-pressed", AU.pref.sfx);
-  mb.innerHTML = AU.pref.music ? ICON.musOn : ICON.musOff; mb.title = "Muzyka w tle"; mb.setAttribute("aria-label", "Muzyka w tle"); mb.setAttribute("aria-pressed", AU.pref.music);
-}
-$("fsBtn").onclick = () => {
-  haptic(6);
-  if (fsActive()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
-  const r = root.requestFullscreen ? root.requestFullscreen({ navigationUI: "hide" }) : root.webkitRequestFullscreen && root.webkitRequestFullscreen();
-  if (r && r.then) r.then(() => { try { screen.orientation.lock("portrait").catch(() => {}); } catch (_) {} }).catch(() => {});
-};
-["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => { paintTools(); setTimeout(layout, 80); }));
-$("sfxBtn").onclick = () => { AU.setSfx(!AU.pref.sfx); paintTools(); AU.sfx("tick"); haptic(6); };
-$("musBtn").onclick = () => { AU.setMusic(!AU.pref.music); paintTools(); haptic(6); };
-paintTools();
+/* pełny ekran i ustawienia: js/settings.js; po zmianie trybu przeliczamy tablicę */
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => setTimeout(layout, 80)));
 
 /* ---------- offline ---------- */
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
@@ -2726,11 +2719,10 @@ function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
   track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
   const t = Date.now(); setPending(null);
-  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); });
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
 }
-$("howtoBtn").onclick = () => openHowto();
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
-$("statsBtn").onclick = () => { if (window.SiatkaStats) SiatkaStats.open(); };
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p) };
 })();
 
 </script>
@@ -2958,7 +2950,7 @@ const CSS = `
 @keyframes hw-star{0%,58%{opacity:0;scale:.3}64%{opacity:1;scale:1.3}68%,94%{opacity:1;scale:1}100%{opacity:0}}
 `;
 
-let i = 0, after = null, styled = false;
+let i = 0, after = null, styled = false, withInstall = false;
 function render() {
   const s = SLIDES[i], stage = $("hwStage");
   stage.className = "hw-stage hw-s" + (i + 1);
@@ -2968,6 +2960,14 @@ function render() {
   $("hwStep").textContent = `Krok ${i + 1} z ${SLIDES.length}`;
   $("hwPrev").disabled = i === 0;
   $("hwNext").textContent = i === SLIDES.length - 1 ? "Do roboty!" : "Dalej";
+  // ostatnia plansza przy pierwszym uruchomieniu: zaproszenie do instalacji (jeśli możliwa)
+  const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
+  box.hidden = !(withInstall && last && I && I.available());
+  if (!box.hidden) {
+    box.innerHTML = I.ios ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
+      : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
+    const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
+  }
   $("hwDots").innerHTML = SLIDES.map((x, j) => `<button data-j="${j}" aria-label="Krok ${j + 1}: ${x.title}"${j === i ? ' aria-current="step"' : ""}></button>`).join("");
 }
 function go(d) {
@@ -2976,7 +2976,8 @@ function go(d) {
   if (j >= SLIDES.length) return close(true);
   i = j; AU.sfx("paper"); render();
 }
-function open(cb) {
+function open(cb, opts = {}) {
+  withInstall = !!opts.install;
   if (!styled) { const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st); styled = true; }
   after = cb || null; i = 0; render();
   $("howto").hidden = false; $("hwNext").focus({ preventScroll: true });
@@ -3075,6 +3076,95 @@ function open() {
 $("stats").addEventListener("click", e => { if (e.target.id === "stats") e.currentTarget.hidden = true; });
 
 window.SiatkaStats = { record, summary, open };
+})();
+
+</script>
+<script>
+/*
+ * Siatka Powiązań — ustawienia (zębatka w nagłówku) i instalacja gry.
+ * Okno: Jak grać, Statystyki, efekty dźwiękowe, muzyka, wibracje, pełny ekran, instalacja.
+ * Instalacja: Android i Chrome na komputerze — systemowe okno (beforeinstallprompt);
+ * iPhone/iPad — instrukcja (Safari nie ma przycisku instalacji); zainstalowana — informacja.
+ * API: SiatkaPrefs.haptic, SiatkaInstall.{available(), installed(), ios, run(), hintHtml()}
+ */
+(() => {
+const $ = id => document.getElementById(id);
+const AU = window.SiatkaAudio || { pref: {}, setSfx() {}, setMusic() {}, sfx() {} };
+const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
+const tap = p => { if (window.SiatkaGame) window.SiatkaGame.haptic(p); };
+
+/* ---------- preferencje poza dźwiękiem ---------- */
+const PKEY = "siatka-prefs";
+const prefs = (() => { try { return Object.assign({ haptic: true }, JSON.parse(localStorage.getItem(PKEY) || "{}")); } catch (_) { return { haptic: true }; } })();
+const savePrefs = () => { try { localStorage.setItem(PKEY, JSON.stringify(prefs)); } catch (_) {} };
+window.SiatkaPrefs = prefs;
+
+/* ---------- instalacja ---------- */
+const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const installed = () => matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches || navigator.standalone === true;
+let deferred = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; refresh(); });
+window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); });
+const available = () => !installed() && (!!deferred || ios);
+async function run(where) {
+  if (deferred) {
+    const d = deferred; deferred = null;
+    d.prompt();
+    try { const c = await d.userChoice; track(`instalacja/${c.outcome === "accepted" ? "zgoda" : "odmowa"}-${where}`, `Instalacja: ${c.outcome === "accepted" ? "zgoda" : "odmowa"} (${where})`); } catch (_) {}
+    refresh();
+    return true;
+  }
+  return false;
+}
+const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
+window.SiatkaInstall = { available, installed, ios, run, hintHtml: () => IOS_HINT };
+
+/* ---------- pełny ekran ---------- */
+const root = document.documentElement;
+const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function toggleFs() {
+  if (fsActive()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  const r = root.requestFullscreen ? root.requestFullscreen({ navigationUI: "hide" }) : root.webkitRequestFullscreen && root.webkitRequestFullscreen();
+  if (r && r.then) r.then(() => { try { screen.orientation.lock("portrait").catch(() => {}); } catch (_) {} }).catch(() => {});
+}
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, refresh));
+
+/* ---------- okno ustawień ---------- */
+const hapticAvailable = typeof navigator.vibrate === "function" || ios;
+const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-l">${label}</span>${sub ? `<small>${sub}</small>` : ""}</span>
+  <button class="switch" id="${id}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button></div>`;
+function render() {
+  let app;
+  if (installed()) app = `<p class="set-note">Gra jest zainstalowana na tym urządzeniu.</p>`;
+  else if (deferred) app = `<button class="btn red set-install" id="setInstall">Zainstaluj grę</button><p class="set-note">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>`;
+  else if (ios) app = `<p class="set-note">${IOS_HINT}</p>`;
+  else app = "";
+  $("menuCard").innerHTML = `<h3>Ustawienia</h3>
+    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button></div>
+    <div class="lbl">Dźwięk</div>
+    ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
+    ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
+    ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
+    ${fsSupported && !installed() ? `<div class="lbl">Ekran</div>${sw("swFs", "Pełny ekran", fsActive())}` : ""}
+    ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
+    <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
+    <p class="set-foot">siatkapowiazan.pl</p>`;
+  $("menuClose").onclick = close;
+  $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
+  $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
+  $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
+  if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
+  if ($("swFs")) $("swFs").onclick = () => { tap(6); toggleFs(); };
+  if ($("setInstall")) $("setInstall").onclick = () => run("ustawienia");
+}
+function refresh() { if (!$("menu").hidden) render(); }
+function open() { render(); $("menu").hidden = false; AU.sfx("paper"); }
+function close() { $("menu").hidden = true; }
+$("menuBtn").onclick = () => { tap(6); open(); };
+$("menu").addEventListener("click", e => { if (e.target.id === "menu") close(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("menu").hidden) close(); });
 })();
 
 </script>

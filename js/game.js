@@ -49,6 +49,7 @@ const iosTap = (() => {
   return l;
 })();
 function haptic(p) {
+  if (window.SiatkaPrefs && !window.SiatkaPrefs.haptic) return; // wyłączone w ustawieniach
   if (canVibrate) { try { navigator.vibrate(p); } catch (_) {} }
   else if (iosTap) { try { iosTap.click(); } catch (_) {} }
 }
@@ -550,37 +551,8 @@ $("newCancel").onclick = () => { $("newCase").hidden = true; };
 $("newGo").onclick = newCase;
 $("newCase").addEventListener("click", e => { if (e.target.id === "newCase") e.currentTarget.hidden = true; });
 
-/* ---------- pełny ekran, dźwięk, muzyka ---------- */
-const ICON = {
-  fsOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg>`,
-  fsOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 1h2v5H1V4h3zM10 1h2v3h3v2h-5zM1 10h5v5H4v-3H1zM10 10h5v2h-3v3h-2z"/></svg>`,
-  sndOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 5h3l4-4v14l-4-4H1zM10 5h2v6h-2zM13 3h2v10h-2z"/></svg>`,
-  sndOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 5h3l4-4v14l-4-4H1zM10 5h2v2h-2zM14 5h2v2h-2zM12 7h2v2h-2zM10 9h2v2h-2zM14 9h2v2h-2z"/></svg>`,
-  musOn: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 1h10v11h-1v1h-3v-1h-1v-3h1V8h2V5H7v7H6v1H3v-1H2V9h1V8h2z"/></svg>`,
-  musOff: `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" opacity=".45"><path d="M5 1h10v11h-1v1h-3v-1h-1v-3h1V8h2V5H7v7H6v1H3v-1H2V9h1V8h2z"/></svg>`
-};
-const root = document.documentElement;
-const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-const installed = matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches || navigator.standalone === true;
-const fsActive = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-function paintTools() {
-  const fb = $("fsBtn"), on = fsActive();
-  fb.hidden = !fsSupported || installed;
-  fb.innerHTML = on ? ICON.fsOff : ICON.fsOn; fb.title = on ? "Wyjdź z pełnego ekranu" : "Pełny ekran"; fb.setAttribute("aria-label", fb.title);
-  const sb = $("sfxBtn"), mb = $("musBtn");
-  sb.innerHTML = AU.pref.sfx ? ICON.sndOn : ICON.sndOff; sb.title = "Dźwięki"; sb.setAttribute("aria-label", "Dźwięki"); sb.setAttribute("aria-pressed", AU.pref.sfx);
-  mb.innerHTML = AU.pref.music ? ICON.musOn : ICON.musOff; mb.title = "Muzyka w tle"; mb.setAttribute("aria-label", "Muzyka w tle"); mb.setAttribute("aria-pressed", AU.pref.music);
-}
-$("fsBtn").onclick = () => {
-  haptic(6);
-  if (fsActive()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
-  const r = root.requestFullscreen ? root.requestFullscreen({ navigationUI: "hide" }) : root.webkitRequestFullscreen && root.webkitRequestFullscreen();
-  if (r && r.then) r.then(() => { try { screen.orientation.lock("portrait").catch(() => {}); } catch (_) {} }).catch(() => {});
-};
-["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => { paintTools(); setTimeout(layout, 80); }));
-$("sfxBtn").onclick = () => { AU.setSfx(!AU.pref.sfx); paintTools(); AU.sfx("tick"); haptic(6); };
-$("musBtn").onclick = () => { AU.setMusic(!AU.pref.music); paintTools(); haptic(6); };
-paintTools();
+/* pełny ekran i ustawienia: js/settings.js; po zmianie trybu przeliczamy tablicę */
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => setTimeout(layout, 80)));
 
 /* ---------- offline ---------- */
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
@@ -597,9 +569,8 @@ function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
   track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
   const t = Date.now(); setPending(null);
-  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); });
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
 }
-$("howtoBtn").onclick = () => openHowto();
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
-$("statsBtn").onclick = () => { if (window.SiatkaStats) SiatkaStats.open(); };
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p) };
 })();

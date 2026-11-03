@@ -161,7 +161,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .fx-k{text-decoration:underline;text-decoration-color:rgba(43,34,27,.45);text-underline-offset:2px}
 .fx-v{font-variant:small-caps}
 /* przyciski-ikony w nagłówku */
-.tools{display:flex;gap:4px}
 .ic{width:28px;height:28px;display:grid;place-items:center;padding:0;background:transparent;border:2px solid var(--desk-edge);color:var(--muted)}
 .ic:hover{color:var(--fg);border-color:var(--muted)}
 .ic[aria-pressed="true"]{color:var(--brass)}
@@ -176,8 +175,25 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .mode{white-space:nowrap;background:transparent;border:2px solid var(--desk-edge);color:var(--muted);font-family:var(--f-pixel);font-size:12px;padding:3px 8px}
 .mode:hover{color:var(--fg);border-color:var(--muted)}
 .mode:disabled{opacity:.45;cursor:default;color:var(--muted);border-color:var(--desk-edge)}
-.mode.icon{padding:3px 6px;display:grid;place-items:center}
-.mode.icon svg{width:14px;height:14px;display:block;shape-rendering:crispEdges}
+/* ustawienia */
+.set-go{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.set-go .pick{text-align:center;font-family:var(--f-pixel);font-size:15px;padding:10px 8px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--paper-shade)}
+.set-row:last-child{border-bottom:none}
+.set-l{font-family:var(--f-type);font-size:15px}
+.set-row small{display:block;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
+.switch{flex:0 0 auto;position:relative;width:46px;height:26px;padding:0;border:2px solid var(--ink);background:transparent}
+.switch i{position:absolute;left:3px;top:3px;width:16px;height:16px;background:var(--ink);transition:left .3s cubic-bezier(.34,1.56,.64,1)}
+.switch[aria-checked="true"]{background:var(--stamp);border-color:var(--stamp)}
+.switch[aria-checked="true"] i{left:23px;background:#fff4ea}
+.set-install{width:100%}
+.set-note{margin:6px 0 0;font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
+.set-note b{color:var(--ink)}
+.set-foot{margin:10px 0 0;text-align:center;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
+.hw-install{margin-top:10px;padding:10px;background:var(--paper-shade);font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
+.hw-install .btn{width:100%;margin-bottom:6px}
+.hw-install b{color:var(--ink)}
+.hw-install small{display:block;text-align:center}
 /* statystyki */
 .st-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px;text-align:center}
 .st-grid div{background:var(--paper-shade);padding:8px 2px}
@@ -209,11 +225,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     <div class="tline">
       <h1>Siatka Powiązań</h1>
       <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
-        <span class="tools"><button class="ic" id="fsBtn" hidden></button><button class="ic" id="sfxBtn"></button><button class="ic" id="musBtn"></button></span></div>
+        <button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
     </div>
     <div class="tline">
       <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button><button class="mode" id="howtoBtn">Jak grać</button><button class="mode icon" id="statsBtn" aria-label="Statystyki" title="Statystyki"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1 13h14v2H1zM2 8h3v4H2zM7 4h3v8H7zM12 1h3v11h-3z"/></svg></button></div>
+      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
     </div>
   </header>
 
@@ -273,9 +289,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       <h3 id="hwTitle"></h3>
       <p class="hw-txt" id="hwTxt"></p>
       <p class="hw-tip" id="hwTip"></p>
+      <div class="hw-install" id="hwInstall" hidden></div>
       <div class="hw-dots" id="hwDots"></div>
       <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
     </div>
+  </div>
+
+  <div class="overlay" id="menu" hidden>
+    <div class="card" id="menuCard" role="dialog" aria-modal="true" aria-label="Ustawienia"></div>
   </div>
 
   <div class="overlay" id="stats" hidden>
@@ -295,6 +316,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script src="js/game.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/stats.js"></script>
+<script src="js/settings.js"></script>
 <script data-goatcounter="https://kurznamiotle.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>

@@ -221,7 +221,7 @@ const CSS = `
 @keyframes hw-star{0%,58%{opacity:0;scale:.3}64%{opacity:1;scale:1.3}68%,94%{opacity:1;scale:1}100%{opacity:0}}
 `;
 
-let i = 0, after = null, styled = false;
+let i = 0, after = null, styled = false, withInstall = false;
 function render() {
   const s = SLIDES[i], stage = $("hwStage");
   stage.className = "hw-stage hw-s" + (i + 1);
@@ -231,6 +231,14 @@ function render() {
   $("hwStep").textContent = `Krok ${i + 1} z ${SLIDES.length}`;
   $("hwPrev").disabled = i === 0;
   $("hwNext").textContent = i === SLIDES.length - 1 ? "Do roboty!" : "Dalej";
+  // ostatnia plansza przy pierwszym uruchomieniu: zaproszenie do instalacji (jeśli możliwa)
+  const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
+  box.hidden = !(withInstall && last && I && I.available());
+  if (!box.hidden) {
+    box.innerHTML = I.ios ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
+      : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
+    const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
+  }
   $("hwDots").innerHTML = SLIDES.map((x, j) => `<button data-j="${j}" aria-label="Krok ${j + 1}: ${x.title}"${j === i ? ' aria-current="step"' : ""}></button>`).join("");
 }
 function go(d) {
@@ -239,7 +247,8 @@ function go(d) {
   if (j >= SLIDES.length) return close(true);
   i = j; AU.sfx("paper"); render();
 }
-function open(cb) {
+function open(cb, opts = {}) {
+  withInstall = !!opts.install;
   if (!styled) { const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st); styled = true; }
   after = cb || null; i = 0; render();
   $("howto").hidden = false; $("hwNext").focus({ preventScroll: true });
