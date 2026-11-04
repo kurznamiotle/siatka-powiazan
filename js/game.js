@@ -9,6 +9,9 @@ const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const track = (path, title) => { if (window.SiatkaTrack) window.SiatkaTrack(path, title); };
+/* historia wyników (js/history.js, ładuje się przed game.js); zapasowo pusta, żeby gra działała bez niej */
+const HIST = window.SiatkaHistory || { record() {}, has: () => false, dailyResult: () => null, gamesDone: () => 0, fromClosedSave() {},
+  summary: () => ({ daily: { played: 0, won: 0, pct: 0, cur: 0, best: 0 }, all: { played: 0, won: 0, pct: 0, avgMs: 0 } }) };
 
 let CASE, byId, supportedSet, chainKeys, S, META, RICH, els = {};
 const key = (a, b) => [a, b].sort().join("|");
@@ -128,6 +131,8 @@ function load(c, label, meta, saved) {
     S.hints = saved.hints || 0; S.wrong = saved.wrong || 0; S.done = !!saved.done; S.win = !!saved.win;
     S.t0 = Date.now() - (saved.elapsed || 0); if (S.done) S.tEnd = Date.now();
   }
+  // zamknięta sprawa, której wyniku nie ma w historii (zapisała go inna kopia gry): dopisujemy go
+  if (saved && saved.done && saved.case) HIST.fromClosedSave(saved, meta.kind);
   buildRich();
   $("caseLine").textContent = `${label} · ${c.city_name}, ${c.year}`;
   buildBoard();
@@ -470,11 +475,11 @@ function finish(win) {
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
-  if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  HIST.record(CASE, { kind: META.kind, win, stars: starsOf(), ms: S.tEnd - S.t0, wrong: S.wrong, hints: S.hints });
   paintDaily();
   track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
   if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
-  const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
+  const cur = META.kind === "daily" ? HIST.summary().daily.cur : 0;
   if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
   showResult();
   if (window.SiatkaAch) {
@@ -491,7 +496,7 @@ const URL_GRY = "siatkapowiazan.pl";
 function showResult() {
   const win = S.win, time = fmt(S.tEnd - S.t0);
   const stars = starsOf();
-  const sum = META.kind === "daily" && window.SiatkaStats ? SiatkaStats.summary() : null;
+  const sm = HIST.summary(), sum = META.kind === "daily" ? sm.daily : null;
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
@@ -507,8 +512,10 @@ function showResult() {
     <div class="lbl">Twoja tablica</div>
     <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label} → ${wpn.label}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
     ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
-    ${sum ? `<div class="lbl">Twoje sprawy dnia</div>
-    <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
+    <div class="lbl">Sprawy dnia</div>
+    <div class="st-grid mini"><div><b>${sm.daily.cur}</b><span>seria</span></div><div><b>${sm.daily.best}</b><span>rekord</span></div><div><b>${sm.daily.pct}%</b><span>wygrane</span></div><div><b>${sm.daily.played}</b><span>rozegrane</span></div></div>
+    <div class="lbl">Wszystkie sprawy</div>
+    <div class="st-grid mini three"><div><b>${sm.all.played}</b><span>rozegrane</span></div><div><b>${sm.all.pct}%</b><span>wygrane</span></div><div><b>${sm.all.avgMs ? fmt(sm.all.avgMs) : "–"}</b><span>średni czas</span></div></div>
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
     <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
@@ -617,8 +624,8 @@ $("limit").addEventListener("click", e => { if (e.target.id === "limit") e.curre
 function dailyState() {
   const n = Siatka.dailyNumber(), sv = todaySave();
   if (sv && sv.done) return sv.win ? "win" : "lose";
-  const st = ((ls.get("siatka-stats") || {}).daily || {})[n];
-  return st ? (st.w ? "win" : "lose") : null;
+  const st = HIST.dailyResult(n);
+  return st ? (st.win ? "win" : "lose") : null;
 }
 function paintDaily() {
   const st = dailyState(), b = $("dailyBtn");
@@ -635,10 +642,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) pain
 
 /* Tempo dla nowych graczy: liczymy ukończone gry (sprawy dnia + losowe, ze statystyk) i przez pierwsze
    10 gier losowa sprawa jest mała: gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L. Od 11. pełna losowość. */
-function gamesDone() {
-  const s = ls.get("siatka-stats") || {};
-  return Object.keys(s.daily || {}).length + ((s.random || {}).played || 0);
-}
+const gamesDone = () => HIST.gamesDone();
 function rampSize() {
   const g = gamesDone() + 1, any = a => a[Math.floor(Math.random() * a.length)];
   return g <= 3 ? "S" : g <= 5 ? any(["S", "M"]) : g <= 7 ? "M" : g <= 10 ? any(["M", "L"]) : undefined;
@@ -668,10 +672,10 @@ function newCase() {
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = todaySave();
   const label = `Sprawa #${String(n).padStart(3, "0")}`;
-  /* Statystyki mówią, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
-     gry): zamykamy ją z wynikiem ze statystyk. Sprawy dnia nie da się rozegrać drugi raz. */
-  const st = ((ls.get("siatka-stats") || {}).daily || {})[n]; // stats.js ładuje się później, więc czytamy wprost
-  const closed = st && { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 };
+  /* Historia mówi, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
+     gry albo zapis był z innej wersji generatora): zamykamy ją z wynikiem z historii. Drugi raz się jej nie rozegra. */
+  const st = HIST.dailyResult(n);
+  const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
     try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn("Zapis sprawy dnia pominięty", e); }

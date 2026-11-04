@@ -219,7 +219,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .st-grid div{background:var(--paper-shade);padding:8px 2px}
 .st-grid b{display:block;font-family:var(--f-pixel);font-size:24px;line-height:1.1}
 .st-grid span{font-family:var(--f-body);font-size:11px;color:var(--ink-soft)}
-.st-grid.mini{margin-top:0}.st-grid.mini b{font-size:18px}
+.st-grid.mini{margin-top:0}.st-grid.mini b{font-size:18px}.st-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .st-row{display:grid;grid-template-columns:76px 1fr 28px;align-items:center;gap:8px;margin:5px 0;font-family:var(--f-body);font-size:13px}
 .st-k{color:var(--brass);font-family:var(--f-pixel);letter-spacing:1px;-webkit-text-stroke:.3px var(--ink)}
 .st-row:last-of-type .st-k{color:var(--ink-soft);-webkit-text-stroke:0;letter-spacing:0}
@@ -4426,6 +4426,135 @@ window.SiatkaShareImg = { render, deliver };
 </script>
 <script>
 /*
+ * Siatka Powiązań — historia wyników (localStorage `siatka-history`). Z niej liczą się wszystkie statystyki.
+ * Ładuje się przed game.js, więc wynik zapisuje się zawsze, nawet gdy reszta interfejsu się nie wczyta.
+ *
+ * Format (jeden obiekt, żeby dało się go przenieść na konto gracza):
+ *   { v: 1,
+ *     daily:   { "<numer>": wpis },        sprawy dnia, wszystkie, liczy się pierwszy wynik
+ *     archive: [wpis, …],                  sprawy z archiwum, ostatnie ARCHIVE_MAX
+ *     totals:  { played, won, ms, timed },  archiwum łącznie (przycinanie listy ich nie zmienia); timed = ile z czasem
+ *     migrated: 1 }                        stare statystyki i zapisy przeniesione (raz)
+ *   wpis: { id (numer sprawy dnia albo seed), type: "daily"|"archive", win, ms, wrong, hints, stars,
+ *           size, city, year, gen, date (lokalna RRRR-MM-DD) }
+ * Wpisy z tym samym id się nie dublują. Zapisy postępu (siatka-save-*) mogą znikać, historia zostaje.
+ *
+ * API: SiatkaHistory.record(c, r), .has(type, id), .summary(), .data(), .gamesDone()
+ */
+(() => {
+const KEY = "siatka-history", FORMAT = 1, ARCHIVE_MAX = 500;
+const dayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const empty = () => ({ v: FORMAT, daily: {}, archive: [], totals: { played: 0, won: 0, ms: 0, timed: 0 } });
+
+function load() {
+  try {
+    const h = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (!h || typeof h !== "object" || h.v !== FORMAT) return empty();
+    return { v: FORMAT, daily: h.daily && typeof h.daily === "object" ? h.daily : {}, archive: Array.isArray(h.archive) ? h.archive : [],
+      totals: Object.assign({ played: 0, won: 0, ms: 0 }, h.totals || {}), migrated: h.migrated };
+  } catch (_) { return empty(); }
+}
+function save(h) { try { localStorage.setItem(KEY, JSON.stringify(h)); return true; } catch (_) { return false; } }
+const ver = c => (window.Siatka && Siatka.caseVersion ? Siatka.caseVersion(c) : (c && c.gen) || "2.0");
+
+/* r: { kind: "daily"|"random", win, ms, wrong, hints, stars, date? } */
+function entry(c, r) {
+  const daily = r.kind === "daily";
+  return { id: daily ? c.number : c.seed, type: daily ? "daily" : "archive", win: !!r.win, ms: Math.max(0, Math.round(r.ms || 0)),
+    wrong: r.wrong || 0, hints: r.hints || 0, stars: r.win ? (r.stars || 0) : 0,
+    size: c.size, city: c.city, year: c.year, gen: ver(c), date: r.date || dayStr() };
+}
+function add(h, e) {
+  if (e.type === "daily") {
+    if (e.id == null || h.daily[e.id]) return false; // sprawa dnia liczy się raz
+    h.daily[e.id] = e; return true;
+  }
+  if (e.id == null || h.archive.some(x => x.id === e.id)) return false;
+  h.archive.push(e); if (h.archive.length > ARCHIVE_MAX) h.archive.splice(0, h.archive.length - ARCHIVE_MAX);
+  h.totals.played++; if (e.win) h.totals.won++; h.totals.ms += e.ms; h.totals.timed++;
+  return true;
+}
+function record(c, r) {
+  try {
+    const h = load();
+    if (add(h, entry(c, r))) save(h);
+  } catch (_) {}
+}
+function has(type, id) { try { const h = load(); return type === "daily" ? !!h.daily[id] : h.archive.some(x => x.id === id); } catch (_) { return false; } }
+const dailyResult = n => { try { return load().daily[n] || null; } catch (_) { return null; } };
+
+function summary() {
+  const h = load(), D = h.daily, today = window.Siatka ? Siatka.dailyNumber() : 0;
+  const nums = Object.keys(D).map(Number).filter(n => n > 0).sort((a, b) => a - b);
+  const played = nums.length, won = nums.filter(n => D[n].win).length;
+  // seria: kolejne rozwiązane sprawy dnia bez przerwy, kończące się dziś albo wczoraj
+  let cur = 0, n = D[today] ? today : today - 1;
+  while (D[n] && D[n].win) { cur++; n--; }
+  let best = 0, run = 0, prev = null;
+  for (const k of nums) { run = D[k].win ? (prev === k - 1 && run > 0 ? run + 1 : 1) : 0; best = Math.max(best, run); prev = k; }
+  const dist = { 3: 0, 2: 0, 1: 0, 0: 0 };
+  nums.forEach(k => { dist[D[k].win ? Math.min(3, Math.max(1, D[k].stars || 1)) : 0]++; });
+  const timed = nums.filter(k => D[k].ms > 0), dMs = timed.reduce((s, k) => s + D[k].ms, 0), nT = timed.length + (h.totals.timed || 0);
+  const T = h.totals, allPlayed = played + T.played, allWon = won + T.won;
+  return {
+    daily: { played, won, pct: played ? Math.round(won / played * 100) : 0, cur, best, dist, today: D[today] || null },
+    archive: { played: T.played, won: T.won },
+    all: { played: allPlayed, won: allWon, pct: allPlayed ? Math.round(allWon / allPlayed * 100) : 0, avgMs: nT ? Math.round((dMs + T.ms) / nT) : 0 }
+  };
+}
+const gamesDone = () => { try { const h = load(); return Object.keys(h.daily).length + h.totals.played; } catch (_) { return 0; } };
+const data = () => load();
+
+/* Migracja (raz): stare statystyki `siatka-stats` i zamknięte zapisy postępu. Zapis z inną wersją generatora
+   niż jego sprawa (albo bez sprawy) pomijamy. Wpisy idą po id, więc nic się nie dubluje. */
+function migrate() {
+  try {
+    const h = load();
+    if (h.migrated) return;
+    const get = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (_) { return null; } };
+    const old = get("siatka-stats");
+    if (old && old.daily) for (const [n, d] of Object.entries(old.daily)) {
+      const num = +n; if (!(num > 0) || h.daily[num]) continue;
+      h.daily[num] = { id: num, type: "daily", win: !!d.w, ms: (d.m || 0) * 1000, wrong: d.w ? Math.max(0, 3 - (d.s || 3)) : 3, hints: 0,
+        stars: d.w ? d.s || 1 : 0, size: null, city: null, year: null, gen: null, date: null };
+    }
+    if (old && old.random) { // stare liczniki archiwum (bez czasu, więc nie wchodzą do średniej)
+      h.totals.played += +old.random.played || 0; h.totals.won += +old.random.won || 0;
+    }
+    for (const k of ["siatka-save-daily", "siatka-save-random"]) {
+      const sv = get(k);
+      if (!fromSave(sv)) continue;
+      const kind = k.endsWith("daily") ? "daily" : "random";
+      if (kind === "daily" && !(sv.case.number > 0)) continue;
+      // archiwum: stare liczniki mogły już tę sprawę policzyć, więc dopisujemy ją tylko na listę
+      const e = entry(sv.case, { kind, win: sv.win, ms: sv.elapsed, wrong: sv.wrong, hints: sv.hints, stars: starsOf(sv), date: null });
+      if (kind === "daily") add(h, e);
+      else if (!h.archive.some(x => x.id === e.id)) { if (old && old.random && old.random.played) h.archive.push(e); else add(h, e); }
+    }
+    h.migrated = 1;
+    save(h);
+  } catch (_) {}
+}
+/* zamknięty zapis postępu, którego wersja zgadza się ze sprawą */
+function fromSave(sv) {
+  if (!sv || !sv.done || !sv.case || !Array.isArray(sv.case.nodes)) return false;
+  return (sv.gen || ver(sv.case)) === ver(sv.case);
+}
+const starsOf = sv => sv.win ? Math.max(1, 3 - (sv.wrong || 0) - ((sv.hints || 0) > 0 ? 1 : 0)) : 0;
+/* zamknięty zapis, którego nie ma w historii (np. wynik zapisała inna kopia gry): dopisujemy go */
+function fromClosedSave(sv, kind) {
+  if (!fromSave(sv)) return;
+  if (kind === "daily" && !(sv.case.number > 0)) return;
+  record(sv.case, { kind, win: sv.win, ms: sv.elapsed, wrong: sv.wrong, hints: sv.hints, stars: starsOf(sv) });
+}
+
+migrate();
+window.SiatkaHistory = { record, has, dailyResult, summary, gamesDone, data, fromClosedSave, KEY, FORMAT };
+})();
+
+</script>
+<script>
+/*
  * Siatka Powiązań — interfejs gry (tablica, sznurki, akta, oskarżenie, wynik).
  * Wymaga: engine/sprites.js, engine/engine.js, data/base.js, data/cities.js, js/audio.js
  */
@@ -4436,6 +4565,9 @@ const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const track = (path, title) => { if (window.SiatkaTrack) window.SiatkaTrack(path, title); };
+/* historia wyników (js/history.js, ładuje się przed game.js); zapasowo pusta, żeby gra działała bez niej */
+const HIST = window.SiatkaHistory || { record() {}, has: () => false, dailyResult: () => null, gamesDone: () => 0, fromClosedSave() {},
+  summary: () => ({ daily: { played: 0, won: 0, pct: 0, cur: 0, best: 0 }, all: { played: 0, won: 0, pct: 0, avgMs: 0 } }) };
 
 let CASE, byId, supportedSet, chainKeys, S, META, RICH, els = {};
 const key = (a, b) => [a, b].sort().join("|");
@@ -4555,6 +4687,8 @@ function load(c, label, meta, saved) {
     S.hints = saved.hints || 0; S.wrong = saved.wrong || 0; S.done = !!saved.done; S.win = !!saved.win;
     S.t0 = Date.now() - (saved.elapsed || 0); if (S.done) S.tEnd = Date.now();
   }
+  // zamknięta sprawa, której wyniku nie ma w historii (zapisała go inna kopia gry): dopisujemy go
+  if (saved && saved.done && saved.case) HIST.fromClosedSave(saved, meta.kind);
   buildRich();
   $("caseLine").textContent = `${label} · ${c.city_name}, ${c.year}`;
   buildBoard();
@@ -4897,11 +5031,11 @@ function finish(win) {
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
-  if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  HIST.record(CASE, { kind: META.kind, win, stars: starsOf(), ms: S.tEnd - S.t0, wrong: S.wrong, hints: S.hints });
   paintDaily();
   track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
   if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
-  const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
+  const cur = META.kind === "daily" ? HIST.summary().daily.cur : 0;
   if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
   showResult();
   if (window.SiatkaAch) {
@@ -4918,7 +5052,7 @@ const URL_GRY = "siatkapowiazan.pl";
 function showResult() {
   const win = S.win, time = fmt(S.tEnd - S.t0);
   const stars = starsOf();
-  const sum = META.kind === "daily" && window.SiatkaStats ? SiatkaStats.summary() : null;
+  const sm = HIST.summary(), sum = META.kind === "daily" ? sm.daily : null;
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
@@ -4934,8 +5068,10 @@ function showResult() {
     <div class="lbl">Twoja tablica</div>
     <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label} → ${wpn.label}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
     ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
-    ${sum ? `<div class="lbl">Twoje sprawy dnia</div>
-    <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
+    <div class="lbl">Sprawy dnia</div>
+    <div class="st-grid mini"><div><b>${sm.daily.cur}</b><span>seria</span></div><div><b>${sm.daily.best}</b><span>rekord</span></div><div><b>${sm.daily.pct}%</b><span>wygrane</span></div><div><b>${sm.daily.played}</b><span>rozegrane</span></div></div>
+    <div class="lbl">Wszystkie sprawy</div>
+    <div class="st-grid mini three"><div><b>${sm.all.played}</b><span>rozegrane</span></div><div><b>${sm.all.pct}%</b><span>wygrane</span></div><div><b>${sm.all.avgMs ? fmt(sm.all.avgMs) : "–"}</b><span>średni czas</span></div></div>
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
     <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
@@ -5044,8 +5180,8 @@ $("limit").addEventListener("click", e => { if (e.target.id === "limit") e.curre
 function dailyState() {
   const n = Siatka.dailyNumber(), sv = todaySave();
   if (sv && sv.done) return sv.win ? "win" : "lose";
-  const st = ((ls.get("siatka-stats") || {}).daily || {})[n];
-  return st ? (st.w ? "win" : "lose") : null;
+  const st = HIST.dailyResult(n);
+  return st ? (st.win ? "win" : "lose") : null;
 }
 function paintDaily() {
   const st = dailyState(), b = $("dailyBtn");
@@ -5062,10 +5198,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) pain
 
 /* Tempo dla nowych graczy: liczymy ukończone gry (sprawy dnia + losowe, ze statystyk) i przez pierwsze
    10 gier losowa sprawa jest mała: gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L. Od 11. pełna losowość. */
-function gamesDone() {
-  const s = ls.get("siatka-stats") || {};
-  return Object.keys(s.daily || {}).length + ((s.random || {}).played || 0);
-}
+const gamesDone = () => HIST.gamesDone();
 function rampSize() {
   const g = gamesDone() + 1, any = a => a[Math.floor(Math.random() * a.length)];
   return g <= 3 ? "S" : g <= 5 ? any(["S", "M"]) : g <= 7 ? "M" : g <= 10 ? any(["M", "L"]) : undefined;
@@ -5095,10 +5228,10 @@ function newCase() {
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = todaySave();
   const label = `Sprawa #${String(n).padStart(3, "0")}`;
-  /* Statystyki mówią, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
-     gry): zamykamy ją z wynikiem ze statystyk. Sprawy dnia nie da się rozegrać drugi raz. */
-  const st = ((ls.get("siatka-stats") || {}).daily || {})[n]; // stats.js ładuje się później, więc czytamy wprost
-  const closed = st && { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 };
+  /* Historia mówi, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
+     gry albo zapis był z innej wersji generatora): zamykamy ją z wynikiem z historii. Drugi raz się jej nie rozegra. */
+  const st = HIST.dailyResult(n);
+  const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
     try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn("Zapis sprawy dnia pominięty", e); }
@@ -5437,67 +5570,48 @@ window.SiatkaHowto = {
 </script>
 <script>
 /*
- * Siatka Powiązań — seria i statystyki (localStorage, ta przeglądarka).
- * Sprawy dnia: zapis po numerze sprawy (jedna próba na dzień), seria = kolejne wygrane sprawy dnia.
- * Sprawa dnia, której jeszcze dziś nie rozegrano, nie przerywa serii.
- * Sprawy z archiwum (losowe): tylko licznik rozegranych i rozwiązanych.
- * API: SiatkaStats.record(rodzaj, numer, {win, stars, ms}), .summary(), .open()
+ * Siatka Powiązań — okno Statystyki. Liczby pochodzą z historii wyników (js/history.js).
+ * Sprawy dnia: seria (kolejne rozwiązane sprawy dnia, kończące się dziś albo wczoraj), rekord, % wygranych.
+ * Sprawa dnia, której jeszcze dziś nie rozegrano, nie przerywa serii. Wszystkie sprawy: z archiwum też.
+ * API: SiatkaStats.summary(), .open()
  */
 (() => {
 const $ = id => document.getElementById(id);
-const KEY = "siatka-stats";
-const empty = () => ({ daily: {}, random: { played: 0, won: 0 } });
-function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); return s && s.daily ? Object.assign(empty(), s) : empty(); } catch (_) { return empty(); }
-}
-function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (_) {} }
-
-function record(kind, num, r) {
-  const s = load();
-  if (kind === "daily") {
-    if (s.daily[num]) return summary(s); // sprawa dnia liczy się raz
-    s.daily[num] = { w: r.win ? 1 : 0, s: r.stars, m: Math.round(r.ms / 1000) };
-  } else {
-    s.random.played++; if (r.win) s.random.won++;
-  }
-  save(s);
-  return summary(s);
-}
-function summary(s = load()) {
-  const today = Siatka.dailyNumber(), D = s.daily;
-  const nums = Object.keys(D).map(Number).sort((a, b) => a - b);
-  const played = nums.length, won = nums.filter(n => D[n].w).length;
-  let cur = 0, n = D[today] ? today : today - 1;
-  while (D[n] && D[n].w) { cur++; n--; }
-  let best = 0, run = 0, prev = null;
-  for (const k of nums) { run = D[k].w ? (prev === k - 1 && run > 0 ? run + 1 : 1) : 0; best = Math.max(best, run); prev = k; }
-  const dist = { 3: 0, 2: 0, 1: 0, 0: 0 };
-  nums.forEach(k => { dist[D[k].w ? D[k].s : 0]++; });
-  return { played, won, pct: played ? Math.round(won / played * 100) : 0, cur, best, dist, today: D[today] || null, random: s.random };
+const fmt = ms => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const EMPTY = { daily: { played: 0, won: 0, pct: 0, cur: 0, best: 0, dist: { 3: 0, 2: 0, 1: 0, 0: 0 }, today: null }, archive: { played: 0, won: 0 }, all: { played: 0, won: 0, pct: 0, avgMs: 0 } };
+function summary() {
+  try { return window.SiatkaHistory ? SiatkaHistory.summary() : EMPTY; } catch (_) { return EMPTY; }
 }
 
 function open() {
-  const m = summary(), max = Math.max(1, ...Object.values(m.dist));
+  const m = summary(), d = m.daily, max = Math.max(1, ...Object.values(d.dist));
   const row = (k, label) => {
-    const v = m.dist[k], here = m.today && (m.today.w ? m.today.s : 0) === +k;
+    const v = d.dist[k], here = d.today && (d.today.win ? d.today.stars : 0) === +k;
     return `<div class="st-row"><span class="st-k">${label}</span><span class="st-bar"><i class="${here ? "here" : ""}" style="width:${Math.max(v ? 8 : 0, v / max * 100)}%"></i></span><span class="st-v">${v}</span></div>`;
   };
-  $("statsCard").innerHTML = `<h3>Statystyki</h3><p class="sub">Sprawy dnia w tej przeglądarce.</p>
+  $("statsCard").innerHTML = `<h3>Statystyki</h3><p class="sub">Wyniki w tej przeglądarce.</p>
+    <div class="lbl">Sprawy dnia</div>
     <div class="st-grid">
-      <div><b>${m.played}</b><span>rozegrane</span></div><div><b>${m.pct}%</b><span>wygrane</span></div>
-      <div><b>${m.cur}</b><span>seria</span></div><div><b>${m.best}</b><span>rekord</span></div>
+      <div><b>${d.cur}</b><span>seria</span></div><div><b>${d.best}</b><span>rekord</span></div>
+      <div><b>${d.pct}%</b><span>wygrane</span></div><div><b>${d.played}</b><span>rozegrane</span></div>
     </div>
-    <div class="lbl">Gwiazdki</div>
+    <div class="lbl">Gwiazdki w sprawach dnia</div>
     ${row(3, "★★★")}${row(2, "★★☆")}${row(1, "★☆☆")}${row(0, "umorzone")}
-    <p class="stat">Sprawy z archiwum: rozwiązane ${m.random.won} z ${m.random.played}.</p>
+    <div class="lbl">Wszystkie sprawy</div>
+    <div class="st-grid three">
+      <div><b>${m.all.played}</b><span>rozegrane</span></div><div><b>${m.all.pct}%</b><span>wygrane</span></div>
+      <div><b>${m.all.avgMs ? fmt(m.all.avgMs) : "–"}</b><span>średni czas</span></div>
+    </div>
+    <p class="stat">Sprawy z archiwum: rozwiązane ${m.archive.won} z ${m.archive.played}.</p>
     <div class="foot"><button class="btn ghost" id="statsClose">Zamknij</button></div>`;
   $("stats").hidden = false;
   $("statsClose").onclick = () => { $("stats").hidden = true; };
   if (window.SiatkaTrack) SiatkaTrack("statystyki/otwarte", "Statystyki otwarte");
 }
-$("stats").addEventListener("click", e => { if (e.target.id === "stats") e.currentTarget.hidden = true; });
+const ov = $("stats");
+if (ov) ov.addEventListener("click", e => { if (e.target.id === "stats") e.currentTarget.hidden = true; });
 
-window.SiatkaStats = { record, summary, open };
+window.SiatkaStats = { summary, open };
 })();
 
 </script>
@@ -5519,18 +5633,15 @@ const KEY = "siatka-ach";
 const CITIES = 7, YEARS = 11, CRIMES = 4; // 7 miast, lata 1989–1999, 4 typy zbrodni
 
 /* ---------- stan ---------- */
-function statsSolved() { // statystyki zapisują każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
-  try {
-    const s = JSON.parse(localStorage.getItem("siatka-stats") || "null") || {};
-    return Object.values(s.daily || {}).filter(d => d.w).length + ((s.random || {}).won || 0);
-  } catch (_) { return 0; }
+function statsSolved() { // historia wyników zapisuje każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
+  try { return window.SiatkaHistory ? SiatkaHistory.summary().all.won : 0; } catch (_) { return 0; }
 }
 const fresh = () => ({ got: {}, cities: [], years: [], crimes: [] });
 function load() { try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || "null") || {}); } catch (_) { return fresh(); } }
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (_) {} }
 
 /* ---------- lista ---------- */
-const streak = () => (window.SiatkaStats ? SiatkaStats.summary().cur : 0);
+const streak = () => { try { return window.SiatkaHistory ? SiatkaHistory.summary().daily.cur : 0; } catch (_) { return 0; } };
 const ACH = [
   { id: "pierwsza", name: "Pierwsza sprawa", desc: "Zamknij pierwszą sprawę.", tier: 1, g: "lupa", ok: (i) => i.win },
   { id: "bez-pudla", name: "Bez pudła", desc: "Zamknij sprawę na trzy gwiazdki.", tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },

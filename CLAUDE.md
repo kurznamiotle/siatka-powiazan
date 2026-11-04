@@ -15,7 +15,8 @@ js/settings.js        okno Ustawienia (zębatka): Jak grać, Statystyki, dźwię
                       ekranu w nagłówku
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
 js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
-js/stats.js           seria i statystyki spraw dnia (localStorage)
+js/history.js         historia wyników (siatka-history), z niej liczą się wszystkie statystyki
+js/stats.js           okno Statystyki (seria, rekord, gwiazdki, wszystkie sprawy)
 js/shareimg.js        wynik jako obrazek PNG 1080×1350 (canvas) bez spoilerów
 js/achievements.js    osiągnięcia: lista, pikselowe odznaki, plansza z fanfarą (CSS w pliku)
 js/track.js           analityka GoatCounter: zdarzenia i powroty
@@ -137,7 +138,7 @@ Analityka: GoatCounter (https://kurznamiotle.goatcounter.com), bez ciasteczek i 
 
 Obrazek wyniku: przycisk „Zapisz obrazek” pod wynikiem. Nazwa gry, sprawa, miasto i rok, pieczątka, gwiazdki, czas, pomyłki, podpowiedzi, seria, adres. Tablica gracza jest pomniejszona, ze sznurkami i wykluczeniami, ale bez podpisów i portretów (zdjęcia zastępcze), a karty w rzędach są przetasowane, żeby z układu nie dało się odczytać sprawcy sprawy dnia. Obrazek rysuje się w tle zaraz po otwarciu wyniku, bo „Udostępnij” musi ruszyć od razu po stuknięciu. Telefon z udostępnianiem plików dostaje systemowe „Udostępnij”, reszta pobiera plik.
 
-Seria i statystyki: tylko sprawy dnia, zapis po numerze sprawy (`siatka-stats`). Sprawa dnia jeszcze nierozegrana nie przerywa serii. Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
+Historia wyników i statystyki: `js/history.js` (ładuje się przed `game.js`) trzyma w `siatka-history` jeden obiekt z polem `v` (format 1), gotowy do przeniesienia na konto gracza: `daily` (wszystkie sprawy dnia po numerze, liczy się pierwszy wynik), `archive` (ostatnie 500 spraw z archiwum po seedzie) i `totals` (archiwum łącznie: rozegrane, wygrane, suma czasu, liczba wyników z czasem; przycinanie listy ich nie rusza). Wpis: id, typ, wynik, czas, pomyłki, podpowiedzi, gwiazdki, wielkość, miasto, rok, wersja generatora, data. Statystyki zawsze liczą się z historii, nigdy z osobnego licznika. Zamknięty zapis postępu, którego nie ma w historii (wynik zapisała inna kopia gry), dopisuje się przy wczytaniu. Zapis z inną wersją generatora niż jego sprawa niczego nie dopisuje. Jednorazowa migracja (`migrated`) przenosi stare `siatka-stats` i zamknięte zapisy postępu, bez dublowania. Stare `siatka-stats` zostaje nietknięte. Seria i rekord liczą tylko sprawy dnia: kolejne rozwiązane, kończące się dziś albo wczoraj, a sprawa dnia jeszcze nierozegrana nie przerywa serii. Wynik pokazuje dwa wiersze: „Sprawy dnia” (seria, rekord, % wygranych, rozegrane) i „Wszystkie sprawy” (rozegrane, % wygranych, średni czas). Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
 
 Osiągnięcia: 18 odznak w trzech klasach (brąz, srebro, złoto), lista `ACH` w `js/achievements.js`, zapis w `siatka-ach` (zdobyte z datą + zebrane miasta, lata i typy zbrodni). Liczba rozwiązanych spraw i seria pochodzą z `siatka-stats`. Po zamkniętej sprawie `game.js` woła `SiatkaAch.onFinish(...)`, a nowe odznaki pokazują się kolejno na planszy (dźwięk `medal`, iskry, wibracja) nad wynikiem. Lista z postępem jest w Ustawieniach.
 

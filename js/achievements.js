@@ -15,18 +15,15 @@ const KEY = "siatka-ach";
 const CITIES = 7, YEARS = 11, CRIMES = 4; // 7 miast, lata 1989–1999, 4 typy zbrodni
 
 /* ---------- stan ---------- */
-function statsSolved() { // statystyki zapisują każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
-  try {
-    const s = JSON.parse(localStorage.getItem("siatka-stats") || "null") || {};
-    return Object.values(s.daily || {}).filter(d => d.w).length + ((s.random || {}).won || 0);
-  } catch (_) { return 0; }
+function statsSolved() { // historia wyników zapisuje każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
+  try { return window.SiatkaHistory ? SiatkaHistory.summary().all.won : 0; } catch (_) { return 0; }
 }
 const fresh = () => ({ got: {}, cities: [], years: [], crimes: [] });
 function load() { try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || "null") || {}); } catch (_) { return fresh(); } }
 function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (_) {} }
 
 /* ---------- lista ---------- */
-const streak = () => (window.SiatkaStats ? SiatkaStats.summary().cur : 0);
+const streak = () => { try { return window.SiatkaHistory ? SiatkaHistory.summary().daily.cur : 0; } catch (_) { return 0; } };
 const ACH = [
   { id: "pierwsza", name: "Pierwsza sprawa", desc: "Zamknij pierwszą sprawę.", tier: 1, g: "lupa", ok: (i) => i.win },
   { id: "bez-pudla", name: "Bez pudła", desc: "Zamknij sprawę na trzy gwiazdki.", tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
