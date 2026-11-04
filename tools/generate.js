@@ -15,23 +15,35 @@ const [, , a1, a2, city, year, size] = process.argv;
 if (a1 === "verify") {
   const c = JSON.parse(fs.readFileSync(a2, "utf8"));
   const r = S.solve(c);
-  console.log(JSON.stringify({ solutions: r.solutions, unique: r.unique, necessary: r.necessary, ok: r.ok }, null, 2));
+  console.log(JSON.stringify({ archetype: c.archetype || "classic", solutions: r.solutions, unique: r.unique, necessary: r.necessary, errors: r.errors, ok: r.ok }, null, 2));
   process.exit(r.ok ? 0 : 1);
 }
 const N = +a1 || 2000;
 const opts = { city: city || undefined, year: year ? +year : undefined, size: size || undefined };
 let fail = 0; const bad = [], out = [];
-const stats = { crime: {}, city: {}, size: {}, rules: {}, nodes: {} };
+const stats = { crime: {}, city: {}, size: {}, rules: {}, nodes: {}, archetype: {}, evKind: {} };
+const ev = {}; // wielkość → {n, sum, min, need}
+/* czy rozwiązanie wymaga faktu z dowodu: bez faktów z dowodów sprawa traci jedno, właściwe rozwiązanie */
+const fromEvidence = f => !!f.src || f.type === "evidence" || f.type === "mark";
+function needsEvidence(c) {
+  if (!c.nodes.some(n => n.type === "evidence")) return false;
+  const r = S.solve(c, { skip: fromEvidence });
+  return !(r.unique && r.solutions[0].culprit === c.solution.culprit && r.solutions[0].weapon === c.solution.weapon);
+}
 const inc = (o, k) => { o[k] = (o[k] || 0) + 1; };
 const t0 = Date.now();
 for (let i = 0; i < N; i++) {
   let c;
   try { c = S.generateCase(WORLD, "test-" + i, opts); } catch (e) { fail++; if (fail < 4) console.log(e.message); continue; }
   inc(stats.crime, c.crime); inc(stats.city, c.city); inc(stats.size, c.size); inc(stats.rules, c.rules.length + " reguł");
-  inc(stats.nodes, `${c.nodes.filter(n => n.type === "person").length} os. / ${c.nodes.filter(n => n.type === "item").length} dow.`);
+  inc(stats.nodes, `${c.nodes.filter(n => n.type === "person").length} os. / ${c.nodes.filter(n => n.type === "item").length} przedm.`);
+  inc(stats.archetype, c.archetype);
+  const nEv = c.nodes.filter(n => n.type === "evidence").length, e = ev[c.size] = ev[c.size] || { n: 0, sum: 0, min: 99, need: 0 };
+  e.n++; e.sum += nEv; e.min = Math.min(e.min, nEv); if (needsEvidence(c)) e.need++;
+  for (const x of c.facts.filter(x => x.type === "evidence")) inc(stats.evKind, x.kind);
   const allText = [c.title, c.intro, c.epilogue, c.quip, c.detective, ...c.rules.map(r => r.text), ...c.hints, ...c.why.map(w => w.join(" ")),
     ...c.nodes.flatMap(n => [n.kind, ...n.text])].join("\n");
-  const leftover = allText.match(/[\[\]{}]|undefined|null|NaN/g);
+  const leftover = allText.match(/[\[\]{}]|undefined|null|NaN|(?<!\.)\.\.(?!\.)/g); // też podwójna kropka
   if (leftover) bad.push([c.seed, leftover.slice(0, 5)]);
   out.push(c);
 }
@@ -42,11 +54,36 @@ console.log("Wielkości:", stats.size);
 console.log("Obsada:", stats.nodes);
 console.log("Reguły:", stats.rules);
 console.log("Zbrodnie:", stats.crime);
+console.log("Archetypy:", stats.archetype);
+console.log("Rodzaje dowodów:", stats.evKind);
+const all = Object.values(ev).reduce((a, e) => ({ n: a.n + e.n, sum: a.sum + e.sum, need: a.need + e.need }), { n: 0, sum: 0, need: 0 });
+console.log("Dowody rzeczowe:", Object.fromEntries(Object.entries(ev).map(([k, e]) => [k, `śr. ${(e.sum / e.n).toFixed(2)}, min ${e.min}, wymaga dowodu ${Math.round(100 * e.need / e.n)}%`])));
+const evAvg = all.sum / Math.max(1, all.n), needPct = 100 * all.need / Math.max(1, all.n);
+console.log(`Dowody razem: średnio ${evAvg.toFixed(2)} na sprawę, rozwiązanie wymaga dowodu w ${needPct.toFixed(1)}% spraw`);
+// progi z etapu 1: średnio min. 1 dowód, w XL min. 3, w co najmniej 60% spraw dowód jest potrzebny
+const evFail = all.n >= 200 && (evAvg < 1 || needPct < 60 || (ev.XL && ev.XL.min < 3));
+if (evFail) console.log("BŁĄD: dowody rzeczowe poniżej progów etapu 1");
 console.log("Unikalnych obsad:", new Set(out.map(c => c.nodes.filter(n => n.type === "person").map(n => n.name).sort().join())).size);
+/* opts.avoid: seria spraw z archiwum jak u gracza (okno ostatnich S.RECENT spraw).
+   Liczymy, jaka część imion, ról i scen nowej sprawy powtarza się z tego okna, bez avoid i z avoid. */
+function repeats(useAvoid, n = 300) {
+  const recent = [], hit = { names: [0, 0], roles: [0, 0], scenes: [0, 0] };
+  for (let i = 0; i < n; i++) {
+    const avoid = S.avoidFrom(recent);
+    const c = S.generateCase(WORLD, "seria-" + i, Object.assign({}, opts, useAvoid ? { avoid } : {}));
+    for (const k in hit) { const seen = new Set(avoid[k] || []); hit[k][0] += c.used[k].filter(x => seen.has(x)).length; hit[k][1] += c.used[k].length; }
+    recent.push(c.used); if (recent.length > S.RECENT) recent.shift();
+  }
+  return Object.fromEntries(Object.entries(hit).map(([k, [a, b]]) => [k, +(100 * a / b).toFixed(1)]));
+}
+const rep0 = repeats(false), rep1 = repeats(true);
+console.log(`Powtórki z ostatnich ${S.RECENT} spraw (%): bez avoid`, rep0, "· z avoid", rep1);
+const avoidFail = N >= 200 && Object.keys(rep1).some(k => rep1[k] > rep0[k]);
+if (avoidFail) console.log("BŁĄD: avoid nie zmniejsza powtórek");
 if (a2 === "out") {
   const dir = path.join(__dirname, "..", "cases", "generated");
   fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
   out.forEach((c, i) => fs.writeFileSync(path.join(dir, `gen_${String(i + 1).padStart(3, "0")}_${c.city}_${c.year}_${c.size}.json`), JSON.stringify(c, null, 2)));
   console.log("Zapisano do", dir);
 }
-if (fail || bad.length) process.exit(1);
+if (fail || bad.length || evFail || avoidFail) process.exit(1);

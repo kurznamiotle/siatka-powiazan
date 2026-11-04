@@ -132,9 +132,29 @@
     reel:   [E,"...aaaaaa...","..aabaabaa..",".aaaaaaaaaa.",".abaahhaaba.",".aaahwwhaaa.",".aaahwwhaaa.",".abaahhaaba.",".aaaaaaaaaa.","..aabaabaa..","...aaaaaa...",E]
   };
 
+  /* ---------------- IKONY DOWODÓW RZECZOWYCH ---------------- */
+  const PAPER = { w: "#e8dcc0", k: "#7a7468", r: "#b0423a" };
+  const EV = {
+    notebook: { rows: [E, "..bbbbbbbb..", "..bwwwwwwb..", "..bwkkkkwb..", "..bwwwwwwb..", "..bwkkkkwb..", "..bwwwwwwb..", "..bwkkkwwb..", "..bwwwwwwb..", "..bbbbbbbb..", E, E],
+                pal: { b: "#3e4a6b", w: PAPER.w, k: PAPER.k } },
+    keybook:  { rows: [E, ".bbbbbbbbb..", ".bwwwwwwwb..", ".bwwyywwwb..", ".bwyyyywwb..", ".bwwyywwwb..", ".bwwwyywwb..", ".bwwwyyywb..", ".bwwwyywwb..", ".bbbbbbbbb..", E, E],
+                pal: { b: "#6b4a2e", w: PAPER.w, y: "#c9a646" } },
+    card:     { rows: [E, "..wwwwwww...", "..wkkkkkw...", "..wwwwwww...", "..wkkkkww...", "..wwwwwww...", "..wkkkkkw...", "..wwwwwww...", "..wkkwwww...", "..wwwwwrw...", "..wwwwwww...", E],
+                pal: PAPER },
+    letter:   { rows: [E, E, ".wwwwwwwwww.", ".wkwwwwwwkw.", ".wwkwwwwkww.", ".wwwkwwkwww.", ".wwwwkkwwww.", ".wwwwwwwwww.", ".wwwwwwwwrw.", ".wwwwwwwwww.", E, E],
+                pal: PAPER },
+    ticket:   { rows: [E, E, E, ".pppppppppp.", ".pwwpwwwwwp.", ".ppppkkkkpp.", ".pwwpwwwwwp.", ".pppppppppp.", E, E, E, E],
+                pal: { p: "#c9a646", w: PAPER.w, k: "#5a4433" } },
+    receipt:  { rows: ["...wwwwww...", "...wkkkkw...", "...wwwwww...", "...wkkkww...", "...wwwwww...", "...wkkkkw...", "...wwwwww...", "...wkkwww...", "...wwwwww...", "...wwwwrw...", "...w.ww.w...", E],
+                pal: PAPER },
+    photo:    { rows: [E, ".wwwwwwwwww.", ".wbbbbbbbbw.", ".wbbbbbsbbw.", ".wbbbbsssbw.", ".wbbbbbsbbw.", ".wbbgggggbw.", ".wbgggggggw.", ".wwwwwwwwww.", ".wwwwwwwwww.", E, E],
+                pal: { w: "#eeeeee", b: "#5b7a99", s: "#e8c34a", g: "#4c6b3a" } }
+  };
+
   /* descriptor → {rows, pal} */
   function resolve(sp) {
     if (sp.kind === "portrait") return portrait(sp);
+    if (sp.kind === "ev") return EV[sp.icon] || EV.card;
     if (sp.kind === "loc") return LOC[sp.icon] || LOC.shop;
     if (sp.kind === "item") return { rows: SHAPES[sp.shape] || SHAPES.box, pal: sp.pal };
     return { rows: blank(), pal: {} };

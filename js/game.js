@@ -24,6 +24,16 @@ const ls = {
 /* Zapis postępu: osobno sprawa dnia i ostatnia losowa. Zapisujemy całą sprawę, nie tylko seed,
    żeby zmiana danych po deployu nie podmieniła graczowi rozpoczętej sprawy. */
 const SAVE = { daily: "siatka-save-daily", random: "siatka-save-random", last: "siatka-last" };
+/* Ostatnio użyte imiona, role, sceny i smaczki (pole `used` z ostatnich spraw). Sprawy z archiwum
+   i rozgrzewka dostają je jako opts.avoid, żeby się nie powtarzały. Sprawa dnia nigdy, bo ma być wspólna. */
+const RECENT_KEY = "siatka-recent";
+function rememberUsed(c) {
+  if (!c.used) return;
+  const list = (ls.get(RECENT_KEY) || []).filter(x => x && x.seed !== c.seed);
+  list.push(Object.assign({ seed: c.seed }, c.used));
+  ls.set(RECENT_KEY, list.slice(-Siatka.RECENT));
+}
+const recentAvoid = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).map(({ seed, ...u }) => u));
 /* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
    pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
    starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
@@ -83,7 +93,8 @@ function buildRich() {
   const parts = [
     "(?<t>\\d{1,2}:\\d{2})",
     ...(locs.size ? [`(?<l>${[...locs].sort((a, b) => b.length - a.length).map(esc).join("|")})`] : []),
-    "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek)",
+    // klucze i alibi, a do łączenia dowodów z teczkami: inicjały (B.S.) i numery mieszkań
+    "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek|\\p{Lu}\\.\\p{Lu}\\.|m\\. \\d+|(?:mieszkani\\p{L}*|numer\\p{L}*|spod) (?:nr )?\\d+)",
     "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)"
   ];
   RICH = new RegExp(`(?<![\\p{L}\\d])(?:${parts.join("|")})(?![\\p{L}\\d])`, "giu");
@@ -119,6 +130,7 @@ function load(c, label, meta, saved) {
   renderLives(); hideToast(); renderTabs(); renderSheet(); paintQuota();
   window.scrollTo(0, 0);
   saveNow(); paintDaily();
+  if (!saved) rememberUsed(c);
   if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
@@ -149,6 +161,7 @@ function rowsOf() {
   const P = of("person"), rows = [];
   if (P.length <= 4) rows.push(P); else { const h = Math.ceil(P.length / 2); rows.push(P.slice(0, h), P.slice(h)); }
   rows.push(of("location"), of("item"));
+  const E = of("evidence"); if (E.length) rows.push(E); // dowody rzeczowe: osobny rząd pod przedmiotami
   return rows;
 }
 /* Tablica dostaje wysokość z CSS (cała przestrzeń między nagłówkiem a szufladą).
@@ -367,14 +380,15 @@ function renderSheet(keep) {
     return;
   }
   if (!S.sel) {
-    const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length;
-    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni} ${ni > 4 ? "dowodów" : "dowody"} · ${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
+    const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
+    const evTxt = ne ? ` · ${ne} ${ne === 1 ? "dowód rzeczowy" : ne < 5 ? "dowody rzeczowe" : "dowodów rzeczowych"}` : "";
+    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni} ${ni > 4 ? "przedmiotów" : "przedmioty"}${evTxt} ·${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
       <p class="how">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>`;
     return;
   }
   const n = byId[S.sel];
   const linked = [...S.strings].filter(k => k.split("|").includes(n.id)).map(k => byId[k.split("|").find(x => x !== n.id)].label);
-  const canOut = n.type !== "location";
+  const canOut = n.type === "person" || n.type === "item";
   sheet.innerHTML = `<h2>${n.name}</h2><div class="kind">${n.kind}</div><ul>${n.text.map(f => `<li>${rich(f)}</li>`).join("")}</ul>
     <div class="row">${canOut ? `<button class="chip ${S.out.has(n.id) ? "on" : ""}" id="outBtn">${S.out.has(n.id) ? "Przywróć" : "Wyklucz"}</button>` : ""}
     <button class="chip" id="backBtn">Akta sprawy</button></div>
@@ -627,7 +641,7 @@ function warmupCase() {
   const sv = ls.get(SAVE.daily);
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
   if (sv && sv.case && sv.case.number === Siatka.dailyNumber()) return false; // sprawa dnia już zaczęta
-  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S" }), WARMUP, { kind: "random" });
+  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S", avoid: recentAvoid() }), WARMUP, { kind: "random" });
   return true;
 }
 
@@ -640,7 +654,7 @@ function newCase() {
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
-  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }), "Sprawa z archiwum", { kind: "random" });
+  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), "Sprawa z archiwum", { kind: "random" });
   paintQuota();
 }
 function dailyCase() {
