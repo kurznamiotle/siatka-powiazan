@@ -26,6 +26,7 @@ engine/engine.js      RNG z seedem, tekst, wspólny kontekst sprawy, rejestr arc
 engine/solver.js      ogólny solver (hipotezy archetypu × reguły) + biblioteka predykatów
                       (alibi, trait, window, key, fate, dump) + kontrola dowodów rzeczowych
 engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły
+engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
@@ -33,15 +34,19 @@ data/cities.js        paczki miast: Warszawa, Poznań, Kraków, Łódź, Gdańsk
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
 tools/generate.js     test generatora i zapis spraw do cases/generated/
 tools/bundle.js       skleja grę w jeden plik dist/siatka.html
+tools/freeze-version.js  zamraża generator z commita do engine/versions/
+tools/test-versions.js   test wersji: sprawy dnia z cases/fixtures/ muszą się zgadzać
 cases/                case_001.json (wzorzec) + generated/ (próbki do przeglądu)
+                      + fixtures/daily-<wersja>.json (skróty spraw dnia z wdrożonego kodu)
 ```
 
 Komendy:
-- `node tools/generate.js 2000` — generuje 2000 spraw (wszystkie miasta, lata i wielkości), każda sprawdzona solverem; raport + wyłapuje niewypełnione wstawki i podwójne kropki w tekście. Raportuje też archetypy, rodzaje dowodów rzeczowych, ich liczbę na wielkość, odsetek spraw, które bez dowodów tracą jedno rozwiązanie, i powtórki imion, ról i scen z `avoid` i bez. Kończy się błędem poniżej progów (średnio < 1 dowód, XL < 3, dowód potrzebny w < 60% spraw, `avoid` nie zmniejsza powtórek).
+- `node tools/generate.js 2000` — generuje 2000 spraw (wszystkie miasta, lata i wielkości), każda sprawdzona solverem; raport + wyłapuje niewypełnione wstawki i podwójne kropki w tekście. Raportuje też archetypy, rodzaje dowodów rzeczowych, ich liczbę na wielkość, odsetek spraw, które bez dowodów tracą jedno rozwiązanie, i powtórki imion, ról i scen z `avoid` i bez. Raportuje udział dokumentów, które obalają alibi, i kończy się błędem, gdy w sprawie z dowodami żaden dowód nie dotyczy niewinnego. Sprawdza też spójność treści: reguła o oknie bez informacji o czasie, cudze alibi zawodowe, zdanie niepasujące do wieku. Kończy się błędem przy niespójności albo poniżej progów (średnio < 1 dowód, XL < 3, dowód potrzebny w < 60% spraw, `avoid` nie zmniejsza powtórek).
 - `node tools/generate.js 12 out [miasto] [rok] [S|M|L|XL]` — zapisuje sprawy do `cases/generated/` do przeczytania, np. `12 out poznan 1993 XL`.
 - `node tools/bundle.js` — buduje `dist/siatka.html`.
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
-- `npm test` — 1000 spraw z generatora + weryfikacja `case_001.json`.
+- `npm test` — 1000 spraw z generatora + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
+- `node tools/freeze-version.js <commit> <wersja>` — zamraża generator z danego commita (patrz „Wersje generatora”).
 - `node tools/icons.js` — rysuje ikony PWA do `icons/`.
 - `node tools/og.js` — robi grafikę podglądu linku `icons/og.jpg` (1200×630) z `tools/og.html` (wymaga Chrome).
 
@@ -55,13 +60,24 @@ Komendy:
 - Miejsce ma `open`: zdania o tym, jak łatwo tam wejść, używane, gdy sprawa nie ma reguły o kluczach. Opisy w `desc` nie mogą wspominać o kłódkach i zamkach, bo kłóciłyby się z `open`.
 - Nowe miasto = nowy wpis w `data/cities.js` (formy gramatyczne dzielnicy, ulice w dopełniaczu, targ w trzech formach, zakład pracy jako „robotnik”, własne role i smaczki).
 - Imiona są w trzech pokoleniach (`names.m|f.old|mid|young`, ok. 80 na płeć). Rola ma `age` (jedno albo lista), z którego bierze się pula imion i kolor włosów (siwi starsi). Scena może mieć `vage` (wiek ofiary). Nowa rola bez `age` dostaje imię z dowolnego pokolenia.
+- Tekst z `ages:[…]` (np. w zdaniach cech i w `habits`) trafia tylko do postaci w tym wieku, np. emeryci bez firmowego Żuka i bez dorabiania na budowie.
+- Alibi zawodowe: wpis w `alibiConfirmed` z `roles:[…]` dostaje tylko pasująca rola (pielęgniarka: dyżur na izbie przyjęć, motorniczy: kurs tramwajem…). „Druga zmiana w zakładzie” ma `roles:["worker"]`, czyli tylko robotnik z miasta. Gdy rola ma własne alibi, wypada ono mniej więcej co drugi raz. Każda rola ma alibi zawodowe, a każde ma `debunk`. Do fałszywego alibi potrzebny jest `debunk` pasujący do tej pracy, a do dowodu `doc`.
+- Los przedmiotu ma `why`: zdanie bezosobowe do wyjaśnienia („ten przedmiot znaleziono…”, „tego przedmiotu do dziś nie odnaleziono”).
 - Rola ma `access` (miejsca, do których naturalnie ma klucz). Generator dobiera rolę do kluczy postaci, a gdy nie pasuje żadna, używa „zapasowego klucza od właściciela”.
 - Przedmiot ma `tags` (tepe, ostre, sznur, wlam, trucizna, ogien) i `origins` (miejsca). Typ zbrodni wybiera tag, a generator szuka tylu miejsc z pasującymi przedmiotami, ile dowodów ma sprawa. Każdy tag potrzebuje co najmniej 4 miejsc, inaczej nie wejdzie do dużych spraw.
-- Reguły w notatniku opisują ślad, a nie wniosek: „Na miejscu leżał świeży niedopałek.”, bez „Sprawca pali.”. Gracz sam wyciąga wniosek, ale musi być tylko jeden. Gdy sam ślad mógłby być czyjkolwiek, zdanie przypisuje go sprawcy („świeży odcisk podeszwy sprawcy, rozmiar 44”). Wniosek wprost może paść w podpowiedzi (`hint`) i w wyjaśnieniu na ekranie wyniku.
+- Reguły w notatniku opisują ślad, a nie wniosek: „Na miejscu leżał świeży niedopałek.”, bez „Sprawca pali.”. Gracz sam wyciąga wniosek, ale musi być tylko jeden. Skracając regułę, usuwaj tylko dopowiedzenie z wnioskiem, nigdy informacji potrzebnej do logiki: reguła o oknie czasowym zawsze mówi, że sprawca był na miejscu wtedy, gdy przedmiot znikał, a reguła o kluczu, że drzwi otworzył sam sprawca. Gdy sam ślad mógłby być czyjkolwiek, zdanie przypisuje go sprawcy („świeży odcisk podeszwy sprawcy, rozmiar 44”). Wniosek wprost może paść w podpowiedzi (`hint`) i w wyjaśnieniu na ekranie wyniku.
 - Cecha ma wartości, zdania-fakty na każdą wartość, tekst reguły, podpowiedź i powód eliminacji. Nowa cecha = wpis w `traits` + nazwa w `TRAITS` w `engine/archetypes/classic.js` + opis w `describeCulprit`. Ręka przy zabójstwie: `ruleMurder` (cios), `ruleStrangle` (sznur).
 - Dowody rzeczowe (treści): `evidence.presence` (zapiski obecności, `{t}` `{in}`), `evidence.keys` (książka kluczy, `{gen}` `{flat}`, tylko miejsca z `keyBookLocs`), `doc` na wpisach `alibiConfirmed` (dokument alibi, `{from}` `{to}`), `evidence` na cechach shoe, car, glasses, dog, smoker i jacket oraz `letters` na typach zbrodni (motyw). Wszędzie `{ini}` = inicjały właściciela. Do tego `flatTpl` (numer mieszkania w teczce), `alibiPaperTpl` (teczka, gdy alibi potwierdza dopiero dowód) i `keyBookNote`. Etykieta (`label`) jest krótka, bo idzie na polaroid. W jednej sprawie etykiety się nie powtarzają.
 
 ## Ustalenia, których się trzymamy
+
+- **Wersje generatora (gra ma stałych graczy).** Wydanie nie może zmienić bieżącej sprawy dnia. `GENERATOR_VERSIONS` w `engine/engine.js` podaje, od którego dnia (lokalna data sprawy dnia) obowiązuje każda wersja. `GEN_VERSION` to bieżący kod. Sprawa dnia bierze wersję ze swojego dnia (`versionFor`), a starsze wersje są zamrożone w `engine/versions/` i rejestrują się w `SiatkaLegacy`. Archiwum i rozgrzewka zawsze biorą bieżącą. Sprawa ma pole `gen` (sprawy sprzed wersjonowania nie mają go i liczą się jako 2.0). Zapis postępu ma `gen`. Zapis z inną wersją niż sprawa albo niż wersja na dziś gra pomija i zaczyna od świeżej sprawy, bez wywracania się. Synchronizacja kart (`sameCase`) też porównuje wersję. Jeśli zamrożony plik się nie wczyta, sprawa dnia pochodzi z bieżącego kodu (ostrzeżenie w konsoli).
+  **Nowe wydanie, krok po kroku:**
+  1. `node tools/freeze-version.js <wdrożony commit> <stara wersja>`
+  2. Wpis w `GENERATOR_VERSIONS` z `frozen` oraz nowa wersja z datą **najbliższej północy po wdrożeniu**, nigdy dzisiejszą. Gdy wdrożenie się opóźni, przesuń datę.
+  3. Podbij `GEN_VERSION`, dopisz plik do `index.html` i do `SHELL` w `sw.js`, podbij `VERSION` cache.
+  4. Wzorzec `cases/fixtures/daily-<stara>.json` z dniem wdrożenia (skrót sprawy dnia z wdrożonego kodu).
+  5. `npm test`.
 
 - **Tryb gracza vs deweloperski:** gracze dostają tylko losowe sprawy („Nowa sprawa” od razu generuje). Wybór miasta, roku i wielkości działa po dopisaniu `#dev` do adresu.
 - **Tempo dla nowych graczy:** wielkość losowej sprawy zależy od liczby ukończonych gier (sprawy dnia + losowe, z `siatka-stats`): gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L, od 11. pełna losowość (`rampSize` w `js/game.js`). Sprawa dnia zostaje wspólna dla wszystkich. Nowy gracz (0 gier), który trafi na dzień L/XL, dostaje najpierw „Sprawę na rozgrzewkę” (S, poza serią), a jej wynik prowadzi przyciskiem do sprawy dnia.
@@ -95,7 +111,7 @@ Generator buduje sprawę z ustrukturyzowanych faktów (`facts`), a cały tekst w
 6. Tekst: na start szablony z wariantami + ręcznie pisane pule „smaczków” na motyw (`flavor`). LLM, jeśli w ogóle, tylko offline do opisów, z ponowną weryfikacją, że tekst nie dodaje ani nie zmienia faktów. **LLM nigdy nie układa logiki.**
 7. Fakty w tekście nie mogą nazywać rozwiązania wprost (np. „to jest narzędzie zbrodni”).
 
-**Dowody rzeczowe (wydanie 2.1).** Węzeł `evidence` niesie jeden fakt strukturalny przeniesiony z teczki osoby albo z akt miejsca. Fakt dostaje `src` = id dowodu i znika z teczki. Właściciela wskazuje znak: inicjały (fakt `mark` kind `initials`, czytelne z nazwiska) albo numer mieszkania (`flat`, wtedy numer ma w teczce każdy podejrzany). Fakt `evidence {id, kind, owner, mark}` łączy dowód ze znakiem. Solver (`checkEvidence`) wymaga, żeby znak pasował do dokładnie jednej osoby. Liczba: S i M 1–2, L 2–3, XL 3–4 (`EV_COUNT`). Zwykle jeden dowód jest potrzebny do rozwiązania (fakt sprawcy albo alibi niewinnego), reszta to wabiki. Klucz trafia na dowód tylko wtedy, gdy jest zapasowy, bo klucz z urzędu zdradza rola. Dowody losują się z osobnego strumienia RNG (`seed/ev`). Na tablicy mają własny rząd pod przedmiotami. Sznurki osoba↔dowód i miejsce↔dowód są w `supported_connections`. Dowodu nie da się wykluczyć.
+**Dowody rzeczowe (wydanie 2.1).** Węzeł `evidence` niesie jeden fakt strukturalny przeniesiony z teczki osoby albo z akt miejsca. Fakt dostaje `src` = id dowodu i znika z teczki. Właściciela wskazuje znak: inicjały (fakt `mark` kind `initials`, czytelne z nazwiska) albo numer mieszkania (`flat`, wtedy numer ma w teczce każdy podejrzany). Fakt `evidence {id, kind, owner, mark}` łączy dowód ze znakiem. Solver (`checkEvidence`) wymaga, żeby znak pasował do dokładnie jednej osoby. Liczba: S i M 1–2, L 2–3, XL 3–4 (`EV_COUNT`). Zwykle jeden dowód jest potrzebny do rozwiązania (fakt sprawcy albo alibi niewinnego), reszta to wabiki. W ok. 30% spraw (`LIE_DOCS`) dokumenty alibi obalają alibi zamiast je potwierdzać: dostaje je ktoś bez alibi (sprawca albo niewinny odpadający z innej reguły), teczka podaje godziny z zeznania, a dokument inne godziny (fakt `alibi` z godzinami dokumentu, `lie: "hours"`; przy „ostatnim seansie” i nocnych zmianach godziny wypadają po zbrodni) albo inny dzień (`lie: "day"`, dopisek z `docOtherDay`, tylko w dokumentach bez „tamtego dnia/wieczoru”). Ton teczki jest ten sam co przy prawdziwym dokumencie. W każdej sprawie z dowodami co najmniej jeden dowód dotyczy niewinnego. Klucz trafia na dowód tylko wtedy, gdy jest zapasowy, bo klucz z urzędu zdradza rola. Dowody losują się z osobnego strumienia RNG (`seed/ev`). Na tablicy mają własny rząd pod przedmiotami. Sznurki osoba↔dowód i miejsce↔dowód są w `supported_connections`. Dowodu nie da się wykluczyć.
 
 **Archetypy.** Archetyp to moduł w `engine/archetypes/`, który rejestruje się przez `Siatka.register({id, name, minSize, weight, question, build(ctx), hypotheses(c), holds(rule, hyp, ix, c)})`. `build` dostaje od silnika wspólny kontekst (`context()`: RNG, miasto, rok, wielkość, `V`, `T`, `pickU`; kolejność losowań jest częścią formatu). Archetyp losuje się z wag z osobnego strumienia (`seed/arch`), z uwzględnieniem `minSize` (`opts.archetype` wymusza). Sprawa ma pola `archetype` i `question`. Stare nazwy w ręcznych sprawach obsługują `aliases`. Nowy plik archetypu dopisz do `index.html`, `SHELL` w `sw.js` i do `require` na końcu `engine.js`.
 

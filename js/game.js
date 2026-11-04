@@ -37,7 +37,16 @@ const recentAvoid = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).map(({ see
 /* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
    pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
    starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
-const sameCase = sv => !!(sv && sv.case && CASE && sv.case.seed === CASE.seed);
+const sameCase = sv => !!(sv && sv.case && CASE && sv.case.seed === CASE.seed && Siatka.caseVersion(sv.case) === Siatka.caseVersion(CASE));
+/* Wersja generatora jest zapisana razem z postępem (gen). Zapis, którego wersja nie zgadza się ze sprawą,
+   pomijamy: lepiej zacząć sprawę od nowa niż przywrócić sznurki do innej sprawy albo wywalić grę.
+   Zapisy sprzed wersjonowania nie mają gen, tak jak ich sprawy, więc obie strony liczą się jako 2.0. */
+const saveOk = sv => !!(sv && sv.case && Array.isArray(sv.case.nodes)) && (sv.gen || Siatka.caseVersion(sv.case)) === Siatka.caseVersion(sv.case);
+/* zapis dzisiejszej sprawy dnia, ale tylko z wersji generatora, która dziś obowiązuje */
+function todaySave() {
+  const sv = ls.get(SAVE.daily);
+  return saveOk(sv) && sv.case.number === Siatka.dailyNumber() && Siatka.caseVersion(sv.case) === Siatka.versionFor() ? sv : null;
+}
 function closedElsewhere() {
   if (!S || !META || S.done) return null;
   const sv = ls.get(SAVE[META.kind]);
@@ -52,7 +61,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -606,8 +615,8 @@ $("limit").addEventListener("click", e => { if (e.target.id === "limit") e.curre
 /* Znaczek na „Sprawa dnia”: ✓ rozwiązana, ✗ umorzona. Ze stanu zapisu dzisiejszej sprawy
    (zapasowo ze statystyk); po północy numer się zmienia i znaczek znika. */
 function dailyState() {
-  const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
-  if (sv && sv.case && sv.case.number === n && sv.done) return sv.win ? "win" : "lose";
+  const n = Siatka.dailyNumber(), sv = todaySave();
+  if (sv && sv.done) return sv.win ? "win" : "lose";
   const st = ((ls.get("siatka-stats") || {}).daily || {})[n];
   return st ? (st.w ? "win" : "lose") : null;
 }
@@ -638,9 +647,8 @@ function rampSize() {
    sprawę spoza serii. Sprawa dnia zostaje wspólna dla wszystkich i czeka pod przyciskiem. */
 const WARMUP = "Sprawa na rozgrzewkę";
 function warmupCase() {
-  const sv = ls.get(SAVE.daily);
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
-  if (sv && sv.case && sv.case.number === Siatka.dailyNumber()) return false; // sprawa dnia już zaczęta
+  if (todaySave()) return false; // sprawa dnia już zaczęta
   load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S", avoid: recentAvoid() }), WARMUP, { kind: "random" });
   return true;
 }
@@ -658,20 +666,22 @@ function newCase() {
   paintQuota();
 }
 function dailyCase() {
-  const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
+  const n = Siatka.dailyNumber(), sv = todaySave();
   const label = `Sprawa #${String(n).padStart(3, "0")}`;
   /* Statystyki mówią, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
      gry): zamykamy ją z wynikiem ze statystyk. Sprawy dnia nie da się rozegrać drugi raz. */
   const st = ((ls.get("siatka-stats") || {}).daily || {})[n]; // stats.js ładuje się później, więc czytamy wprost
-  if (st && sv && sv.case && sv.case.number === n && !sv.done) {
-    Object.assign(sv, { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 });
+  const closed = st && { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 };
+  if (sv) {
+    if (closed && !sv.done) Object.assign(sv, closed);
+    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn("Zapis sprawy dnia pominięty", e); }
   }
-  if (sv && sv.case && sv.case.number === n) return load(sv.case, label, { kind: "daily" }, sv);
-  load(Siatka.dailyCase(WORLD), label, { kind: "daily" });
+  // brak pasującego zapisu: świeża sprawa; rozegrana już (wg statystyk) wraca od razu zamknięta
+  load(Siatka.dailyCase(WORLD), label, { kind: "daily" }, closed || undefined);
 }
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
-  if (!sv || !sv.case || sv.done) return false;
+  if (!saveOk(sv) || sv.done) return false;
   try { load(sv.case, sv.label || "Sprawa z archiwum", { kind: "random" }, sv); return true; } catch (_) { return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
@@ -705,7 +715,7 @@ window.addEventListener("load", () => { if (window.SiatkaHowto && !window.Siatka
 function caseInfo() {
   if (!CASE || !S) return "";
   const st = S.done ? (S.win ? "rozwiązana" : "umorzona") : "w trakcie";
-  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
+  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · generator ${Siatka.caseVersion(CASE)} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
 }
 window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
 })();

@@ -21,7 +21,8 @@ if (a1 === "verify") {
 const N = +a1 || 2000;
 const opts = { city: city || undefined, year: year ? +year : undefined, size: size || undefined };
 let fail = 0; const bad = [], out = [];
-const stats = { crime: {}, city: {}, size: {}, rules: {}, nodes: {}, archetype: {}, evKind: {} };
+const stats = { crime: {}, city: {}, size: {}, rules: {}, nodes: {}, archetype: {}, evKind: {}, alibiDoc: {} };
+const noInnocentEv = []; // sprawy, w których wszystkie dowody dotyczą sprawcy
 const ev = {}; // wielkość → {n, sum, min, need}
 /* czy rozwiązanie wymaga faktu z dowodu: bez faktów z dowodów sprawa traci jedno, właściwe rozwiązanie */
 const fromEvidence = f => !!f.src || f.type === "evidence" || f.type === "mark";
@@ -31,6 +32,21 @@ function needsEvidence(c) {
   return !(r.unique && r.solutions[0].culprit === c.solution.culprit && r.solutions[0].weapon === c.solution.weapon);
 }
 const inc = (o, k) => { o[k] = (o[k] || 0) + 1; };
+/* Spójność treści: reguła o oknie mówi o czasie, alibi zawodowe pasuje do roli, zdania z `ages` do wieku. */
+const B = WORLD.base;
+const stem = (t, g) => S.tx(t, g).split(/[{]/)[0].trim(); // stały początek zdania, bez wstawek
+const workAlibi = B.alibiConfirmed.filter(a => a.roles);
+const aged = [...Object.values(B.traits).flatMap(t => t.facts ? (Array.isArray(t.facts) ? t.facts : Object.values(t.facts).flat()) : []),
+  ...Object.values(B.habits).flat()].filter(o => typeof o === "object" && o.ages);
+const incoherent = [];
+function coherence(c) {
+  for (const r of c.rules) if (r.type === "window" && !/gdy [^.]*znika/.test(r.text)) incoherent.push([c.seed, "okno bez czasu: " + r.text]);
+  c.nodes.filter(n => n.type === "person").forEach((n, k) => {
+    const role = c.used.roles[k], txt = n.text.join(" ");
+    for (const a of workAlibi) if (!a.roles.includes(role) && txt.includes(stem(a.text, n.g))) incoherent.push([c.seed, `${role} z cudzym alibi: ${stem(a.text, n.g)}`]);
+    for (const o of aged) if (!o.ages.includes(n.age) && txt.includes(stem(o.t, n.g))) incoherent.push([c.seed, `${n.age}: ${o.t}`]);
+  });
+}
 const t0 = Date.now();
 for (let i = 0; i < N; i++) {
   let c;
@@ -40,13 +56,18 @@ for (let i = 0; i < N; i++) {
   inc(stats.archetype, c.archetype);
   const nEv = c.nodes.filter(n => n.type === "evidence").length, e = ev[c.size] = ev[c.size] || { n: 0, sum: 0, min: 99, need: 0 };
   e.n++; e.sum += nEv; e.min = Math.min(e.min, nEv); if (needsEvidence(c)) e.need++;
-  for (const x of c.facts.filter(x => x.type === "evidence")) inc(stats.evKind, x.kind);
+  for (const x of c.facts.filter(x => x.type === "evidence")) { inc(stats.evKind, x.kind); if (x.kind === "alibi") inc(stats.alibiDoc, x.lie ? "obala (" + x.lie + ")" : "potwierdza"); }
+  const evF = c.facts.filter(x => x.type === "evidence");
+  if (evF.length && evF.every(x => x.owner === c.solution.culprit)) noInnocentEv.push(c.seed);
   const allText = [c.title, c.intro, c.epilogue, c.quip, c.detective, ...c.rules.map(r => r.text), ...c.hints, ...c.why.map(w => w.join(" ")),
     ...c.nodes.flatMap(n => [n.kind, ...n.text])].join("\n");
   const leftover = allText.match(/[\[\]{}]|undefined|null|NaN|(?<!\.)\.\.(?!\.)/g); // też podwójna kropka
   if (leftover) bad.push([c.seed, leftover.slice(0, 5)]);
+  coherence(c);
   out.push(c);
 }
+console.log(`Niespójności treści (okno bez czasu, cudze alibi zawodowe, zdanie nie na wiek): ${incoherent.length}`);
+if (incoherent.length) console.log(incoherent.slice(0, 5));
 console.log(`Wygenerowano ${N - fail}/${N} spraw w ${Date.now() - t0} ms. Błędów generatora: ${fail}. Spraw z niewypełnionym tekstem: ${bad.length}`);
 if (bad.length) console.log(bad.slice(0, 5));
 console.log("Miasta:", stats.city);
@@ -56,6 +77,9 @@ console.log("Reguły:", stats.rules);
 console.log("Zbrodnie:", stats.crime);
 console.log("Archetypy:", stats.archetype);
 console.log("Rodzaje dowodów:", stats.evKind);
+const ad = stats.alibiDoc, adAll = Object.values(ad).reduce((a, b) => a + b, 0), adLie = adAll - (ad.potwierdza || 0);
+console.log(`Dokumenty alibi: ${JSON.stringify(ad)}, obalają ${(100 * adLie / Math.max(1, adAll)).toFixed(1)}%`);
+console.log(`Sprawy z dowodami, w których żaden dowód nie dotyczy niewinnego: ${noInnocentEv.length}`);
 const all = Object.values(ev).reduce((a, e) => ({ n: a.n + e.n, sum: a.sum + e.sum, need: a.need + e.need }), { n: 0, sum: 0, need: 0 });
 console.log("Dowody rzeczowe:", Object.fromEntries(Object.entries(ev).map(([k, e]) => [k, `śr. ${(e.sum / e.n).toFixed(2)}, min ${e.min}, wymaga dowodu ${Math.round(100 * e.need / e.n)}%`])));
 const evAvg = all.sum / Math.max(1, all.n), needPct = 100 * all.need / Math.max(1, all.n);
@@ -86,4 +110,4 @@ if (a2 === "out") {
   out.forEach((c, i) => fs.writeFileSync(path.join(dir, `gen_${String(i + 1).padStart(3, "0")}_${c.city}_${c.year}_${c.size}.json`), JSON.stringify(c, null, 2)));
   console.log("Zapisano do", dir);
 }
-if (fail || bad.length || evFail || avoidFail) process.exit(1);
+if (fail || bad.length || evFail || avoidFail || incoherent.length || noInnocentEv.length) process.exit(1);

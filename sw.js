@@ -2,8 +2,8 @@
  * Pliki gry: najpierw sieć (świeża wersja po każdym deployu), a gdy jej nie ma albo odpowiada dłużej niż 3 s, kopia z cache.
  * Fonty Google: najpierw cache (nie zmieniają się).
  * Nowy plik gry? Dopisz go do SHELL i podbij VERSION. */
-const VERSION = "siatka-v8";
-const SHELL = ["./", "index.html", "js/game.js", "js/audio.js", "js/tutorial.js", "js/track.js", "js/stats.js", "js/achievements.js", "js/settings.js", "js/shareimg.js", "engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/sprites.js",
+const VERSION = "siatka-v9";
+const SHELL = ["./", "index.html", "js/game.js", "js/audio.js", "js/tutorial.js", "js/track.js", "js/stats.js", "js/achievements.js", "js/settings.js", "js/shareimg.js", "engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/versions/v2_0.js", "engine/sprites.js",
   "data/base.js", "data/cities.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 const FONTS = "siatka-fonts";
 

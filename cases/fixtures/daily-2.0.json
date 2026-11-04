@@ -1,0 +1,19 @@
+{
+  "note": "Sprawy dnia wygenerowane wdrożonym kodem 0879423 (wersja 2.0), zanim powstało wersjonowanie. Nowy kod musi dawać dla tych dni dokładnie to samo.",
+  "version": "2.0",
+  "commit": "0879423",
+  "days": [
+    {
+      "date": "2026-11-03",
+      "number": 1,
+      "title": "Magnetowid z Lendziona",
+      "sha1": "a4b9e1eb6bb986fc89ec9d047b52c48fe771827e"
+    },
+    {
+      "date": "2026-11-04",
+      "number": 2,
+      "title": "Gołębie z Drewnowskiej",
+      "sha1": "b2dfe6a97e5c5052dbf9574d561993f1cf1aabbe"
+    }
+  ]
+}

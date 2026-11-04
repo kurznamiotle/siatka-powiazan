@@ -15,8 +15,11 @@
   /* d = narzędzie porzucono tam, gdzie sprawca bywa codziennie (łączy akta przedmiotu z aktami osoby) */
   const ITEM_PATTERNS = ["wk", "wk", "w", "k", "wf", "kf", "wd", "kd", "wd", "wkd"];
   const DUMP = ["smietnik", "tory", "park", "budowa", "bazar"];
+  /* teksty z `ages` tylko dla postaci w tym wieku (np. emeryci bez firmowego Żuka) */
+  const ofAge = (list, age) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || !o.ages || !age || o.ages.includes(age));
   /* ile dowodów rzeczowych [min, max] na wielkość sprawy */
   const EV_COUNT = { S: [1, 2], M: [1, 2], L: [2, 3], XL: [3, 4] };
+  const LIE_DOCS = 0.3; // szansa, że dokumenty alibi w sprawie obalają alibi zamiast je potwierdzać
 
   function build(ctx) {
     /* 0. Wspólny kontekst z silnika: miasto, rok, wielkość, wstawki i teksty */
@@ -264,13 +267,14 @@
     const ini = Pp => `${Pp.first.charAt(0)}.${Pp.last.charAt(0)}.`;
     const evs = [];
     {
-      const [lo, hi] = EV_COUNT[sizeKey], want = RE.int(lo, hi);
+      const [lo, hi] = EV_COUNT[sizeKey]; let want = RE.int(lo, hi);
       const iniN = {}; persons.forEach(Pp => { iniN[ini(Pp)] = (iniN[ini(Pp)] || 0) + 1; });
       const iniOk = Pp => iniN[ini(Pp)] === 1;
       const byPid = Object.fromEntries(persons.map(Pp => [Pp.id, Pp]));
       const wLocId = LOCS[locOf[wIdx]].id;
       const ruleTraits = new Set(rules.filter(r => r.type === "trait").map(r => r.trait));
-      const alibiDocs = B.alibiConfirmed.filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
+      // w części spraw dokument alibi obala alibi zamiast je potwierdzać (ton teczki jest ten sam)
+      const lieMode = RE.chance(LIE_DOCS);
       const cands = [];
       for (const f of facts) {
         const Pp = byPid[f.who]; if (!Pp) continue;
@@ -281,8 +285,12 @@
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
           cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
-        else if (f.type === "alibi" && f.confirmed && !Pp.s.fakeAlibi && iniOk(Pp))
-          cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: alibiDocs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
+        else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
+          const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
+          // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
+          if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
+          else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
+        }
         else if (f.type === "trait" && ruleTraits.has(f.trait) && iniOk(Pp) && (f.trait === "shoe" || f.value === "yes")) {
           const defs = f.trait === "motive" ? crime.letters : B.traits[f.trait].evidence;
           if (defs) cands.push({ kind: "trait:" + f.trait, f, Pp, li: -1, mark: "initials", defs, ess: isC });
@@ -304,16 +312,41 @@
       if (ess.length && RE.chance(.9)) take(ess[0], false);
       const rest = RE.shuffle(cands);
       for (const strict of [true, false]) for (const c of rest) take(c, strict);
+      // co najmniej jeden dowód dotyczy niewinnego: gdy wszystkie są sprawcy, ostatni ustępuje miejsca
+      const innocentEv = () => evs.some(c => c.Pp.idx !== cIdx);
+      if (evs.length && !innocentEv()) {
+        if (evs.length >= hi && evs.length > 1) { const d = evs.pop(); labels.delete(d.def.label); per[d.Pp.id]--; if (d.kind === "keys") keyLocs.delete(d.li); }
+        want = Math.max(want, evs.length + 1);
+        for (const c of rest) { if (c.Pp.idx !== cIdx) take(c, false); if (innocentEv()) break; }
+        if (!innocentEv()) return null;
+      }
       if (evs.length < lo) return null;
+      // dokument, który obala alibi: fakt alibi dostaje godziny z dokumentu (nie pokrywają zbrodni)
+      // albo zostaje niepotwierdzony, a dokument jest z innego dnia; teczka podaje godziny z zeznania
+      for (const c of evs.filter(c => c.lie)) {
+        c.claim = { from: c.f.from, to: c.f.to };
+        c.lie = !/tamt/.test(c.def.text.join(" ")) && RE.chance(.4) ? "day" : "hours";
+        if (c.lie === "hours") {
+          const [a, b] = crimeWin, span = RE.int(6, 14) * 5;
+          // „ostatni seans”, „nocna zmiana”: godziny po zbrodni, bo przed nią brzmiałyby nieprawdopodobnie
+          const late = /ostatni|nocn/.test(c.def.text.join(" ") + c.def.alibi.text);
+          const from = !late && RE.chance(.6) ? a - RE.int(2, 6) * 5 - span : b + RE.int(1, 4) * 5;
+          Object.assign(c.f, { from: toHM(from), to: toHM(from + span), confirmed: true });
+        } else c.f.day = "other";
+        c.otherDay = c.lie === "day" ? RE.pick(B.docOtherDay) : null;
+      }
       evs.forEach((c, k) => { c.id = "ev" + (k + 1); c.f.src = c.id; });
       if (evs.some(c => c.mark === "initials")) persons.forEach(Pp => facts.push({ type: "mark", who: Pp.id, kind: "initials", value: ini(Pp) }));
       if (evs.some(c => c.mark === "flat")) {
         const nums = RE.sample([...Array(44).keys()].map(x => x + 2), persons.length);
         persons.forEach((Pp, i) => { Pp.flat = nums[i]; facts.push({ type: "mark", who: Pp.id, kind: "flat", value: String(nums[i]) }); });
       }
-      for (const c of evs) facts.push({ type: "evidence", id: c.id, kind: c.kind, owner: c.Pp.id,
+      for (const c of evs) facts.push({ type: "evidence", id: c.id, kind: c.kind, owner: c.Pp.id, ...(c.lie ? { lie: c.lie } : {}),
         mark: { kind: c.mark, value: c.mark === "flat" ? String(c.Pp.flat) : ini(c.Pp) } });
     }
+    // alibi zawodowe (pole roles) tylko dla pasującej roli, reszta dla każdego
+    function alibisFor(Pp) { return A(B.alibiConfirmed).filter(a => !a.roles || a.roles.includes(Pp.role.id)); }
+    const usedAlibi = [];
     const evOf = (Pp, kind, test) => evs.find(c => c.Pp === Pp && c.kind === kind && (!test || test(c.f)));
 
     /* 9. Reguły: kolejność i teksty */
@@ -342,26 +375,31 @@
       const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
       const evAl = evOf(Pp, "alibi");
       if (evAl) { // alibi potwierdza dopiero dowód rzeczowy
-        text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: al.from, to: al.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
+        const said = evAl.claim || al; // przy dokumencie, który obala alibi, teczka podaje godziny z zeznania
+        text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: said.from, to: said.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
+        usedAlibi.push(evAl.def.alibi.text);
       }
       else if (al.confirmed) {
-        const a = s.fakeAlibi ? pickU(B.alibiConfirmed.filter(x => x.debunk)) : pickU(B.alibiConfirmed);
+        // alibi z pracy tylko dla pasującej roli; zawodowe wybieramy mniej więcej co drugi raz, gdy rola je ma
+        const pool = alibisFor(Pp).filter(x => !s.fakeAlibi || x.debunk), own = pool.filter(x => x.roles);
+        const a = pickU(own.length && R.chance(.5) ? own : pool);
+        usedAlibi.push(a.text);
         text.push(T(`Od ${al.from} do ${al.to} ${a.text}.`, g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
         if (s.fakeAlibi) debunks.push({ who: Pp.idx, line: a.debunk });
       }
       else text.push(T(pickU(B.claimFrame).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
-      for (const r of rules.filter(r => r.type === "trait")) if (!evOf(Pp, "trait:" + r.trait)) text.push(traitFact(B, crime, pickU, r.trait, s.traits[r.trait], g, year, T));
-      if (hasD || R.chance(.25)) text.push(T(pickU(B.habits[s.traits.habit]), g));
+      for (const r of rules.filter(r => r.type === "trait")) if (!evOf(Pp, "trait:" + r.trait)) text.push(traitFact(B, crime, pickU, r.trait, s.traits[r.trait], g, year, T, Pp.age));
+      if (hasD || R.chance(.25)) text.push(T(pickU(avail(ofAge(B.habits[s.traits.habit], Pp.age), year)), g));
       const nTraitRules = rules.filter(r => r.type === "trait").length;
       const decoy = R.pick(TRAITS.filter(t => t !== "motive" && !rules.some(r => r.trait === t)));
-      if (decoy && nTraitRules < 3 && R.chance(.6)) text.push(traitFact(B, crime, pickU, decoy, s.traits[decoy], g, year, T));
+      if (decoy && nTraitRules < 3 && R.chance(.6)) text.push(traitFact(B, crime, pickU, decoy, s.traits[decoy], g, year, T, Pp.age));
       // motyw jako tło: gdy nie jest regułą, część osób z motywem dostaje podejrzane zdanie
       if (!motiveRule && s.traits.motive === "yes" && (Pp.idx !== cIdx || R.chance(.5))) text.push(T(pickU(crime.suspicion), g));
       else {
         const l = R.chance(.5) ? fresh(A(Pp.role.flavor || [])) : flavorPool.find(x => !usedLines.has(x));
         if (l && R.chance(nTraitRules >= 3 ? .6 : .85)) { usedLines.add(l); text.push(T(l, g)); }
       }
-      nodes.push({ id: Pp.id, type: "person", g, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
+      nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
     });
     for (const d of debunks) {
       const others = nodes.filter(n => n.type === "person" && n.id !== persons[d.who].id);
@@ -393,7 +431,7 @@
       const loc = c.li >= 0 ? LOCS[c.li] : null, f = c.f;
       const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && loc.in, gen: loc && loc.gen, from: f.from, to: f.to, v: f.value };
       nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: "Dowód rzeczowy", sprite: { kind: "ev", icon: c.def.icon },
-        text: c.def.text.map(x => T(x, c.Pp.g, vars).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) }); // „M.M..” → „M.M.”
+        text: [...c.def.text, ...(c.otherDay ? [c.otherDay] : [])].map(x => T(x, c.Pp.g, vars).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) }); // „M.M..” → „M.M.”
     }
 
     /* 11. Połączenia zgodne z faktami, obwód sprawcy */
@@ -418,12 +456,13 @@
     if (evs.some(c => c.ess)) hints.splice(RE.int(0, 2), 0, evs.some(c => c.mark === "flat")
       ? "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób."
       : "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
+    if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.");
     hints = hints.slice(0, 3);
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
     });
-    why.push([C0.first, T(`spełnia wszystkie reguły: ${describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""))}.`, C0.s.g)]);
+    why.push([C0.first, T(`spełnia wszystkie reguły: ${describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie)}.`, C0.s.g)]);
     if (evs.length) {
       const owners = evs.map(c => `${c.def.name.toLowerCase()} (${c.mark === "flat" ? "m. " + c.Pp.flat : ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`);
       why.push([evs.length > 1 ? "Dowody rzeczowe:" : "Dowód rzeczowy:", owners.join("; ") + "."]);
@@ -455,7 +494,7 @@
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: I[wIdx].name,
       // co ta sprawa zużyła z pul treści: gra zapamiętuje to i podaje kolejnym sprawom z archiwum jako opts.avoid
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
-        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines] }
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines], alibi: usedAlibi }
     };
   }
 
@@ -474,10 +513,10 @@
     const tpl = pickL(Array.isArray(def.rule) || typeof def.rule === "string" ? def.rule : def.rule[r.value]);
     return cap(T(tpl, "m", { v: r.value, where: scene.where }));
   }
-  function traitFact(B, crime, pickU, trait, value, g, year, T) {
+  function traitFact(B, crime, pickU, trait, value, g, year, T, age) {
     const def = B.traits[trait];
     if (def.fromCrime) return T(pickU(value === "yes" ? crime.suspicion : crime.noMotive), g);
-    const list = avail(Array.isArray(def.facts) ? def.facts : def.facts[value], year);
+    const list = avail(ofAge(Array.isArray(def.facts) ? def.facts : def.facts[value], age), year);
     return T(pickU(list), g, { v: value });
   }
   function hintText(B, r, n, a, b, hasW) {
@@ -497,16 +536,18 @@
       return T(`${hasK ? `ma klucz do ${loc.gen}, ale ` : ""}[był|była] ${loc.in} o ${toHM(p.t)}, poza czasem zniknięcia dowodów (reguła ${n}).`, g);
     }
     if (r.type === "key") return T(`[był|była] ${loc.in}${hasW ? " we właściwym czasie" : ""}, ale nie ma klucza (reguła ${n}).`, g);
-    if (r.type === "fate") return T(`[mógł|mogła] zabrać ${item.acc}, ale ${T(B.fates[itemFate].item, item.g).replace(/\.$/, "").toLowerCase()}, a to nie zgadza się z regułą ${n}.`, g);
+    if (r.type === "fate") return T(`[mógł|mogła] zabrać ${item.acc}, ale ${T(B.fates[itemFate].why, g)}, a to nie zgadza się z regułą ${n}.`, g);
     const def = B.traits[r.trait];
     const wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
     return T(`${wf} (reguła ${n}).`, g, { v: Pp.s.traits[r.trait] });
   }
-  function describeCulprit(B, rules, loc, hasW, hasK, useAlibi, fake, dumpPlace) {
+  function describeCulprit(B, rules, loc, hasW, hasK, useAlibi, fake, dumpPlace, lie) {
     const bits = [];
     if (hasK) bits.push(`ma klucz do ${loc.gen}`);
     if (hasW) bits.push(`[był|była] ${loc.in} we właściwym czasie`);
-    if (useAlibi) bits.push(fake ? "[jego|jej] alibi okazało się kłamstwem" : "nie ma alibi");
+    if (useAlibi) bits.push(fake ? "[jego|jej] alibi okazało się kłamstwem"
+      : lie === "hours" ? "[jego|jej] papiery pokazują inne godziny niż zeznanie, więc nie ma alibi"
+      : lie === "day" ? "[jego|jej] papiery są z innego dnia, więc nie ma alibi" : "nie ma alibi");
     for (const r of rules.filter(r => r.type === "trait")) {
       const w = B.traits[r.trait].why;
       bits.push(typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]);

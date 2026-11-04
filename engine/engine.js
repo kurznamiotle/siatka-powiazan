@@ -151,7 +151,7 @@
     for (let attempt = 0; attempt < 200; attempt++) {
       const c = Arch.build(context(world, `${seed}#${attempt}`, opts));
       if (!c) continue;
-      c.archetype = Arch.id; c.question = c.question || Arch.question;
+      c.archetype = Arch.id; c.question = c.question || Arch.question; c.gen = GEN_VERSION;
       const res = solve(c);
       if (res.ok) { c.seed = String(seed); c.verify = { solutions: res.solutions.length, necessary: res.necessary }; return c; }
     }
@@ -167,11 +167,43 @@
     return Math.floor((d - EPOCH) / 86400000) + 1;
   }
   const dailySize = (date = new Date()) => WEEK_SIZES[date.getDay()];
+  /* ---------------- wersje generatora ----------------
+     Sprawa dnia ma być taka sama dla wszystkich i nie może się zmienić w trakcie dnia, więc każda
+     wersja generatora obowiązuje od podanego dnia (lokalna data sprawy dnia, RRRR-MM-DD).
+     Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
+     w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
+     północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
+  const GEN_VERSION = "2.1";
+  const GENERATOR_VERSIONS = [
+    { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
+    { id: "2.1", from: "2026-11-05" }                                      // bieżący kod
+  ];
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function versionFor(date = new Date()) {
+    const day = ymd(date); let v = GENERATOR_VERSIONS[0].id;
+    for (const x of GENERATOR_VERSIONS) if (x.from <= day) v = x.id;
+    return v;
+  }
+  function legacy(id) {
+    const L = root.SiatkaLegacy && root.SiatkaLegacy[id];
+    if (L) return L;
+    const meta = GENERATOR_VERSIONS.find(x => x.id === id);
+    if (meta && meta.frozen && typeof module !== "undefined" && module.exports) { require("../" + meta.frozen); return root.SiatkaLegacy && root.SiatkaLegacy[id]; }
+    return null;
+  }
   function dailyCase(world, date = new Date()) {
-    const n = dailyNumber(date);
+    const n = dailyNumber(date), ver = versionFor(date);
+    if (ver !== GEN_VERSION) {
+      const L = legacy(ver);
+      if (L) { const c = L.dailyCase(date); c.gen = ver; return c; }
+      // brak zamrożonej wersji (np. plik się nie wczytał): lepsza inna sprawa niż wywalona gra
+      if (typeof console !== "undefined") console.warn("Brak generatora w wersji " + ver + ", sprawa dnia z wersji " + GEN_VERSION);
+    }
     const c = generateCase(world, "daily-" + n, { size: dailySize(date) });
     c.number = n; return c;
   }
+  /* wersja generatora, z której pochodzi sprawa (sprawy sprzed wersjonowania nie mają pola gen) */
+  const caseVersion = c => (c && c.gen) || GENERATOR_VERSIONS[0].id;
 
   /* pola `used` z ostatnich spraw gracza → opts.avoid (imiona, nazwiska, role, sceny, smaczki).
      Sprawa dnia nigdy nie dostaje avoid, żeby była taka sama dla wszystkich. */
@@ -183,7 +215,8 @@
   }
 
   const util = { hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money };
-  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT };
+  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
+    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
