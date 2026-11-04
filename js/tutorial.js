@@ -235,7 +235,7 @@ function render() {
   const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
   box.hidden = !(withInstall && last && I && I.available());
   if (!box.hidden) {
-    box.innerHTML = I.ios ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
+    box.innerHTML = !I.canPrompt() ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
       : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
     const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
   }

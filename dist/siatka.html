@@ -3342,7 +3342,7 @@ function render() {
   const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
   box.hidden = !(withInstall && last && I && I.available());
   if (!box.hidden) {
-    box.innerHTML = I.ios ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
+    box.innerHTML = !I.canPrompt() ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
       : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
     const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
   }
@@ -3669,7 +3669,7 @@ const installed = () => matchMedia("(display-mode: standalone), (display-mode: f
 let deferred = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; refresh(); });
 window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); paintFs(); });
-const available = () => !installed() && (!!deferred || ios);
+const available = () => !installed() && (!!deferred || !!hint());
 async function run(where) {
   if (deferred) {
     const d = deferred; deferred = null;
@@ -3681,7 +3681,20 @@ async function run(where) {
   return false;
 }
 const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
-window.SiatkaInstall = { available, installed, ios, run, hintHtml: () => IOS_HINT };
+/* Gdy przeglądarka nie wyśle beforeinstallprompt (gra już zainstalowana, okno wcześniej odrzucone
+ * albo przeglądarka go nie ma), pokazujemy, gdzie w jej menu jest instalacja. Bez wskazówki: "". */
+function hint() {
+  if (ios) return IOS_HINT;
+  const ua = navigator.userAgent, android = /Android/.test(ua);
+  if (/SamsungBrowser/.test(ua)) return `Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.`;
+  if (/Firefox/.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Zainstaluj”</b> (albo „Dodaj do ekranu głównego”).` : "";
+  if (/EdgA?\//.test(ua)) return android ? `Stuknij menu <b>…</b>, potem <b>„Dodaj do telefonu”</b>.`
+    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>…</b> → <b>„Aplikacje”</b> → <b>„Zainstaluj tę witrynę jako aplikację”</b>.`;
+  if (/Chrome\//.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Dodaj do ekranu głównego”</b> → <b>„Zainstaluj”</b>.`
+    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>⋮</b> → <b>„Przesyłaj, zapisuj i udostępniaj”</b> → <b>„Zainstaluj stronę jako aplikację”</b>.`;
+  return "";
+}
+window.SiatkaInstall = { available, installed, ios, run, canPrompt: () => !!deferred, hintHtml: hint };
 
 /* ---------- zgłoszenia uwag: Formularz Google z polami wypełnionymi przez grę ---------- */
 const FORM = "https://docs.google.com/forms/d/e/1FAIpQLScKYARw2jVB8sYKwlY0Ue2KvTVkwWzCV5SKCSZY3tNwRsRD-w/viewform";
@@ -3736,7 +3749,7 @@ function render() {
   let app;
   if (installed()) app = `<p class="set-note">Gra jest zainstalowana na tym urządzeniu.</p>`;
   else if (deferred) app = `<button class="btn red set-install" id="setInstall">Zainstaluj grę</button><p class="set-note">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>`;
-  else if (ios) app = `<p class="set-note">${IOS_HINT}</p>`;
+  else if (hint()) app = `<p class="set-note"><b>Zainstaluj grę:</b> ${hint()}</p>`;
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
     <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
