@@ -116,9 +116,9 @@ function load(c, label, meta, saved) {
   $("accuseBtn").textContent = S.done ? "Wynik" : "Oskarż";
   $("result").hidden = true; $("accuse").hidden = true; $("newCase").hidden = true;
   $("clock").textContent = fmt((S.tEnd || Date.now()) - S.t0);
-  renderLives(); hideToast(); renderTabs(); renderSheet(); paintCooldown();
+  renderLives(); hideToast(); renderTabs(); renderSheet(); paintQuota();
   window.scrollTo(0, 0);
-  saveNow();
+  saveNow(); paintDaily();
   if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
@@ -448,6 +448,7 @@ function finish(win) {
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
   if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  paintDaily();
   track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
   if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
   const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
@@ -487,7 +488,7 @@ function showResult() {
     <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button>${S.label === WARMUP ? `<button class="btn red" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red" id="againBtn">Nowa sprawa</button>`}</div>
+    <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
     <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
@@ -503,7 +504,27 @@ function showResult() {
   if ($("againBtn")) $("againBtn").onclick = openNewCase;
   if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
   $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
-  paintCooldown();
+  paintQuota();
+  /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
+     przeglądarka uzna, że to już nie gest gracza */
+  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : "archiwum"}.png`;
+  const img = window.SiatkaShareImg ? SiatkaShareImg.render({
+    label: S.label, place: `${CASE.city_name}, ${CASE.year}`, win, stars, time, wrong: S.wrong, hints: S.hints,
+    streak: sum && sum.cur ? sum.cur : null, seed: CASE.seed, url: URL_GRY,
+    nodes: CASE.nodes.map(n => ({ id: n.id, type: n.type })), rows: rowsOf().map(r => r.map(n => n.id)),
+    strings: strs.map(k => k.split("|")), out: [...S.out]
+  }).catch(() => null) : Promise.resolve(null);
+  $("imgBtn").onclick = async e => {
+    const b = e.currentTarget;
+    try {
+      const blob = await img;
+      if (!blob) throw new Error("brak obrazka");
+      const r = await SiatkaShareImg.deliver(blob, imgName);
+      if (r === "cancel") return;
+      b.textContent = r === "shared" ? "Udostępniono" : "Zapisano"; AU.sfx("tick"); haptic(8);
+      track("wynik/obrazek", "Wynik jako obrazek");
+    } catch (_) { b.textContent = "Nie udało się"; }
+  };
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
 
@@ -523,6 +544,7 @@ function chips(boxId, items, field) {
    deweloperskim: dopisz #dev do adresu strony. */
 const DEV = () => location.hash === "#dev";
 function openNewCase() {
+  if (!quota.left()) { paintQuota(); showLimit(); return; } // wynik zostaje pod kartką
   $("result").hidden = true;
   if (!DEV()) { newCase(); return; }
   chips("optCity", [["", "Losowo"], ...Object.entries(WORLD.cities).map(([id, c]) => [id, c.name])], "city");
@@ -532,21 +554,61 @@ function openNewCase() {
   chips("optSize", [["", "Losowo"], ...Object.entries(sz).map(([k, v]) => [k, v.name, `${v.n} os.`])], "size");
   $("newCase").hidden = false;
 }
-/* Blokada losowania: po nowej sprawie kolejną można wylosować dopiero po 2 minutach.
-   Czas trzymany w localStorage, żeby odświeżenie strony go nie zerowało. W #dev bez blokady. */
-const COOLDOWN_MS = 2 * 60 * 1000;
-const cooldown = {
-  until() { try { return +localStorage.getItem("siatka-next-case") || 0; } catch (_) { return 0; } },
-  start() { try { localStorage.setItem("siatka-next-case", String(Date.now() + COOLDOWN_MS)); } catch (_) {} },
-  left() { return DEV() ? 0 : Math.max(0, this.until() - Date.now()); }
+/* Limit nowych spraw: DAILY_NEW_CASES na dzień wg lokalnej daty gracza. Licznik z datą w localStorage,
+   nowy dzień = nowy licznik. Sprawa dnia i rozgrzewka się nie liczą. W #dev bez limitu. */
+const DAILY_NEW_CASES = 5;
+const QUOTA_KEY = "siatka-quota";
+const dayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const quota = {
+  used() {
+    try { const q = JSON.parse(localStorage.getItem(QUOTA_KEY) || "null"); return q && q.d === dayStr() ? Math.max(0, +q.n || 0) : 0; } catch (_) { return 0; }
+  },
+  take() { const n = this.used() + 1; try { localStorage.setItem(QUOTA_KEY, JSON.stringify({ d: dayStr(), n })); } catch (_) {} },
+  left() { return DEV() ? Infinity : Math.max(0, DAILY_NEW_CASES - this.used()); }
 };
-function paintCooldown() {
-  const ms = cooldown.left();
-  const s = Math.ceil(ms / 1000);
-  const label = ms ? `Nowa sprawa ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Nowa sprawa";
-  ["newBtn", "againBtn"].forEach(id => { const b = $(id); if (b) { b.disabled = !!ms; b.textContent = label; } });
+try { localStorage.removeItem("siatka-next-case"); } catch (_) {} // po dawnej blokadzie 2 min
+/* Przy 0/5 przycisk jest wyszarzony, ale klikalny: pokazuje kartkę „archiwum zamknięte”. */
+function paintQuota() {
+  const left = quota.left(), dev = left === Infinity;
+  const label = dev ? "Nowa sprawa" : `Nowa sprawa · ${left}/${DAILY_NEW_CASES}`;
+  ["newBtn", "againBtn"].forEach(id => {
+    const b = $(id); if (!b) return;
+    b.textContent = label; b.disabled = false; b.classList.toggle("spent", !left);
+    b.setAttribute("aria-label", dev ? label : `Nowa sprawa, na dziś ${left === 1 ? "została" : "zostało"} ${left} z ${DAILY_NEW_CASES}`);
+  });
 }
-setInterval(paintCooldown, 1000);
+function showLimit() {
+  const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const min = Math.max(1, Math.ceil((mid - now) / 60000)), h = Math.floor(min / 60);
+  $("limitWhen").textContent = `Nowe sprawy za ${h ? `${h} h ` : ""}${min % 60} min, o północy.`;
+  $("limit").hidden = false;
+  AU.sfx("stamp"); haptic([20, 50, 20]);
+  track("limit/wyczerpany", "Limit nowych spraw wyczerpany");
+}
+$("limitClose").onclick = () => { $("limit").hidden = true; };
+$("limitDaily").onclick = () => { $("limit").hidden = true; $("result").hidden = true; saveNow(); AU.sfx("page"); dailyCase(); };
+$("limit").addEventListener("click", e => { if (e.target.id === "limit") e.currentTarget.hidden = true; });
+
+/* Znaczek na „Sprawa dnia”: ✓ rozwiązana, ✗ umorzona. Ze stanu zapisu dzisiejszej sprawy
+   (zapasowo ze statystyk); po północy numer się zmienia i znaczek znika. */
+function dailyState() {
+  const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
+  if (sv && sv.case && sv.case.number === n && sv.done) return sv.win ? "win" : "lose";
+  const st = ((ls.get("siatka-stats") || {}).daily || {})[n];
+  return st ? (st.w ? "win" : "lose") : null;
+}
+function paintDaily() {
+  const st = dailyState(), b = $("dailyBtn");
+  b.innerHTML = "Sprawa dnia" + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
+  b.setAttribute("aria-label", st ? `Sprawa dnia, ${st === "win" ? "rozwiązana" : "umorzona"}` : "Sprawa dnia");
+}
+const paintDay = () => { paintQuota(); paintDaily(); };
+/* o północy: nowy licznik i nowa sprawa dnia (timery w tle bywają uśpione, więc też przy powrocie do karty) */
+(function armMidnight() {
+  const now = new Date(), next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2);
+  setTimeout(() => { paintDay(); armMidnight(); }, next - now);
+})();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) paintDay(); });
 
 /* Tempo dla nowych graczy: liczymy ukończone gry (sprawy dnia + losowe, ze statystyk) i przez pierwsze
    10 gier losowa sprawa jest mała: gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L. Od 11. pełna losowość. */
@@ -571,15 +633,15 @@ function warmupCase() {
 
 let randomN = 0;
 function newCase() {
-  if (cooldown.left()) { paintCooldown(); return; }
-  cooldown.start();
+  if (!quota.left()) { $("newCase").hidden = true; paintQuota(); showLimit(); return; }
+  if (!DEV()) quota.take();
   randomN++;
   const seed = "losowa-" + Date.now().toString(36) + "-" + randomN;
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
   load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }), "Sprawa z archiwum", { kind: "random" });
-  paintCooldown();
+  paintQuota();
 }
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);

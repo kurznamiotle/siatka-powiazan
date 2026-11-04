@@ -211,7 +211,7 @@
     },
     {
       "id": "r2",
-      "text": "Cios zadano z lewej strony. Sprawca jest leworęczny.",
+      "text": "Lekarz nie ma wątpliwości: cios zadała lewa ręka.",
       "type": "trait",
       "trait": "hand",
       "value": "left"

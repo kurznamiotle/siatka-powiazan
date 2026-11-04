@@ -229,6 +229,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .opts .chip{font-size:13px;padding:5px 9px}
 .opts .chip small{font-family:var(--f-body);font-size:11px;opacity:.75;margin-left:4px}
+/* limit nowych spraw, znaczek sprawy dnia, wynik */
+.mode .mk{font-style:normal;font-weight:700;margin-left:5px}
+.mode .mk.win{color:var(--ok)}
+.mode .mk.lose{color:var(--muted)}
+.mode.spent,.btn.spent{opacity:.45;filter:grayscale(1)}
+.card .foot.wrap{flex-wrap:wrap}
+.card .foot .full{flex-basis:100%}
+.limit-card{transform:rotate(-.8deg);background-image:repeating-linear-gradient(transparent 0 22px, rgba(90,120,160,.16) 22px 23px);background-position:0 10px}
+.limit-card p{font-size:15px;margin:6px 0 0}
+.limit-card .when{font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
 .card .sub{font-family:var(--f-body);font-size:13px;color:var(--ink-soft);margin:0}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -324,6 +334,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
   <div class="overlay" id="result" hidden>
     <div class="card" id="resultCard"></div>
+  </div>
+
+  <div class="overlay" id="limit" hidden>
+    <div class="card limit-card" role="dialog" aria-modal="true" aria-labelledby="limitTitle">
+      <div class="stamp">ARCHIWUM</div>
+      <h3 id="limitTitle">Na dziś archiwum zamknięte.</h3>
+      <p>Wróć jutro po kolejne sprawy albo odblokuj nielimitowane w wersji premium (już wkrótce).</p>
+      <p class="when" id="limitWhen"></p>
+      <div class="foot"><button class="btn ghost" id="limitClose">Wróć do tablicy</button><button class="btn red" id="limitDaily">Sprawa dnia</button></div>
+    </div>
   </div>
 </div>
 <script>
@@ -1064,13 +1084,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const d = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
     return Math.floor((d - EPOCH) / 86400000) + 1;
   }
+  const dailySize = (date = new Date()) => WEEK_SIZES[date.getDay()];
   function dailyCase(world, date = new Date()) {
     const n = dailyNumber(date);
-    const c = generateCase(world, "daily-" + n, { size: WEEK_SIZES[date.getDay()] });
+    const c = generateCase(world, "daily-" + n, { size: dailySize(date) });
     c.number = n; return c;
   }
 
-  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, SIZES };
+  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);
@@ -1426,10 +1447,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                  "Na środkowym palcu prawej ręki ma odcisk od długopisu.","Na przesłuchaniu [notował|notowała] coś prawą ręką w kalendarzyku.",
                  "Przy szachach przesuwa figury prawą ręką.","Kłódkę od piwnicy otwiera prawą ręką, lewą przytrzymując siatkę z zakupami."]
         },
-        rule:{ left:["Ślady {where} zostawiła lewa ręka. Sprawca jest leworęczny.","Odciski palców {where} układają się jak u mańkuta. Sprawca jest leworęczny."],
-               right:["Ślady {where} zostawiła prawa ręka. Sprawca jest praworęczny.","Odciski palców {where} zostawiła prawa dłoń. Sprawca jest praworęczny."] },
-        ruleMurder:{ left:["Cios zadano z lewej strony. Sprawca jest leworęczny.","Lekarz nie ma wątpliwości: cios zadała lewa ręka. Sprawca jest mańkutem."],
-                     right:["Cios zadano z prawej strony. Sprawca jest praworęczny.","Lekarz nie ma wątpliwości: cios zadała prawa ręka. Sprawca jest praworęczny."] },
+        rule:{ left:["Ślady {where} zostawiła lewa ręka.","Odciski palców {where} układają się jak u mańkuta."],
+               right:["Ślady {where} zostawiła prawa ręka.","Odciski palców {where} układają się jak u kogoś, kto wszystko robi prawą ręką."] },
+        ruleMurder:{ left:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z lewej ręki.","Lekarz nie ma wątpliwości: cios zadała lewa ręka."],
+                     right:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z prawej ręki.","Lekarz nie ma wątpliwości: cios zadała prawa ręka."] },
         hint:"Porównaj, którą ręką posługują się podejrzani.",
         why:{ left:"jest [leworęczny|leworęczna]", right:"jest [praworęczny|praworęczna]" },
         whyFail:{ left:"jest [praworęczny|praworęczna]", right:"jest [leworęczny|leworęczna]" }
@@ -1439,7 +1460,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         facts:["Nosi buty w rozmiarze {v}.","W przedpokoju stoją [jego|jej] kalosze, rozmiar {v}.","[Kupił|Kupiła] ostatnio na targu buty w rozmiarze {v}.",
                "Na wycieraczce przed drzwiami stoją [jego|jej] buty, rozmiar {v}.","Szewc z sąsiedztwa pamięta, że zelował [mu|jej] buty w rozmiarze {v}.",
                "Przy przesłuchaniu spisano rozmiar [jego|jej] butów: {v}.","W szafce trzyma dwie pary butów, obie w rozmiarze {v}.","Kapcie, w których [otworzył|otworzyła] drzwi, mają rozmiar {v}."],
-        rule:["W błocie przed wejściem odbił się ślad buta w rozmiarze {v}. Sprawca nosi właśnie taki rozmiar.","Na wycieraczce został odcisk podeszwy w rozmiarze {v}. Taki but nosi sprawca."],
+        rule:["Uciekając, sprawca zostawił w błocie przed wejściem ślad buta w rozmiarze {v}.","Na wycieraczce został świeży odcisk podeszwy sprawcy, rozmiar {v}."],
         hint:"Sprawdź rozmiary butów.",
         why:"nosi buty w rozmiarze {v}",
         whyFail:"nosi buty w rozmiarze {v}"
@@ -1454,8 +1475,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                  "W kolejce zza pleców innych nie widzi lady.","Na zdjęciu klasowym zawsze [stał|stała] w pierwszym rzędzie.",
                  "[Sam|Sama] żartuje, że ma metr pięćdziesiąt pięć w kapeluszu.","Do lustra w łazience musi stawać na palcach."]
         },
-        rule:{ tall:["Ślady dłoni na framudze sięgają ponad dwóch metrów. Sprawca jest wysoki.","Świadek widział wysoką postać, która schylała się w drzwiach. Sprawca jest wysoki."],
-               short:["Sprawca przecisnął się przez wąskie okienko w łazience. Jest niskiego wzrostu.","Świadek widział niską postać, ledwo widoczną zza samochodu. Sprawca jest niski."] },
+        rule:{ tall:["Sprawca zostawił ślady dłoni na framudze, ponad dwa metry nad podłogą.","Świadek widział, jak sprawca schyla się w drzwiach, żeby nie uderzyć głową."],
+               short:["Świadek widział sprawcę z okna: postać ledwo wystawała zza zaparkowanego Malucha.","Sprawca musiał podstawić sobie skrzynkę, żeby dosięgnąć zasuwki, do której inni sięgają bez trudu."] },
         hint:"Kto nie pasuje wzrostem?",
         why:{ tall:"jest [wysoki|wysoka]", short:"jest [niski|niska]" },
         whyFail:{ tall:"jest [niski|niska]", short:"jest [wysoki|wysoka]" }
@@ -1468,7 +1489,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                 no:["Nie pali od dwudziestu lat.","Nie znosi dymu papierosowego.","Nigdy nie [palił|paliła].",
                     "[Rzucił|Rzuciła] palenie, kiedy sąsiad dostał zawału.","Na przesłuchaniu [poprosił|poprosiła] o otwarcie okna, bo dym [mu|jej] przeszkadza.",
                     "Papierosy kupuje tylko ojcu, [sam|sama] nie pali.","W domu nie ma ani jednej popielniczki."] },
-        rule:{ yes:["Na miejscu leżał świeży niedopałek. Sprawca pali.","W powietrzu jeszcze wisiał dym papierosowy. Sprawca pali."] },
+        rule:{ yes:["Na miejscu leżał świeży niedopałek.","W powietrzu jeszcze wisiał świeży dym papierosowy."] },
         hint:"Kto nie pali?",
         why:{ yes:"pali" },
         whyFail:{ yes:"nie pali" }
@@ -1483,7 +1504,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                 no:["Nie ma prawa jazdy.","Wszędzie jeździ tramwajem.","Samochód [sprzedał|sprzedała] w zeszłym roku, żeby spłacić długi.",
                     "Na zakupy jeździ autobusem z wózkiem na kółkach.","Nigdy nie [nauczył|nauczyła] się prowadzić i boi się samochodów.",
                     "Na zebraniu spółdzielni [narzekał|narzekała], że samochody zastawiają podwórko, bo [sam|sama] żadnego nie ma."] },
-        rule:{ yes:["Świadek słyszał, jak tuż po zdarzeniu odjeżdża samochód. Sprawca ma auto.","Na podwórku zostały świeże ślady opon. Sprawca przyjechał własnym samochodem."] },
+        rule:{ yes:["Świadek widział, jak tuż po zdarzeniu sprawca wsiada do swojego auta i odjeżdża.","Ślady opon na podwórku prowadzą tam, gdzie sprawca zostawił swój samochód."] },
         hint:"Kto nie ma czym odjechać?",
         why:{ yes:"ma samochód" },
         whyFail:{ yes:"nie ma samochodu" }
@@ -1495,7 +1516,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                      "Ma szkła grube jak denka od butelek.","Bez okularów nie rozpozna sąsiada po drugiej stronie ulicy.","Okulary [kupił|kupiła] u optyka przy {street2}."],
                 no:["Wzrok ma jak sokół, okularów nie nosi.","Okularów nigdy nie [potrzebował|potrzebowała].","Czyta gazetę bez okularów, trzymając ją daleko od oczu.",
                     "Bez trudu czyta rozkład jazdy z drugiej strony ulicy.","U okulisty nie [był|była] od lat, bo nie ma po co.","Z okna wypatrzy listonosza na końcu ulicy."] },
-        rule:{ yes:["Na miejscu znaleziono odłamek szkła okularowego. Sprawca nosi okulary.","Na podłodze leżało zgubione etui na okulary. Sprawca nosi okulary."] },
+        rule:{ yes:["Szamocząc się, sprawca stłukł szkło w okularach. Odłamek został na podłodze.","Sprawca zgubił na miejscu etui na okulary."] },
         hint:"Kto nie nosi okularów? Spójrz też na zdjęcia.",
         why:{ yes:"nosi okulary" },
         whyFail:{ yes:"nie nosi okularów" }
@@ -1506,7 +1527,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                      "[Jego|Jej] owczarek szczeka na każdego listonosza.","W przedpokoju stoi miska dla psa.","Pies śpi u [niego|niej] w nogach łóżka."],
                 no:["Nie ma psa, bo ma alergię na sierść.","Psów boi się od dziecka.","Spółdzielnia nie pozwala [mu|jej] trzymać psa.",
                     "W domu trzyma tylko rybki w akwarium.","Mówi, że na psa nie ma czasu ani pieniędzy.","Na widok psa przechodzi na drugą stronę ulicy."] },
-        rule:{ yes:["Na miejscu znaleziono psią sierść, choć nikt tam psa nie trzyma. Sprawca ma psa.","Na progu zostały odciski psich łap, a obok ślady sprawcy. Sprawca ma psa."] },
+        rule:{ yes:["Na miejscu znaleziono psią sierść, choć nikt tam psa nie trzyma.","Na progu zostały odciski psich łap, a obok ślady sprawcy."] },
         hint:"Kto nie ma psa?",
         why:{ yes:"ma psa" },
         whyFail:{ yes:"nie ma psa" }
@@ -1517,7 +1538,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                      "[Jego|Jej] kurtka z ortalionu szeleści przy każdym ruchu.","Na wieszaku w przedpokoju wisi [jego|jej] ortalionowa wiatrówka.","Nie rozstaje się z ortalionową kurtką, nawet w domu."],
                 no:["Nosi wełniany płaszcz po ojcu.","Chodzi w kożuchu, choć jest już za ciepło.","Ma tylko jesionkę i gruby sweter.",
                     "Ortalionu nie znosi, mówi, że szeleści jak reklamówka.","Zawsze w marynarce, nawet do sklepu.","Nosi sztruksową kurtkę z łatami na łokciach."] },
-        rule:{ yes:["Na gwoździu przy drzwiach został strzęp ortalionu. Sprawca nosi ortalionową kurtkę.","Świadek słyszał w ciemności szelest ortalionu. Sprawca nosi taką kurtkę."] },
+        rule:{ yes:["Sprawca zahaczył rękawem o gwóźdź przy drzwiach. Został na nim strzęp ortalionu.","Świadek słyszał w ciemności, jak kurtka sprawcy szeleści ortalionem."] },
         hint:"Kto nie nosi ortalionu?",
         why:{ yes:"nosi ortalion" },
         whyFail:{ yes:"nie nosi ortalionu" }
@@ -1608,15 +1629,15 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         cause:{ tepe:"[Zginął|Zginęła] od ciosu ciężkim przedmiotem.", ostre:"[Zginął|Zginęła] od rany zadanej ostrym narzędziem.", sznur:"[Został uduszony|Została uduszona] sznurem." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
         alibiEvent:"Zgon nastąpił",
-        windowRule:["Sprawca osobiście zabrał narzędzie zbrodni z miejsca, w którym leżało, w czasie, gdy zniknęło.", "Sprawca był tam, skąd zniknęło narzędzie zbrodni, dokładnie wtedy, gdy zniknęło.", "Narzędzie zbrodni zabrała ta sama osoba, która potem zadała cios. Musiała być na miejscu, gdy narzędzie znikało."],
-        keyRule:["Tam, skąd zniknęło narzędzie zbrodni, nie ma śladów włamania. Sprawca otworzył drzwi własnym kluczem.", "Zamek w miejscu, z którego wzięto narzędzie zbrodni, jest nietknięty. Sprawca ma do niego klucz.", "Drzwi otwarto kluczem, nie wytrychem. Sprawca ma klucz do miejsca, skąd zniknęło narzędzie zbrodni."],
+        windowRule:["Nikt nie podał sprawcy narzędzia zbrodni. Sprawca wziął je sam, prosto z miejsca, w którym leżało.", "Narzędzie zbrodni nie przechodziło z rąk do rąk. Zabrał je osobiście sam sprawca.", "Narzędzie zbrodni zabrała ta sama osoba, która potem zadała cios."],
+        keyRule:["Tam, skąd zniknęło narzędzie zbrodni, drzwi były zamknięte, a śladów włamania nie ma.", "Narzędzie zbrodni wzięto zza zamkniętych drzwi, a zamek jest nietknięty.", "Drzwi tam, skąd zniknęło narzędzie zbrodni, otwarto kluczem, nie wytrychem."],
         motives:["[był winien|była winna] ofierze {money} i [bał|bała] się, że sprawa wyjdzie na jaw",
                  "od lat nie [mógł|mogła] darować ofierze donosu z dawnych lat",
                  "[chciał|chciała] przejąć lokal po ofierze, a ta nie zamierzała się wyprowadzać",
                  "[dowiedział|dowiedziała] się, że ofiara chce [go|ją] wydać {police_dat} za handel na lewo"],
         suspicion:["[Pokłócił|Pokłóciła] się z ofiarą tydzień temu na klatce schodowej.","[Był winien|Była winna] ofierze {money}.","[Odgrażał|Odgrażała] się ofierze przy świadkach.","Sąsiadka słyszała, jak [kłócił|kłóciła] się z ofiarą o pieniądze.","Od lat nie [rozmawiał|rozmawiała] z ofiarą po kłótni o spadek.","Ofiara publicznie [go|ją] oskarżyła o kradzież.","Ofiara groziła, że doniesie na [niego|nią] do urzędu skarbowego."],
         noMotive:["Ofiarę [znał|znała] tylko z widzenia.", "Z ofiarą [mówił|mówiła] sobie tylko „dzień dobry”.", "[Nie miał|Nie miała] z ofiarą żadnych interesów.", "Ofiara pożyczała [mu|jej] cukier i nigdy się nie kłócili.", "O śmierci ofiary [dowiedział|dowiedziała] się z gazety.", "Twierdzi, że ofiara była dla [niego|niej] zawsze miła."],
-        motiveRule:["To nie był przypadek. Sprawca miał z ofiarą na pieńku.", "Śledztwo pokazuje, że sprawca miał osobisty motyw."],
+        motiveRule:["To nie był przypadek ani napad rabunkowy. Ktoś chciał, żeby zginęła właśnie ta osoba.", "Nic nie zginęło, niczego nie przeszukano. Sprawcy chodziło tylko o ofiarę."],
         alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Lekarz ustalił czas: między {a} a {b}. Nikt nie potwierdza, gdzie sprawca był w te pół godziny.", "Wszystko rozegrało się między {a} a {b}. Kto ma na tę porę świadków, nie jest sprawcą."],
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
@@ -1639,13 +1660,13 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         cause:{ wlam:"Drzwi podważono czymś ciężkim i płaskim." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się to zrobić.",
         alibiEvent:"Do włamania doszło",
-        windowRule:["Sprawca osobiście zabrał narzędzie włamania z miejsca, w którym leżało, w czasie, gdy zniknęło.", "Sprawca był tam, skąd zniknęło narzędzie włamania, dokładnie wtedy, gdy zniknęło.", "Złodziej sam przyniósł sobie narzędzie. Był na miejscu, gdy znikało."],
-        keyRule:["Tam, skąd zniknęło narzędzie włamania, nie ma śladów włamania. Sprawca otworzył drzwi własnym kluczem.", "Narzędzie wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca ma do niego klucz.", "Złodziej nie musiał się włamywać po narzędzie. Miał klucz do miejsca, z którego je wziął."],
+        windowRule:["Nikt nie podał złodziejowi narzędzia włamania. Wziął je sam, prosto z miejsca, w którym leżało.", "Narzędzie włamania nie przechodziło z rąk do rąk. Złodziej zabrał je osobiście.", "Złodziej sam przyniósł sobie narzędzie, prosto z miejsca, gdzie leżało."],
+        keyRule:["Tam, skąd zniknęło narzędzie włamania, drzwi były zamknięte, a śladów włamania nie ma.", "Narzędzie wzięto z zamkniętego pomieszczenia, a zamek jest cały.", "Po narzędzie złodziej nie musiał się włamywać. Drzwi, za którymi leżało, otwarto kluczem."],
         motives:["[potrzebował|potrzebowała] pieniędzy na spłatę długu u lichwiarza","[przegrał|przegrała] w karty {money}",
                  "[chciał|chciała] wyjechać na saksy do Niemiec i [brakowało mu|brakowało jej] na bilet","od miesięcy [zalegał|zalegała] z czynszem"],
         suspicion:["Ostatnio [chodził|chodziła] po sąsiadach, pożyczając pieniądze.", "Widziano [go|ją], jak [zaglądał|zaglądała] w okno poszkodowanych.", "Ma długi w całej dzielnicy.", "Ostatnio [przegrał|przegrała] w karty więcej, niż [miał|miała].", "Komornik był u [niego|niej] w zeszłym miesiącu.", "[Pytał|Pytała] sąsiadów, kiedy poszkodowani wyjeżdżają na działkę."],
         noMotive:["Ma stałą pracę i nie narzeka na brak pieniędzy.", "Niedawno [odziedziczył|odziedziczyła] mieszkanie i nie potrzebuje pieniędzy.", "Nie ma żadnych długów, za wszystko płaci gotówką.", "Poszkodowanych [znał|znała] tylko z widzenia.", "To [on|ona] [pożyczył|pożyczyła] poszkodowanym pieniądze, a nie odwrotnie.", "Odkłada na książeczkę co miesiąc i nikomu nic nie jest [winien|winna]."],
-        motiveRule:["To nie była kradzież z nudów. Sprawca ma długi.", "Złodziej potrzebował pieniędzy na już. Sprawca był w długach."],
+        motiveRule:["To nie była przypadkowa kradzież. Złodziej miał powód, żeby sięgnąć właśnie po te pieniądze.", "Ktoś tu działał z wyrachowania: tonął w długach albo od dawna miał ten łup na oku."],
         alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Sąsiedzi słyszeli trzask drzwi między {a} a {b}. Sprawca nie ma alibi na ten czas.", "Wszystko rozegrało się między {a} a {b}. Kto ma na tę porę świadków, nie jest sprawcą."],
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
@@ -1666,13 +1687,13 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         cause:{ trucizna:"Weterynarz nie ma wątpliwości, że to trucizna." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły substancje, które mogły do tego posłużyć.",
         alibiEvent:"Truciznę podano",
-        windowRule:["Sprawca osobiście zabrał truciznę z miejsca, w którym leżała, w czasie, gdy zniknęła.", "Sprawca był tam, skąd zniknęła trucizna, dokładnie wtedy, gdy zniknęła.", "Truciznę zabrała ta sama osoba, która ją podała. Była na miejscu, gdy trucizna znikała."],
-        keyRule:["Tam, skąd zniknęła trucizna, nie ma śladów włamania. Sprawca otworzył drzwi własnym kluczem.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca ma do niego klucz.", "Drzwi otwarto kluczem, nie wytrychem. Sprawca ma klucz do miejsca, skąd zniknęła trucizna."],
+        windowRule:["Nikt nie podał sprawcy trucizny. Sprawca wziął ją sam, prosto z miejsca, w którym leżała.", "Trucizna nie przechodziła z rąk do rąk. Zabrał ją osobiście sam sprawca.", "Truciznę zabrała ta sama osoba, która ją podała."],
+        keyRule:["Tam, skąd zniknęła trucizna, drzwi były zamknięte, a śladów włamania nie ma.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały.", "Drzwi tam, skąd zniknęła trucizna, otwarto kluczem, nie wytrychem."],
         motives:["nie [mógł|mogła] znieść hałasu o piątej rano","od miesięcy [kłócił|kłóciła] się z właścicielem o podwórko",
                  "[uważał|uważała], że to przez zwierzęta zgniły [mu|jej] pomidory","[chciał|chciała] się zemścić za skargę do administracji"],
         suspicion:["[Pisał|Pisała] skargi do administracji na hałas.", "[Groził|Groziła], że „zrobi z tym porządek”.", "[Pokłócił|Pokłóciła] się z właścicielem zwierząt na podwórku.", "Na zebraniu lokatorów [domagał|domagała] się, żeby zwierzęta zniknęły z podwórka.", "[Narzekał|Narzekała] u dozorcy, że zwierzęta nie dają [mu|jej] spać.", "Wylewa wodę z okna, gdy zwierzęta podchodzą pod blok."],
         noMotive:["Dokarmia ptaki na parapecie i kocha zwierzęta.", "Nigdy nie [skarżył|skarżyła] się na hałas z podwórka.", "Zwierzęta z podwórka zna po imieniu i przynosi im resztki.", "Mówi, że hałas [mu|jej] nie przeszkadza, bo śpi jak kamień.", "Z właścicielem zwierząt [chodził|chodziła] do jednej klasy i do dziś się przyjaźnią.", "O sprawie [dowiedział|dowiedziała] się od dozorcy i [był oburzony|była oburzona]."],
-        motiveRule:["To nie był przypadek. Sprawca od dawna miał dość tych zwierząt.", "Sprawca chciał się pozbyć zwierząt. Miał motyw."],
+        motiveRule:["Trucizny nie podano przypadkiem. Ktoś od dawna miał dość tych zwierząt.", "Ktoś chciał się pozbyć zwierząt i nie krył się z tym przed sąsiadami."],
         alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Weterynarz mówi, że truciznę podano między {a} a {b}. Nikt nie potwierdza, gdzie sprawca był w tym czasie.", "Wszystko rozegrało się między {a} a {b}. Kto ma na tę porę świadków, nie jest sprawcą."],
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
@@ -1691,13 +1712,13 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         cause:{ ogien:"Strażacy mówią, że ktoś pomógł ogniu się rozpalić." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
         alibiEvent:"Ogień podłożono",
-        windowRule:["Sprawca osobiście zabrał środek zapalający z miejsca, w którym leżał, w czasie, gdy zniknął.", "Sprawca był tam, skąd zniknął środek zapalający, dokładnie wtedy, gdy zniknął.", "Podpalacz sam przyniósł to, czym rozpalił ogień. Był na miejscu, gdy to znikało."],
-        keyRule:["Tam, skąd zniknął środek zapalający, nie ma śladów włamania. Sprawca otworzył drzwi własnym kluczem.", "Środek zapalający wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca ma do niego klucz.", "Drzwi otwarto kluczem, nie wytrychem. Sprawca ma klucz do miejsca, skąd zniknął środek zapalający."],
+        windowRule:["Nikt nie podał podpalaczowi środka zapalającego. Wziął go sam, prosto z miejsca, w którym leżał.", "Środek zapalający nie przechodził z rąk do rąk. Podpalacz zabrał go osobiście.", "Podpalacz sam przyniósł to, czym rozpalił ogień, prosto z miejsca, gdzie to leżało."],
+        keyRule:["Tam, skąd zniknął środek zapalający, drzwi były zamknięte, a śladów włamania nie ma.", "Środek zapalający wzięto z zamkniętego pomieszczenia, a zamek jest cały.", "Drzwi tam, skąd zniknął środek zapalający, otwarto kluczem, nie wytrychem."],
         motives:["[chciał|chciała] wyłudzić odszkodowanie od ubezpieczyciela","od dawna [był skłócony|była skłócona] z właścicielem",
                  "[chciał|chciała] przejąć to miejsce pod własny interes","[mścił|mściła] się za zwolnienie z pracy"],
         suspicion:["[Kłócił|Kłóciła] się z właścicielem o miejsce na podwórku.", "Widziano [go|ją], jak [kręcił|kręciła] się tam po zmroku.", "[Mówił|Mówiła] głośno, że „to wszystko powinno spłonąć”.", "Właściciel zwolnił [go|ją] z pracy miesiąc temu.", "[Chciał|Chciała] postawić w tym miejscu własną budkę.", "Od dawna [skarżył|skarżyła] się, że to miejsce szpeci okolicę."],
         noMotive:["Z właścicielem żyje w zgodzie od lat.", "W pożarze [stracił|straciła] własny rower.", "[Pomagał|Pomagała] gasić ogień, aż przyjechała straż.", "[Nie miał|Nie miała] z właścicielem żadnych zatargów.", "Mówi, że to miejsce było [mu|jej] zupełnie obojętne.", "Właściciel jest [jego|jej] chrzestnym."],
-        motiveRule:["Ogień podłożył ktoś, kto miał porachunki z właścicielem. Sprawca miał motyw.", "To była zemsta albo interes. Sprawca miał motyw."],
+        motiveRule:["Ogień podłożył ktoś, kto miał porachunki z właścicielem.", "To nie było zaprószenie ognia. Ktoś chciał się zemścić albo na tym pożarze zarobić."],
         alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Strażacy ustalili, że ogień zaprószono między {a} a {b}. Sprawca nie ma alibi na ten czas.", "Wszystko rozegrało się między {a} a {b}. Kto ma na tę porę świadków, nie jest sprawcą."],
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
@@ -2080,6 +2101,17 @@ const SFX = {
     tone("sine", 1760, t, 1.6, 0.16, sfxBus); tone("sine", 1760 * 2.76, t, 0.6, 0.04, sfxBus); // dzwonek maszyny
     [62, 65, 69, 72, 76].forEach((m, i) => tone("triangle", mtof(m), t + 0.25 + i * 0.09, 2.2 - i * 0.2, 0.07, sfxBus, { attack: 0.01, lp: 2400 }));
   },
+  /* osiągnięcie: mosiężna fanfara w D-dur + iskry; tier 1–3 dokłada coraz wyższe dzwoneczki */
+  medal(t, tier = 1) {
+    [[62, 0], [66, 0.1], [69, 0.2], [74, 0.34]].forEach(([m, d], i) => {
+      const len = i === 3 ? 1.5 : 0.32;
+      tone("sawtooth", mtof(m), t + d, len, 0.045, sfxBus, { attack: 0.025, lp: 1700, vib: i === 3 ? 7 : 0 });
+      tone("triangle", mtof(m - 12), t + d, len, 0.08, sfxBus, { attack: 0.01 });
+    });
+    noise(t + 0.34, 0.9, 0.05, sfxBus, "highpass", 6500, { attack: 0.02 }); // talerz
+    const bells = [86, 90, 93, 98, 102].slice(0, 2 + tier);
+    bells.forEach((m, i) => tone("sine", mtof(m), t + 0.5 + i * 0.07, 0.6, 0.04, sfxBus));
+  },
   lose(t) { [62, 60, 58, 57].forEach((m, i) => tone("triangle", mtof(m - 12), t + i * 0.28, 1.1, 0.12, sfxBus, { lp: 900, attack: 0.02 })); }
 };
 function sfx(name, arg) {
@@ -2168,6 +2200,212 @@ window.SiatkaAudio = {
 </script>
 <script>
 /*
+ * Siatka Powiązań — wynik sprawy jako obrazek PNG 1080×1350 (canvas).
+ * Bez spoilerów: nie ma nazwisk, narzędzia ani portretów. Tablica gracza jest pomniejszona, zdjęcia są
+ * zastępcze (sylwetka, dom, znak zapytania), a kolejność kart w rzędach przetasowana, żeby po układzie
+ * sznurków nie dało się odczytać, kto jest sprawcą w tej samej sprawie dnia.
+ * API: SiatkaShareImg.render(dane) → Promise<Blob>, .deliver(blob, nazwa) → Promise<"shared"|"saved"|"cancel">
+ */
+(() => {
+const W = 1080, H = 1350;
+const C = { room: "#16120e", desk: "#231b15", edge: "#3a2d22", cork: "#a3744a", corkDeep: "#7c5433", paper: "#ece3cf",
+  shade: "#d9cdb3", ink: "#2b221b", inkSoft: "#6b5d4f", string: "#c22a2a", brass: "#d9a648", stamp: "#b3261e", ok: "#3f7a4a", fg: "#efe6d4", muted: "#a8998a" };
+const F = { pixel: '"Pixelify Sans", "Courier New", monospace', type: '"Special Elite", "Courier New", monospace', body: '"Courier Prime", "Courier New", monospace' };
+
+/* stabilna pseudolosowość z tekstu */
+function rng(str) {
+  let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+}
+
+/* pikselowe zdjęcia zastępcze 12×12 */
+const GLYPH = {
+  person: ["....####....", "...######...", "...######...", "...######...", "....####....", ".....##.....", "..########..", ".##########.", ".##########.", "############", "############", "############"],
+  location: [".....##.....", "....####....", "...######...", "..########..", ".##########.", "############", ".##########.", ".###....###.", ".###.##.###.", ".###.##.###.", ".###.##.###.", ".##########."],
+  item: ["...######...", "..##....##..", "..##....##..", "........##..", ".......##...", ".....###....", ".....##.....", ".....##.....", "............", ".....##.....", ".....##.....", "............"]
+};
+
+/* fonty: canvas nie czeka sam na webfonty, a document.fonts.ready nie ładuje nieużytych krojów */
+function fontsReady() {
+  if (!document.fonts) return Promise.resolve();
+  const want = [`700 80px ${F.pixel}`, `600 40px ${F.pixel}`, `40px ${F.type}`, `36px ${F.body}`, `700 36px ${F.body}`];
+  const load = Promise.all(want.map(f => document.fonts.load(f).catch(() => null))).then(() => document.fonts.ready);
+  return Promise.race([load, new Promise(r => setTimeout(r, 3000))]); // offline bez fontów: rysujemy zapasowym
+}
+
+function corkBg(g, x, y, w, h, R) {
+  const grd = g.createRadialGradient(x + w / 2, y + h * .4, 10, x + w / 2, y + h * .4, Math.max(w, h) * .75);
+  grd.addColorStop(0, C.cork); grd.addColorStop(1, C.corkDeep);
+  g.fillStyle = grd; g.fillRect(x, y, w, h);
+  for (let i = 0; i < 1400; i++) {
+    g.fillStyle = R() < .6 ? "rgba(0,0,0,.13)" : "rgba(255,230,190,.10)";
+    g.fillRect(x + R() * w, y + R() * h, 2 + R() * 2, 2 + R() * 2);
+  }
+  g.strokeStyle = "#4a3423"; g.lineWidth = 12; g.strokeRect(x + 6, y + 6, w - 12, h - 12);
+  g.strokeStyle = "#2c1f15"; g.lineWidth = 4; g.strokeRect(x + 14, y + 14, w - 28, h - 28);
+}
+
+function polaroid(g, n, cx, cy, w, rot, out) {
+  const pad = w * .07, ph = w - pad * 2, h = w + w * .26;
+  g.save(); g.translate(cx, cy); g.rotate(rot);
+  g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 10; g.shadowOffsetY = 4;
+  g.fillStyle = C.paper; g.fillRect(-w / 2, -h / 2, w, h);
+  g.shadowColor = "transparent";
+  const px = -w / 2 + pad, py = -h / 2 + pad;
+  g.fillStyle = n.type === "person" ? "#2a2622" : "#3b4a52"; g.fillRect(px, py, ph, ph);
+  const cell = ph / 14, gl = GLYPH[n.type] || GLYPH.item;
+  g.fillStyle = n.type === "person" ? "#4a4038" : "#56676f";
+  gl.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === "#") g.fillRect(px + cell * (c + 1), py + cell * (r + 2), Math.ceil(cell), Math.ceil(cell)); }));
+  if (out) {
+    g.fillStyle = "rgba(20,16,12,.35)"; g.fillRect(px, py, ph, ph);
+    g.strokeStyle = C.stamp; g.lineWidth = Math.max(4, w * .06); g.lineCap = "butt";
+    g.beginPath(); g.moveTo(px + 4, py + 4); g.lineTo(px + ph - 4, py + ph - 4); g.moveTo(px + ph - 4, py + 4); g.lineTo(px + 4, py + ph - 4); g.stroke();
+  }
+  g.restore();
+  // pinezka na środku górnej krawędzi (po obrocie)
+  const dy = -h / 2 + 7;
+  return { x: cx - dy * Math.sin(rot), y: cy + dy * Math.cos(rot) };
+}
+
+function pin(g, p) {
+  g.save();
+  g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 4; g.shadowOffsetY = 3;
+  const grd = g.createRadialGradient(p.x - 3, p.y - 3, 1, p.x, p.y, 11);
+  grd.addColorStop(0, "#fff3c4"); grd.addColorStop(.3, C.brass); grd.addColorStop(1, "#8a6420");
+  g.fillStyle = grd; g.beginPath(); g.arc(p.x, p.y, 10, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
+function star(g, cx, cy, r, filled) {
+  g.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+  g.closePath();
+  if (filled) { g.fillStyle = C.brass; g.fill(); g.lineWidth = 3; g.strokeStyle = "#8a6420"; g.stroke(); }
+  else { g.lineWidth = 4; g.strokeStyle = "#b5a88f"; g.stroke(); }
+}
+
+/* d: { label, place, win, stars, time, wrong, hints, streak|null, seed, nodes:[{id,type}], rows:[[id]], strings:[[a,b]], out:[id], url } */
+function draw(d) {
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), R = rng(d.seed + "|obrazek");
+  g.fillStyle = C.room; g.fillRect(0, 0, W, H);
+  const vig = g.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, 900);
+  vig.addColorStop(0, "rgba(255,220,170,.05)"); vig.addColorStop(1, "rgba(0,0,0,.35)");
+  g.fillStyle = vig; g.fillRect(0, 0, W, H);
+  g.textAlign = "center"; g.textBaseline = "alphabetic";
+
+  // nagłówek
+  g.fillStyle = C.fg; g.font = `700 84px ${F.pixel}`; g.fillText("Siatka Powiązań", W / 2, 140);
+  g.fillStyle = C.muted; g.font = `40px ${F.type}`; g.fillText(`${d.label} · ${d.place}`, W / 2, 204);
+
+  // tablica: rzędy jak w grze, ale kolejność w rzędzie przetasowana
+  const BX = 90, BY = 250, BW = 900, BH = 560;
+  corkBg(g, BX, BY, BW, BH, R);
+  const byId = Object.fromEntries(d.nodes.map(n => [n.id, n]));
+  const rows = d.rows.map(r => { const a = r.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; });
+  const maxPer = Math.max(4, ...rows.map(r => r.length)), Rn = rows.length;
+  const innerW = BW - 80, innerH = BH - 70;
+  let w = Math.min(130, innerW / maxPer * .72);
+  const cardH = r => w + w * .26;
+  w = Math.min(w, (innerH - 24 * (Rn - 1)) / Rn / 1.26);
+  const gap = (innerH - Rn * cardH()) / Math.max(1, Rn - 1);
+  const pins = {};
+  let y = BY + 35 + cardH() / 2 + (Rn === 1 ? (innerH - cardH()) / 2 : 0);
+  const cards = [];
+  rows.forEach(row => {
+    const slot = innerW / row.length;
+    row.forEach((id, i) => {
+      const cx = BX + 40 + slot * i + slot / 2 + (R() - .5) * Math.max(0, slot - w) * .4;
+      const cy = y + (R() - .5) * 10;
+      cards.push({ id, cx, cy, rot: (R() * 2 - 1) * 3 * Math.PI / 180 });
+    });
+    y += cardH() + gap;
+  });
+  const outSet = new Set(d.out);
+  cards.forEach(c => { pins[c.id] = polaroid(g, byId[c.id], c.cx, c.cy, w, c.rot, outSet.has(c.id)); });
+  // sznurki z lekkim zwisem
+  g.save(); g.strokeStyle = C.string; g.lineWidth = 5; g.lineCap = "round";
+  g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 3; g.shadowOffsetY = 3;
+  d.strings.forEach(([a, b]) => {
+    const p = pins[a], q = pins[b]; if (!p || !q) return;
+    const dist = Math.hypot(q.x - p.x, q.y - p.y), sag = 14 + dist * .09;
+    g.beginPath(); g.moveTo(p.x, p.y); g.quadraticCurveTo((p.x + q.x) / 2, (p.y + q.y) / 2 + sag, q.x, q.y); g.stroke();
+  });
+  g.restore();
+  Object.values(pins).forEach(p => pin(g, p));
+
+  // kartka z wynikiem
+  const PX = 110, PY = 860, PW = 860, PH = 360;
+  g.save(); g.translate(W / 2, PY + PH / 2); g.rotate(-.008);
+  g.shadowColor = "rgba(0,0,0,.6)"; g.shadowBlur = 24; g.shadowOffsetY = 8;
+  g.fillStyle = C.paper; g.fillRect(-PW / 2, -PH / 2, PW, PH);
+  g.shadowColor = "transparent";
+  g.strokeStyle = "rgba(90,120,160,.16)"; g.lineWidth = 2;
+  for (let ly = -PH / 2 + 40; ly < PH / 2; ly += 34) { g.beginPath(); g.moveTo(-PW / 2, ly); g.lineTo(PW / 2, ly); g.stroke(); }
+  g.restore();
+
+  // gwiazdki
+  for (let i = 0; i < 3; i++) star(g, W / 2 - 90 + i * 90, PY + 82, 36, i < d.stars);
+  // statystyki
+  const cells = [["czas", d.time], ["pomyłki", String(d.wrong)], ["podpowiedzi", String(d.hints)]];
+  if (d.streak) cells.push(["seria", `${d.streak} ${d.streak === 1 ? "dzień" : "dni"}`]);
+  const cw = (PW - 60) / cells.length;
+  cells.forEach(([k, v], i) => {
+    const cx = PX + 30 + cw * i + cw / 2;
+    g.fillStyle = "rgba(0,0,0,.06)"; g.fillRect(cx - cw / 2 + 8, PY + 150, cw - 16, 130);
+    g.fillStyle = C.ink; g.font = `600 52px ${F.pixel}`; g.fillText(v, cx, PY + 222);
+    g.fillStyle = C.inkSoft; g.font = `30px ${F.body}`; g.fillText(k, cx, PY + 260);
+  });
+
+  // pieczątka na styku tablicy i kartki
+  g.save(); g.translate(W / 2 + 150, PY - 10); g.rotate(-6 * Math.PI / 180);
+  const txt = d.win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA", col = d.win ? C.ok : C.stamp;
+  g.font = `700 58px ${F.pixel}`;
+  const tw = g.measureText(txt).width;
+  g.globalAlpha = .93;
+  g.fillStyle = "rgba(236,227,207,.88)"; g.fillRect(-tw / 2 - 24, -50, tw + 48, 84);
+  g.strokeStyle = col; g.lineWidth = 7; g.strokeRect(-tw / 2 - 18, -44, tw + 36, 72);
+  g.fillStyle = col; g.textBaseline = "middle"; g.fillText(txt, 0, -6);
+  g.restore();
+
+  // adres
+  g.textBaseline = "alphabetic"; g.fillStyle = C.brass; g.font = `700 40px ${F.body}`; g.fillText(d.url, W / 2, H - 58);
+  return cv;
+}
+
+function render(d) {
+  return fontsReady().then(() => new Promise((res, rej) => {
+    const cv = draw(d);
+    if (cv.toBlob) cv.toBlob(b => b ? res(b) : rej(new Error("toBlob")), "image/png");
+    else rej(new Error("toBlob"));
+  }));
+}
+
+const phone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function download(blob, name) {
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; a.rel = "noopener"; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+/* telefon z udostępnianiem plików → systemowe „Udostępnij”; reszta → pobranie pliku */
+async function deliver(blob, name) {
+  let file = null;
+  try { file = new File([blob], name, { type: "image/png" }); } catch (_) {}
+  if (file && phone() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return "shared"; }
+    catch (e) { if (e && e.name === "AbortError") return "cancel"; }
+  }
+  download(blob, name);
+  return "saved";
+}
+
+window.SiatkaShareImg = { render, deliver };
+})();
+
+</script>
+<script>
+/*
  * Siatka Powiązań — interfejs gry (tablica, sznurki, akta, oskarżenie, wynik).
  * Wymaga: engine/sprites.js, engine/engine.js, data/base.js, data/cities.js, js/audio.js
  */
@@ -2193,9 +2431,24 @@ const ls = {
 /* Zapis postępu: osobno sprawa dnia i ostatnia losowa. Zapisujemy całą sprawę, nie tylko seed,
    żeby zmiana danych po deployu nie podmieniła graczowi rozpoczętej sprawy. */
 const SAVE = { daily: "siatka-save-daily", random: "siatka-save-random", last: "siatka-last" };
+/* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
+   pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
+   starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
+const sameCase = sv => !!(sv && sv.case && CASE && sv.case.seed === CASE.seed);
+function closedElsewhere() {
+  if (!S || !META || S.done) return null;
+  const sv = ls.get(SAVE[META.kind]);
+  return sameCase(sv) && sv.done ? sv : null;
+}
+function adoptClosed() {
+  const sv = closedElsewhere();
+  if (sv) load(sv.case, S.label, META, sv);
+}
+window.addEventListener("storage", e => { if (e.key === SAVE.daily || e.key === SAVE.random) adoptClosed(); });
 function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
+  if (closedElsewhere()) return;
   ls.set(SAVE[META.kind], { v: 1, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
@@ -2270,9 +2523,9 @@ function load(c, label, meta, saved) {
   $("accuseBtn").textContent = S.done ? "Wynik" : "Oskarż";
   $("result").hidden = true; $("accuse").hidden = true; $("newCase").hidden = true;
   $("clock").textContent = fmt((S.tEnd || Date.now()) - S.t0);
-  renderLives(); hideToast(); renderTabs(); renderSheet(); paintCooldown();
+  renderLives(); hideToast(); renderTabs(); renderSheet(); paintQuota();
   window.scrollTo(0, 0);
-  saveNow();
+  saveNow(); paintDaily();
   if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
@@ -2563,7 +2816,7 @@ setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent
 let hiddenAt = 0;
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { hiddenAt = Date.now(); saveNow(); }
-  else if (hiddenAt) { if (S && !S.done) S.t0 += Date.now() - hiddenAt; hiddenAt = 0; }
+  else { if (hiddenAt) { if (S && !S.done) S.t0 += Date.now() - hiddenAt; hiddenAt = 0; } adoptClosed(); }
 });
 window.addEventListener("pagehide", saveNow);
 
@@ -2597,15 +2850,24 @@ goBtn.onclick = () => {
 function renderLives() { document.querySelectorAll("#lives i").forEach((i, ix) => i.classList.toggle("lost", ix >= 3 - S.wrong)); }
 function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
+  $("clock").textContent = fmt(S.tEnd - S.t0); // ten sam czas co w wyniku i po powrocie
   $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
   if (window.SiatkaStats) SiatkaStats.record(META.kind, CASE.number, { win, stars: starsOf(), ms: S.tEnd - S.t0 });
+  paintDaily();
   track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
   if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
   const cur = window.SiatkaStats && META.kind === "daily" ? SiatkaStats.summary().cur : 0;
   if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
   showResult();
+  if (window.SiatkaAch) {
+    const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length;
+    const people = CASE.nodes.filter(n => n.type === "person" && n.id !== CASE.solution.culprit);
+    SiatkaAch.onFinish({ win, stars: starsOf(), wrong: S.wrong, hints: S.hints, ms: S.tEnd - S.t0, size: CASE.size,
+      city: CASE.city, year: CASE.year, crime: CASE.crime, good, bad: strs.length - good, chain: chainKeys.every(k => S.strings.has(k)),
+      allOut: people.every(n => S.out.has(n.id)) && !S.out.has(CASE.solution.culprit), hour: new Date().getHours() });
+  }
 }
 const starsOf = () => S.win ? Math.max(1, 3 - S.wrong - (S.hints > 0 ? 1 : 0)) : 0;
 const URL_GRY = "siatkapowiazan.pl";
@@ -2633,7 +2895,7 @@ function showResult() {
     <div class="st-grid mini"><div><b>${sum.cur}</b><span>seria</span></div><div><b>${sum.best}</b><span>rekord</span></div><div><b>${sum.pct}%</b><span>wygrane</span></div><div><b>${sum.played}</b><span>rozegrane</span></div></div>` : ""}
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
-    <div class="foot"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn red" id="againBtn">Nowa sprawa</button></div>
+    <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
     <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
@@ -2646,9 +2908,30 @@ function showResult() {
     if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
     else copy();
   };
-  $("againBtn").onclick = openNewCase;
+  if ($("againBtn")) $("againBtn").onclick = openNewCase;
+  if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
   $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
-  paintCooldown();
+  paintQuota();
+  /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
+     przeglądarka uzna, że to już nie gest gracza */
+  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : "archiwum"}.png`;
+  const img = window.SiatkaShareImg ? SiatkaShareImg.render({
+    label: S.label, place: `${CASE.city_name}, ${CASE.year}`, win, stars, time, wrong: S.wrong, hints: S.hints,
+    streak: sum && sum.cur ? sum.cur : null, seed: CASE.seed, url: URL_GRY,
+    nodes: CASE.nodes.map(n => ({ id: n.id, type: n.type })), rows: rowsOf().map(r => r.map(n => n.id)),
+    strings: strs.map(k => k.split("|")), out: [...S.out]
+  }).catch(() => null) : Promise.resolve(null);
+  $("imgBtn").onclick = async e => {
+    const b = e.currentTarget;
+    try {
+      const blob = await img;
+      if (!blob) throw new Error("brak obrazka");
+      const r = await SiatkaShareImg.deliver(blob, imgName);
+      if (r === "cancel") return;
+      b.textContent = r === "shared" ? "Udostępniono" : "Zapisano"; AU.sfx("tick"); haptic(8);
+      track("wynik/obrazek", "Wynik jako obrazek");
+    } catch (_) { b.textContent = "Nie udało się"; }
+  };
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
 
@@ -2668,6 +2951,7 @@ function chips(boxId, items, field) {
    deweloperskim: dopisz #dev do adresu strony. */
 const DEV = () => location.hash === "#dev";
 function openNewCase() {
+  if (!quota.left()) { paintQuota(); showLimit(); return; } // wynik zostaje pod kartką
   $("result").hidden = true;
   if (!DEV()) { newCase(); return; }
   chips("optCity", [["", "Losowo"], ...Object.entries(WORLD.cities).map(([id, c]) => [id, c.name])], "city");
@@ -2677,37 +2961,104 @@ function openNewCase() {
   chips("optSize", [["", "Losowo"], ...Object.entries(sz).map(([k, v]) => [k, v.name, `${v.n} os.`])], "size");
   $("newCase").hidden = false;
 }
-/* Blokada losowania: po nowej sprawie kolejną można wylosować dopiero po 2 minutach.
-   Czas trzymany w localStorage, żeby odświeżenie strony go nie zerowało. W #dev bez blokady. */
-const COOLDOWN_MS = 2 * 60 * 1000;
-const cooldown = {
-  until() { try { return +localStorage.getItem("siatka-next-case") || 0; } catch (_) { return 0; } },
-  start() { try { localStorage.setItem("siatka-next-case", String(Date.now() + COOLDOWN_MS)); } catch (_) {} },
-  left() { return DEV() ? 0 : Math.max(0, this.until() - Date.now()); }
+/* Limit nowych spraw: DAILY_NEW_CASES na dzień wg lokalnej daty gracza. Licznik z datą w localStorage,
+   nowy dzień = nowy licznik. Sprawa dnia i rozgrzewka się nie liczą. W #dev bez limitu. */
+const DAILY_NEW_CASES = 5;
+const QUOTA_KEY = "siatka-quota";
+const dayStr = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const quota = {
+  used() {
+    try { const q = JSON.parse(localStorage.getItem(QUOTA_KEY) || "null"); return q && q.d === dayStr() ? Math.max(0, +q.n || 0) : 0; } catch (_) { return 0; }
+  },
+  take() { const n = this.used() + 1; try { localStorage.setItem(QUOTA_KEY, JSON.stringify({ d: dayStr(), n })); } catch (_) {} },
+  left() { return DEV() ? Infinity : Math.max(0, DAILY_NEW_CASES - this.used()); }
 };
-function paintCooldown() {
-  const ms = cooldown.left();
-  const s = Math.ceil(ms / 1000);
-  const label = ms ? `Nowa sprawa ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Nowa sprawa";
-  ["newBtn", "againBtn"].forEach(id => { const b = $(id); if (b) { b.disabled = !!ms; b.textContent = label; } });
+try { localStorage.removeItem("siatka-next-case"); } catch (_) {} // po dawnej blokadzie 2 min
+/* Przy 0/5 przycisk jest wyszarzony, ale klikalny: pokazuje kartkę „archiwum zamknięte”. */
+function paintQuota() {
+  const left = quota.left(), dev = left === Infinity;
+  const label = dev ? "Nowa sprawa" : `Nowa sprawa · ${left}/${DAILY_NEW_CASES}`;
+  ["newBtn", "againBtn"].forEach(id => {
+    const b = $(id); if (!b) return;
+    b.textContent = label; b.disabled = false; b.classList.toggle("spent", !left);
+    b.setAttribute("aria-label", dev ? label : `Nowa sprawa, na dziś ${left === 1 ? "została" : "zostało"} ${left} z ${DAILY_NEW_CASES}`);
+  });
 }
-setInterval(paintCooldown, 1000);
+function showLimit() {
+  const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const min = Math.max(1, Math.ceil((mid - now) / 60000)), h = Math.floor(min / 60);
+  $("limitWhen").textContent = `Nowe sprawy za ${h ? `${h} h ` : ""}${min % 60} min, o północy.`;
+  $("limit").hidden = false;
+  AU.sfx("stamp"); haptic([20, 50, 20]);
+  track("limit/wyczerpany", "Limit nowych spraw wyczerpany");
+}
+$("limitClose").onclick = () => { $("limit").hidden = true; };
+$("limitDaily").onclick = () => { $("limit").hidden = true; $("result").hidden = true; saveNow(); AU.sfx("page"); dailyCase(); };
+$("limit").addEventListener("click", e => { if (e.target.id === "limit") e.currentTarget.hidden = true; });
+
+/* Znaczek na „Sprawa dnia”: ✓ rozwiązana, ✗ umorzona. Ze stanu zapisu dzisiejszej sprawy
+   (zapasowo ze statystyk); po północy numer się zmienia i znaczek znika. */
+function dailyState() {
+  const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
+  if (sv && sv.case && sv.case.number === n && sv.done) return sv.win ? "win" : "lose";
+  const st = ((ls.get("siatka-stats") || {}).daily || {})[n];
+  return st ? (st.w ? "win" : "lose") : null;
+}
+function paintDaily() {
+  const st = dailyState(), b = $("dailyBtn");
+  b.innerHTML = "Sprawa dnia" + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
+  b.setAttribute("aria-label", st ? `Sprawa dnia, ${st === "win" ? "rozwiązana" : "umorzona"}` : "Sprawa dnia");
+}
+const paintDay = () => { paintQuota(); paintDaily(); };
+/* o północy: nowy licznik i nowa sprawa dnia (timery w tle bywają uśpione, więc też przy powrocie do karty) */
+(function armMidnight() {
+  const now = new Date(), next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2);
+  setTimeout(() => { paintDay(); armMidnight(); }, next - now);
+})();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) paintDay(); });
+
+/* Tempo dla nowych graczy: liczymy ukończone gry (sprawy dnia + losowe, ze statystyk) i przez pierwsze
+   10 gier losowa sprawa jest mała: gry 1–3 S, 4–5 S/M, 6–7 M, 8–10 M/L. Od 11. pełna losowość. */
+function gamesDone() {
+  const s = ls.get("siatka-stats") || {};
+  return Object.keys(s.daily || {}).length + ((s.random || {}).played || 0);
+}
+function rampSize() {
+  const g = gamesDone() + 1, any = a => a[Math.floor(Math.random() * a.length)];
+  return g <= 3 ? "S" : g <= 5 ? any(["S", "M"]) : g <= 7 ? "M" : g <= 10 ? any(["M", "L"]) : undefined;
+}
+/* Rozgrzewka: nowy gracz (0 ukończonych gier), który trafia na sprawę dnia L lub XL, dostaje najpierw małą
+   sprawę spoza serii. Sprawa dnia zostaje wspólna dla wszystkich i czeka pod przyciskiem. */
+const WARMUP = "Sprawa na rozgrzewkę";
+function warmupCase() {
+  const sv = ls.get(SAVE.daily);
+  if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
+  if (sv && sv.case && sv.case.number === Siatka.dailyNumber()) return false; // sprawa dnia już zaczęta
+  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S" }), WARMUP, { kind: "random" });
+  return true;
+}
 
 let randomN = 0;
 function newCase() {
-  if (cooldown.left()) { paintCooldown(); return; }
-  cooldown.start();
+  if (!quota.left()) { $("newCase").hidden = true; paintQuota(); showLimit(); return; }
+  if (!DEV()) quota.take();
   randomN++;
   const seed = "losowa-" + Date.now().toString(36) + "-" + randomN;
-  const o = DEV() ? OPT : {};
+  const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
   load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }), "Sprawa z archiwum", { kind: "random" });
-  paintCooldown();
+  paintQuota();
 }
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = ls.get(SAVE.daily);
   const label = `Sprawa #${String(n).padStart(3, "0")}`;
+  /* Statystyki mówią, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
+     gry): zamykamy ją z wynikiem ze statystyk. Sprawy dnia nie da się rozegrać drugi raz. */
+  const st = ((ls.get("siatka-stats") || {}).daily || {})[n]; // stats.js ładuje się później, więc czytamy wprost
+  if (st && sv && sv.case && sv.case.number === n && !sv.done) {
+    Object.assign(sv, { done: true, win: !!st.w, elapsed: st.m * 1000, hints: 0, wrong: st.w ? 3 - st.s : 3 });
+  }
   if (sv && sv.case && sv.case.number === n) return load(sv.case, label, { kind: "daily" }, sv);
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" });
 }
@@ -2733,7 +3084,7 @@ if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
 let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(layout, 60); });
 if (document.fonts) document.fonts.ready.then(layout);
-if (!(ls.get(SAVE.last) === "random" && resumeRandom())) dailyCase();
+if (!(ls.get(SAVE.last) === "random" && resumeRandom()) && !warmupCase()) dailyCase();
 
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
 function openHowto(auto) {
@@ -3108,8 +3459,193 @@ window.SiatkaStats = { record, summary, open };
 </script>
 <script>
 /*
+ * Siatka Powiązań — osiągnięcia (localStorage, ta przeglądarka).
+ * Po zamkniętej sprawie game.js woła SiatkaAch.onFinish(info). Nowe odznaki pokazują się kolejno na planszy
+ * z fanfarą, iskrami i wibracją. Lista z postępem jest w Ustawieniach.
+ * Odznaka: medal 17×17 pikseli, kolor wg klasy (brąz, srebro, złoto), w środku znak 7×7 (GLYPH).
+ * Nowe osiągnięcie = wpis w ACH (+ znak w GLYPH, jeśli nowy). Licznik w `need` + `prog` daje pasek postępu.
+ * API: SiatkaAch.onFinish(info), .open(), .count() → {got, all}
+ */
+(() => {
+const $ = id => document.getElementById(id);
+const AU = window.SiatkaAudio || { sfx() {} };
+const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
+const tap = p => { if (window.SiatkaGame) window.SiatkaGame.haptic(p); };
+const KEY = "siatka-ach";
+const CITIES = 7, YEARS = 11, CRIMES = 4; // 7 miast, lata 1989–1999, 4 typy zbrodni
+
+/* ---------- stan ---------- */
+function statsSolved() { // statystyki zapisują każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
+  try {
+    const s = JSON.parse(localStorage.getItem("siatka-stats") || "null") || {};
+    return Object.values(s.daily || {}).filter(d => d.w).length + ((s.random || {}).won || 0);
+  } catch (_) { return 0; }
+}
+const fresh = () => ({ got: {}, cities: [], years: [], crimes: [] });
+function load() { try { return Object.assign(fresh(), JSON.parse(localStorage.getItem(KEY) || "null") || {}); } catch (_) { return fresh(); } }
+function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (_) {} }
+
+/* ---------- lista ---------- */
+const streak = () => (window.SiatkaStats ? SiatkaStats.summary().cur : 0);
+const ACH = [
+  { id: "pierwsza", name: "Pierwsza sprawa", desc: "Zamknij pierwszą sprawę.", tier: 1, g: "lupa", ok: (i) => i.win },
+  { id: "bez-pudla", name: "Bez pudła", desc: "Zamknij sprawę na trzy gwiazdki.", tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
+  { id: "ostatni-naboj", name: "Ostatni nabój", desc: "Wygraj przy ostatniej próbie.", tier: 1, g: "bullet", ok: (i) => i.win && i.wrong === 2 },
+  { id: "sito", name: "Sito", desc: "Przed oskarżeniem wyklucz wszystkich niewinnych.", tier: 1, g: "x", ok: (i) => i.win && i.allOut },
+  { id: "nocna-zmiana", name: "Nocna zmiana", desc: "Zamknij sprawę między północą a czwartą rano.", tier: 1, g: "moon", ok: (i) => i.win && i.hour < 4 },
+  { id: "seria-3", name: "Stały rytm", desc: "Rozwiąż sprawę dnia trzy dni z rzędu.", tier: 1, g: "flame", need: 3, prog: () => streak() },
+  { id: "bywalec", name: "Stały bywalec", desc: "Zamknij 10 spraw.", tier: 1, g: "tally", need: 10, prog: () => statsSolved() },
+
+  { id: "blyskawica", name: "Błyskawica", desc: "Zamknij sprawę w mniej niż dwie minuty.", tier: 2, g: "clock", ok: (i) => i.win && i.ms < 120000 },
+  { id: "czysta-robota", name: "Czysta robota", desc: "Wygraj z domkniętym obwodem sprawcy i bez ani jednego sznurka bez pokrycia.", tier: 2, g: "check", ok: (i) => i.win && i.chain && i.bad === 0 },
+  { id: "pajeczyna", name: "Pajęczyna", desc: "Wygraj z co najmniej 10 sznurkami zgodnymi z faktami.", tier: 2, g: "web", ok: (i) => i.win && i.good >= 10 },
+  { id: "grube-akta", name: "Grube akta", desc: "Zamknij sprawę z sześcioma podejrzanymi.", tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
+  { id: "seria-7", name: "Tydzień na służbie", desc: "Rozwiąż sprawę dnia siedem dni z rzędu.", tier: 2, g: "flame", need: 7, prog: () => streak() },
+  { id: "delegacja", name: "Delegacja", desc: "Zamknij sprawę w każdym z siedmiu miast.", tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
+  { id: "wszechstronny", name: "Wszechstronny", desc: "Zamknij zabójstwo, kradzież, otrucie i podpalenie.", tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
+
+  { id: "wielka-szostka", name: "Wielka szóstka", desc: "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.", tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
+  { id: "seria-30", name: "Miesiąc na służbie", desc: "Rozwiąż sprawę dnia 30 dni z rzędu.", tier: 3, g: "flame", need: 30, prog: () => streak() },
+  { id: "dekada", name: "Cała dekada", desc: "Zamknij sprawę z każdego roku od 1989 do 1999.", tier: 3, g: "cal", need: YEARS, prog: (st) => st.years.length },
+  { id: "weteran", name: "Weteran", desc: "Zamknij 50 spraw.", tier: 3, g: "tally", need: 50, prog: () => statsSolved() }
+];
+const TIER = { 1: ["brąz", "#c07a3c", "#6e3f17", "#e7a56a"], 2: ["srebro", "#c8c8c2", "#6b6b66", "#f2f2ec"], 3: ["złoto", "#e3b347", "#8a5f12", "#fbe08c"] };
+
+/* ---------- odznaki: piksele ---------- */
+const GLYPH = {
+  lupa:   [".###...", "#...#..", "#...#..", "#...#..", ".###...", ".....#.", "......#"],
+  star:   ["...#...", "...#...", "#######", ".#####.", "..###..", ".##.##.", "##...##"],
+  bullet: ["...#...", "..###..", "..###..", "..###..", "..###..", ".#####.", ".#####."],
+  x:      ["##...##", ".##.##.", "..###..", "...#...", "..###..", ".##.##.", "##...##"],
+  moon:   ["..####.", ".##....", "##.....", "##.....", "##.....", ".##....", "..####."],
+  flame:  ["...#...", "..##...", "..###.#", ".#####.", "###.###", "##...##", ".#####."],
+  tally:  ["#.#.#.#", "#.#.#.#", "#######", "#.#.#.#", "#.#.#.#", "#.#.#.#", "......."],
+  clock:  [".#####.", "#..#..#", "#..#..#", "#..##.#", "#.....#", "#.....#", ".#####."],
+  check:  ["......#", ".....##", "#...##.", "##.##..", ".###...", "..#....", "......."],
+  web:    ["#..#..#", ".#.#.#.", "..###..", "#######", "..###..", ".#.#.#.", "#..#..#"],
+  folder: ["###....", "#######", "#.....#", "#.....#", "#.....#", "#.....#", "#######"],
+  pin:    ["..###..", ".#####.", ".##.##.", ".#####.", "..###..", "...#...", "...#..."],
+  four:   ["###.###", "#.#.#.#", "###.###", ".......", "###.###", "#.#.#.#", "###.###"],
+  crown:  ["#..#..#", "##.#.##", "#######", "#######", "#.#.#.#", "#######", "......."],
+  cal:    [".#...#.", "#######", "#######", "#.#.#.#", "#######", "#.#.#.#", "#######"]
+};
+function badge(a, on) {
+  const [, fill, rim, hi] = on ? TIER[a.tier] : ["", "#b9ad94", "#8a7d68", "#cfc4ab"];
+  const r = [], px = (x, y, c) => r.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`);
+  // wstążka
+  for (let y = 0; y < 6; y++) for (let x = 5; x < 12; x++) px(x, y, on ? (x < 7 || x > 9 ? "#b3261e" : "#ece3cf") : (x < 7 || x > 9 ? "#9a8c76" : "#cfc4ab"));
+  // krążek: środek (8.5, 10.5), promień 5.6; obwódka i blask w lewym górnym rogu
+  for (let y = 4; y < 17; y++) for (let x = 2; x < 15; x++) {
+    const d = Math.hypot(x + 0.5 - 8.5, y + 0.5 - 10.5);
+    if (d > 5.6) continue;
+    px(x, y, d > 4.6 ? rim : (x - y < -4 && d > 3.4 ? hi : fill));
+  }
+  GLYPH[a.g].forEach((row, y) => [...row].forEach((c, x) => { if (c === "#") px(x + 5, y + 7, rim); }));
+  return `<svg class="ach-b" viewBox="0 0 17 17" shape-rendering="crispEdges" aria-hidden="true">${r.join("")}</svg>`;
+}
+
+/* ---------- sprawdzanie po sprawie ---------- */
+const queue = [];
+function onFinish(info) {
+  const st = load();
+  if (info.win) {
+    const add = (k, v) => { if (v != null && !st[k].includes(v)) st[k].push(v); };
+    add("cities", info.city); add("years", info.year); add("crimes", info.crime);
+  }
+  const fresh = ACH.filter(a => !st.got[a.id] && (a.need ? a.prog(st) >= a.need : a.ok(info)));
+  fresh.forEach(a => { st.got[a.id] = Date.now(); track(`osiagniecie/${a.id}`, `Osiągnięcie: ${a.name}`); });
+  save(st);
+  if (fresh.length) { queue.push(...fresh); setTimeout(showNext, 1300); } // po pieczątce i dzwonku wygranej
+}
+
+/* ---------- plansza zdobycia ---------- */
+let showing = false;
+function showNext() {
+  if (showing) return;
+  const a = queue.shift(); if (!a) return;
+  showing = true;
+  const left = queue.length, [tierName] = TIER[a.tier];
+  $("achPopCard").innerHTML = `
+    <div class="ach-kicker">Nowe osiągnięcie</div>
+    <div class="ach-stage"><div class="ach-rays"></div>${badge(a, true)}${"<i></i>".repeat(10)}</div>
+    <div class="ach-tier t${a.tier}">${tierName}</div>
+    <h3>${a.name}</h3>
+    <p class="ach-desc">${a.desc}</p>
+    <div class="foot"><button class="btn red" id="achOk">${left ? `Dalej (${left})` : "Do akt"}</button></div>`;
+  $("achPop").hidden = false;
+  AU.sfx("medal", a.tier); tap([15, 40, 15, 40, 15, 40, 90]);
+  $("achOk").onclick = () => { $("achPop").hidden = true; showing = false; AU.sfx("tick"); if (queue.length) setTimeout(showNext, 180); };
+}
+
+/* ---------- lista w ustawieniach ---------- */
+function count() { const st = load(); return { got: ACH.filter(a => st.got[a.id]).length, all: ACH.length }; }
+function open() {
+  const st = load(), c = count(), date = t => new Date(t).toLocaleDateString("pl-PL");
+  const rows = ACH.map(a => {
+    const on = !!st.got[a.id];
+    const prog = !on && a.need ? Math.min(a.need, a.prog(st)) : 0;
+    return `<li class="ach-row${on ? "" : " off"}">${badge(a, on)}<div><b>${a.name}</b><span>${a.desc}</span>
+      ${on ? `<small>${TIER[a.tier][0]} · zdobyte ${date(st.got[a.id])}</small>`
+        : a.need ? `<div class="ach-bar"><i style="width:${prog / a.need * 100}%"></i></div><small>${prog} z ${a.need}</small>` : `<small>${TIER[a.tier][0]}</small>`}</div></li>`;
+  }).join("");
+  $("achListCard").innerHTML = `<h3>Osiągnięcia</h3><p class="sub">Zdobyte: ${c.got} z ${c.all}. Zapisane w tej przeglądarce.</p>
+    <ul class="ach-list">${rows}</ul>
+    <div class="foot"><button class="btn ghost" id="achClose">Zamknij</button></div>`;
+  $("achList").hidden = false; AU.sfx("paper");
+  $("achClose").onclick = () => { $("achList").hidden = true; };
+  // #dev: stuknięcie w odznakę pokazuje jej planszę (podgląd, bez zapisu)
+  if (location.hash === "#dev") $("achListCard").querySelectorAll(".ach-row").forEach((row, k) => {
+    row.style.cursor = "pointer"; row.onclick = () => { queue.push(ACH[k]); showNext(); };
+  });
+  track("osiagniecia/otwarte", "Osiągnięcia otwarte");
+}
+
+/* ---------- okna i style ---------- */
+document.body.insertAdjacentHTML("beforeend", `
+  <div class="overlay ach-pop" id="achPop" hidden><div class="card" id="achPopCard" role="dialog" aria-modal="true" aria-live="assertive"></div></div>
+  <div class="overlay" id="achList" hidden><div class="card" id="achListCard" role="dialog" aria-modal="true" aria-label="Osiągnięcia"></div></div>`);
+$("achList").addEventListener("click", e => { if (e.target.id === "achList") e.currentTarget.hidden = true; });
+document.head.insertAdjacentHTML("beforeend", `<style>
+.ach-pop{z-index:12;align-items:center}
+.ach-pop .card{text-align:center;max-width:340px;overflow:hidden}
+.ach-kicker{font-family:var(--f-body);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--stamp)}
+.ach-stage{position:relative;width:132px;height:132px;margin:8px auto 2px;display:grid;place-items:center}
+.ach-stage .ach-b{width:112px;height:112px;position:relative;z-index:1;animation:achIn .9s cubic-bezier(.34,1.56,.64,1) both;filter:drop-shadow(0 4px 0 rgba(0,0,0,.25))}
+.ach-rays{position:absolute;inset:-30px;background:repeating-conic-gradient(rgba(217,166,72,.32) 0 12deg,transparent 12deg 30deg);border-radius:50%;
+  -webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%);animation:achSpin 9s linear infinite,achFade .6s .2s both}
+.ach-stage i{position:absolute;left:50%;top:50%;width:6px;height:6px;background:var(--brass);z-index:2;opacity:0;animation:achSpark 1s cubic-bezier(.2,.7,.3,1) .35s both}
+.ach-stage i:nth-of-type(odd){background:#fff4ea;width:4px;height:4px}
+${Array.from({ length: 10 }, (_, k) => { const ang = k / 10 * Math.PI * 2, d = 62 + (k % 3) * 10; return `.ach-stage i:nth-of-type(${k + 1}){--x:${Math.round(Math.cos(ang) * d)}px;--y:${Math.round(Math.sin(ang) * d)}px;animation-delay:${0.3 + (k % 4) * 0.05}s}`; }).join("\n")}
+.ach-tier{display:inline-block;font-family:var(--f-pixel);font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:1px 8px;margin:6px 0 4px;color:#fff4ea;animation:achFade .4s .6s both}
+.ach-tier.t1{background:#8f5527}.ach-tier.t2{background:#6b6b66}.ach-tier.t3{background:#9a6a12}
+.ach-pop h3{animation:achFade .4s .7s both}
+.ach-desc{font-family:var(--f-body);font-size:14px;color:var(--ink-soft);margin:4px 0 0;animation:achFade .4s .8s both}
+@keyframes achIn{0%{transform:scale(.2) rotate(-25deg);opacity:0}55%{transform:scale(1.15) rotate(6deg);opacity:1}75%{transform:scale(.95) rotate(-2deg)}100%{transform:none}}
+@keyframes achSpin{to{transform:rotate(360deg)}}
+@keyframes achFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes achSpark{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(.4)}}
+.ach-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column}
+.ach-row{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--paper-shade)}
+.ach-row:last-child{border-bottom:none}
+.ach-row .ach-b{width:44px;height:44px}
+.ach-row b{display:block;font-family:var(--f-pixel);font-size:15px}
+.ach-row span{display:block;font-family:var(--f-body);font-size:12.5px;color:var(--ink-soft)}
+.ach-row small{display:block;font-family:var(--f-body);font-size:11px;color:var(--ink-soft);margin-top:2px;text-transform:none}
+.ach-row.off b{color:var(--ink-soft)}
+.ach-row.off .ach-b{opacity:.55}
+.set-ach small{font-family:var(--f-body);font-size:12px;opacity:.7;margin-left:4px}
+.ach-bar{height:6px;background:rgba(0,0,0,.08);margin-top:4px}
+.ach-bar i{display:block;height:100%;background:var(--brass)}
+</style>`);
+
+window.SiatkaAch = { onFinish, open, count };
+})();
+
+</script>
+<script>
+/*
  * Siatka Powiązań — ustawienia (zębatka w nagłówku) i instalacja gry.
- * Okno: Jak grać, Statystyki, efekty dźwiękowe, muzyka, wibracje, instalacja.
+ * Okno: Jak grać, Statystyki, Osiągnięcia, efekty dźwiękowe, muzyka, wibracje, instalacja.
  * Pełny ekran: osobny przycisk w nagłówku (tylko w przeglądarce, która go obsługuje).
  * Instalacja: Android i Chrome na komputerze — systemowe okno (beforeinstallprompt);
  * iPhone/iPad — instrukcja (Safari nie ma przycisku instalacji); zainstalowana — informacja.
@@ -3204,6 +3740,7 @@ function render() {
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
     <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
+      ${window.SiatkaAch ? (c => `<button class="pick wide set-ach" id="setAch">Osiągnięcia <small>${c.got}/${c.all}</small></button>`)(window.SiatkaAch.count()) : ""}
       <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
     <div class="lbl">Dźwięk</div>
     ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
@@ -3215,6 +3752,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
