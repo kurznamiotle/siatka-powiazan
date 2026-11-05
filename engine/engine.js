@@ -46,7 +46,7 @@
   }
 
   /* ---------------- tekst ---------------- */
-  const GIDX = { m: 0, f: 1, n: 2 };
+  const GIDX = { m: 0, f: 1, n: 2, pl: 3 }; // pl = liczba mnoga przedmiotu (widły, nożyce); bez 4. wariantu bierze 3.
   /* najpierw {k} → vars[k], potem [a|b|c] → wariant wg rodzaju */
   function tx(str, g, vars) {
     let s = String(str);
@@ -60,9 +60,10 @@
   const toHM = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
   const plList = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " i " + a[a.length - 1];
   const plural = (n, one, few, many) => { if (n === 1) return one; const d = n % 10, h = n % 100; return d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? few : many; };
-  const inYears = (o, y) => !o || !o.years || (y >= o.years[0] && y <= o.years[1]);
+  /* years:[od,do] i opcjonalnie months:[od,do] (1–12, w każdym roku z zakresu); m = indeks miesiąca sprawy 0–11 */
+  const inYears = (o, y, m) => !o || ((!o.years || (y >= o.years[0] && y <= o.years[1])) && (!o.months || m === undefined || (m + 1 >= o.months[0] && m + 1 <= o.months[1])));
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
-  const avail = (list, y) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
+  const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
   const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
   const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 
@@ -70,6 +71,26 @@
     if (year <= 1989) return `${R.int(2, 9) * 100} tysięcy złotych`;
     if (year < 1995) { const n = R.int(3, 60); return `${n} ${plural(n, "milion", "miliony", "milionów")} złotych`; }
     const n = R.int(2, 15); return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`;
+  }
+  /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
+  const moneyGen = s => s.replace(/ (tysiące|tysiąc|miliony|milion)(?= )/, (_, w) => w[0] === "t" ? " tysięcy" : " milionów");
+  /* drobna kwota na kwitach i paragonach: do 1994 stare złote, od denominacji nowe */
+  function smallMoney(R, year) {
+    if (year <= 1989) { const n = R.int(3, 9); return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`; }
+    if (year < 1995) { const n = R.int(5, 40) * 10; return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`; }
+    const n = R.int(15, 90); return `${n} ${plural(n, "złoty", "złote", "złotych")}`;
+  }
+  /* Czy tekst (napis albo {t, ages, k, roles, trait}) pasuje do postaci {age, role, traits}:
+     ages = wiek postaci, roles = tylko te role, k = tagi, których rola nie może mieć (role.no),
+     trait = wymagane wartości cech (np. zdanie o własnym aucie tylko z autem). */
+  function fitsWho(o, who) {
+    if (!o || typeof o === "string" || !who) return true;
+    if (o.ages && who.age && !o.ages.includes(who.age)) return false;
+    const role = who.role || {};
+    if (o.roles && !o.roles.includes(role.id)) return false;
+    if (o.k && o.k.some(k => (role.no || []).includes(k))) return false;
+    if (o.trait && who.traits && Object.entries(o.trait).some(([t, v]) => who.traits[t] !== v)) return false;
+    return true;
   }
 
   /* ---------------- wielkości ---------------- */
@@ -112,7 +133,7 @@
     const sizeKey = SIZES[opts.size] ? opts.size : R.pick(Object.keys(SIZES));
     const N = SIZES[sizeKey].n, K = R.pick(SIZES[sizeKey].k);
     const milicja = year === 1989 || (year === 1990 && monthIdx < 4);
-    const A = list => avail(list, year);
+    const A = list => avail(list, year, monthIdx);
 
     const streets = R.shuffle(city.streets);
     const V = {
@@ -125,6 +146,7 @@
       zaklad_at: R.pick(A(city.zaklad_at)),
       month: B.months[monthIdx], year, police_dat: milicja ? "milicji" : "policji", money: money(R, year)
     };
+    V.money_gen = moneyGen(V.money); // „z żądaniem 2 tysięcy złotych”
     const T = (s, g, extra) => tx(s, g, extra ? Object.assign({}, V, extra) : V);
     /* w jednej sprawie to samo zdanie nie trafia do dwóch osób (dopóki starcza wariantów) */
     const usedTpl = new Set();
@@ -173,10 +195,11 @@
      Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
      w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
      północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
-  const GEN_VERSION = "2.1";
+  const GEN_VERSION = "2.1.1";
   const GENERATOR_VERSIONS = [
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
-    { id: "2.1", from: "2026-11-05" }                                      // bieżący kod
+    { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
+    { id: "2.1.1", from: "2026-11-06" }                                    // bieżący kod; data = północ po dniu wypchnięcia (5.11)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
@@ -214,7 +237,7 @@
     return out;
   }
 
-  const util = { hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money };
+  const util = { hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, fitsWho };
   const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy };
   root.Siatka = api;

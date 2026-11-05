@@ -505,7 +505,7 @@ function showResult() {
   $("resultCard").innerHTML = `
     <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
     <h3></h3>
-    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}, a narzędziem ${wpn.name.toLowerCase()}.</p>`}
+    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}, a narzędziem ${(wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1))}.</p>`}
     <p class="epi">${CASE.epilogue}</p>
     <div class="lbl">Rozumowanie</div>
     <ul class="why">${CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join("")}</ul>

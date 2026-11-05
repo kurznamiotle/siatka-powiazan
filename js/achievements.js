@@ -12,7 +12,7 @@ const AU = window.SiatkaAudio || { sfx() {} };
 const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
 const tap = p => { if (window.SiatkaGame) window.SiatkaGame.haptic(p); };
 const KEY = "siatka-ach";
-const CITIES = 7, YEARS = 11, CRIMES = 4; // 7 miast, lata 1989–1999, 4 typy zbrodni
+const CITIES = 7, YEARS = 11, CRIMES = 11; // 7 miast, lata 1989–1999, 11 typów zbrodni (od wydania 2.1.1)
 
 /* ---------- stan ---------- */
 function statsSolved() { // historia wyników zapisuje każdą zamkniętą sprawę, więc liczba rozwiązanych jest stamtąd
@@ -39,7 +39,7 @@ const ACH = [
   { id: "grube-akta", name: "Grube akta", desc: "Zamknij sprawę z sześcioma podejrzanymi.", tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
   { id: "seria-7", name: "Tydzień na służbie", desc: "Rozwiąż sprawę dnia siedem dni z rzędu.", tier: 2, g: "flame", need: 7, prog: () => streak() },
   { id: "delegacja", name: "Delegacja", desc: "Zamknij sprawę w każdym z siedmiu miast.", tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
-  { id: "wszechstronny", name: "Wszechstronny", desc: "Zamknij zabójstwo, kradzież, otrucie i podpalenie.", tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
+  { id: "wszechstronny", name: "Wszechstronny", desc: "Zamknij sprawę każdego z 11 typów zbrodni.", tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
 
   { id: "wielka-szostka", name: "Wielka szóstka", desc: "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.", tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
   { id: "seria-30", name: "Miesiąc na służbie", desc: "Rozwiąż sprawę dnia 30 dni z rzędu.", tier: 3, g: "flame", need: 30, prog: () => streak() },

@@ -24,18 +24,35 @@
         flavor:["Od dwudziestu lat skręca Polonezy na Żeraniu.","Boi się zwolnień, o których mówią w zakładzie."] },
       locations:[
         { id:"szczeka", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"w szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
-          open:["Na bazarze w ciągu dnia każdy kręci się przy cudzych budkach.", "Plandekę z tyłu budki można po prostu odchylić."],
-          desc:["Blaszana budka z pyzami w słoikach i kapustą na wagę.","Między budkami pachnie flakami i tanimi perfumami."] },
-        { id:"przystan", name:"Przystań nad Wisłą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:[],
-          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału."],
-          desc:["Drewniany pomost i szopa na łodzie, z widokiem na Stare Miasto.","Łodzie wioślarzy leżą do góry dnem na stojakach."] }
+          open:["Na bazarze w ciągu dnia każdy kręci się przy cudzych budkach.", "Plandekę z tyłu budki można po prostu odchylić.",
+                "Handlarze z sąsiednich szczęk pilnują swojego, a cudzej budki nikt.", "Blacha z tyłu szczęki odstaje i wystarczy ją odgiąć."],
+          desc:["Blaszana budka z pyzami w słoikach i kapustą na wagę.","Między budkami pachnie flakami i tanimi perfumami.",
+                "Na ladzie kalkulator, waga i stos reklamówek z Pewexu.","Pod plandeką skrzynki z towarem i stołek handlarza."] },
+        { id:"przystan", name:"Przystań nad Wisłą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Drewniany pomost i szopa na łodzie, z widokiem na Stare Miasto.","Łodzie wioślarzy leżą do góry dnem na stojakach.",
+                "Na ścianie szopy wiszą wiosła i kalendarz z zawodami.","Od Wisły ciągnie chłodem, a na pomoście suszą się sieci."] }
       ],
       roles:[
         { id:"praski", age:["young","mid"], m:"Bazarowy cwaniak", f:null, access:[], outfit:{shape:"jacket",c:"#59493b",d:"#c9b98f"}, headwear:{m:["kaszkiet"]},
-          flavor:["Na bazarze załatwi wszystko, od części do Poloneza po bilety na Legię."] }
+          flavor:["Na bazarze załatwi wszystko, od części do Poloneza po bilety na Legię."] },
+        { id:"jarmark", age:["young","mid"], m:"Handlarz ze Stadionu Dziesięciolecia", f:"Handlarka ze Stadionu Dziesięciolecia", access:[], outfit:{shape:"jacket",c:"#3b3054",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+          flavor:["Na koronie Stadionu Dziesięciolecia sprzedaje wszystko, od dżinsów po kasety.","Po rosyjsku targuje się lepiej niż po polsku."] },
+        { id:"windziarz", age:["mid","old"], m:"Windziarz z Pałacu Kultury", f:"Windziarka z Pałacu Kultury", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Wozi turystów na taras widokowy na trzydziestym piętrze.","Zna każdą windę w Pałacu po dźwięku."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na przystani codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"kelner_wawa", age:["young","mid"], m:"Kelner z hotelu Europejskiego", f:"Kelnerka z hotelu Europejskiego", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Napiwki bierze tylko w dolarach.","Wie, który dyplomata pije co do obiadu."] }
       ],
       flavor:["Mówi praską gwarą, jak z piosenek Grzesiuka.","Mówi, że przez most na lewy brzeg chodzi tylko w ważnych sprawach.",
-              "Pamięta, jak w kamienicy był jeden telefon na całą klatkę."],
+              "Pamięta, jak w kamienicy był jeden telefon na całą klatkę.",
+              "W niedzielę chodzi z wnukami do ZOO na Pradze.","Na Stadion Dziesięciolecia jeździ po kasety i dżinsy.","Mówi „na bazarze”, a nie „na targu”, i poprawia każdego.",
+              "Na Wileńskim zna każdego bagażowego.","Pamięta Warszawę z czasów, kiedy na Pradze stały jeszcze drewniane domy.","Wieczorami słucha Kapeli Czerniakowskiej z płyty.",
+              "Twierdzi, że najlepsze flaki są w barze przy Targowej.","Przez Most Śląsko-Dąbrowski chodzi pieszo, bo boi się tramwajów.",
+              "Na Pałac Kultury mówi „pekin” i nie zamierza przestać.","Ma kuzyna na Woli i spotyka się z nim tylko na pogrzebach.","Kupuje „Express Wieczorny” co dzień o tej samej porze.",
+              {t:"Chodzi oglądać, jak budują nowe wieżowce w centrum.", years:[1995,1999]}],
       quips:["Na Pradze nic się nie dzieje bez świadka."]
     },
 
@@ -53,20 +70,34 @@
         flavor:["Pracuje przy silnikach okrętowych u Cegielskiego.","Po szychcie zawsze kupuje gazetę w tym samym kiosku."] },
       locations:[
         { id:"piekarnia", name:"Piekarnia na Jeżycach", label:"Piekarnia", gen:"piekarni", in:"w piekarni", from:"z piekarni", icon:"shop", roles:["piekarz"],
-          open:["Drzwi od zaplecza są otwarte, bo piekarze wychodzą na papierosa.", "Wieczorem wchodzi tu każdy, kto chce kupić chleb po godzinach."],
-          desc:["Piekarnia, z której w listopadzie pachnie rogalami świętomarcińskimi na pół dzielnicy.","Piece rozgrzewają się o trzeciej w nocy."] },
-        { id:"przystan", name:"Przystań nad Wartą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:[],
-          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału."],
-          desc:["Przystań wioślarska z drewnianym pomostem nad Wartą.","Na ścianie szopy wisi tablica z wynikami regat."] }
+          open:["Drzwi od zaplecza są otwarte, bo piekarze wychodzą na papierosa.", "Wieczorem wchodzi tu każdy, kto chce kupić chleb po godzinach.",
+                "Okno od podwórka jest otwarte, żeby uciekało gorąco od pieców.", "Na zaplecze wchodzi się przez sień, której nikt nie zamyka."],
+          desc:["Piekarnia, z której w listopadzie pachnie rogalami świętomarcińskimi na pół dzielnicy.","Piece rozgrzewają się o trzeciej w nocy.",
+                "Na zapleczu worki mąki i blachy ułożone w wieżę.","Na ladzie wiklinowe kosze na chleb i waga z odważnikami."] },
+        { id:"przystan", name:"Przystań nad Wartą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Przystań wioślarska z drewnianym pomostem nad Wartą.","Na ścianie szopy wisi tablica z wynikami regat.",
+                "Łodzie leżą na kozłach, a pod nimi stoją puszki ze smarem.","Z pomostu widać katedrę na Ostrowie Tumskim."] }
       ],
       roles:[
         { id:"piekarz", age:"mid", m:"Piekarz", f:"Piekarka", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d8d2c4"}, headwear:{m:[""],f:["chustka"]},
           flavor:["Ręce ma zawsze białe od mąki.","Na Świętego Marcina piecze rogale przez całą noc."] },
         { id:"targi", age:["young","mid"], m:"Pracownik Targów Poznańskich", f:"Pracownica Targów Poznańskich", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
-          flavor:["W czerwcu nie ma czasu na nic, bo na targi zjeżdża pół Europy."] }
+          flavor:["W czerwcu nie ma czasu na nic, bo na targi zjeżdża pół Europy."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na Warcie codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"piwowar", age:"mid", m:"Piwowar z browaru", f:"Laborantka z browaru", access:[], outfit:{shape:"apron",c:"#7a6a3b",d:"#e8d3a5"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Pracuje w browarze i pachnie słodem nawet w niedzielę.","Każde piwo w barze ocenia, zanim je wypije."] },
+        { id:"cukiernik", age:["mid","old"], m:"Cukiernik", f:"Cukierniczka", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Piecze rogale świętomarcińskie według przepisu dziadka.","Mak do rogali kupuje tylko u jednego handlarza na Rynku."] }
       ],
       flavor:["Na tramwaj mówi wyłącznie „bimba”.","Do kawy zawsze bierze sznekę z glancem.","Mówi „tej” prawie w każdym zdaniu.",
-              "Na ziemniaki mówi „pyry” i nie zna innego słowa.","Każdą złotówkę obraca dwa razy, zanim ją wyda."],
+              "Na ziemniaki mówi „pyry” i nie zna innego słowa.","Każdą złotówkę obraca dwa razy, zanim ją wyda.",
+              "W południe staje na Starym Rynku, żeby zobaczyć koziołki na ratuszu.","Na placki ziemniaczane mówi „plyndze”.","Na kurtkę mówi „jaka”.",
+              "Na Świętego Marcina zawsze kupuje rogala, choćby ostatniego.","W niedzielę jeździ nad Maltę.","Do ziemniaków zawsze robi gzik.",
+              "Jest kibicem {team} i na mecze chodzi z całą klatką.","Na paczkę znajomych mówi „wiara”.","Na wycieczki jeździ tylko do Kórnika i Rogalina.",
+              "Mówi, że w Poznaniu nikt niczego nie marnuje."],
       quips:["Tej, kolejna sprawa z głowy."]
     },
 
@@ -84,11 +115,15 @@
         flavor:["Codziennie dojeżdża tramwajem do kombinatu w Nowej Hucie.","Mówi, że huta to całe [jego|jej] życie."] },
       locations:[
         { id:"stajnia", name:"Stajnia dorożkarska", label:"Stajnia", gen:"stajni", in:"w stajni", from:"ze stajni", icon:"stable", roles:["dorozkarz"],
-          open:["Wrota stajni stoją otwarte, żeby konie miały powietrze.", "Stajnię zamyka się dopiero na noc, wieczorem kręcą się tu dorożkarze i ich znajomi."],
-          desc:["Stajnia w podwórku, skąd rano wyjeżdżają dorożki na Rynek.","Pachnie sianem, skórą i końmi."] },
+          open:["Wrota stajni stoją otwarte, żeby konie miały powietrze.", "Stajnię zamyka się dopiero na noc, wieczorem kręcą się tu dorożkarze i ich znajomi.",
+                "Stajenny wychodzi do baru i zostawia wrota uchylone.", "Do stajni wchodzi się przez bramę, której nikt nie pilnuje."],
+          desc:["Stajnia w podwórku, skąd rano wyjeżdżają dorożki na Rynek.","Pachnie sianem, skórą i końmi.",
+                "Na ścianie wiszą chomąta i uprząż z mosiężnymi okuciami.","W kącie stoi dorożka z podniesioną budą, czekająca na nowe koło."] },
         { id:"piwnica_jazz", name:"Piwnica jazzowa", label:"Klub", gen:"klubu", in:"w piwnicy jazzowej", from:"z piwnicy jazzowej", icon:"cellar", roles:["muzyk"],
-          open:["Wieczorem wejdzie każdy, kto zapłaci za bilet.", "Bramkarz wpuszcza każdego, kto zna któregoś z muzyków."],
-          desc:["Ceglana piwnica z małą sceną i fortepianem bez jednego klawisza.","Grają tu do rana, a dym siwieje pod sklepieniem."] }
+          open:["Wieczorem wejdzie każdy, kto zapłaci za bilet.", "Bramkarz wpuszcza każdego, kto zna któregoś z muzyków.",
+                "Drzwi do zaplecza stoją otwarte, bo muzycy wynoszą tamtędy sprzęt.", "Na przerwie między koncertami bramkarz idzie na papierosa i nikt nie pilnuje wejścia."],
+          desc:["Ceglana piwnica z małą sceną i fortepianem bez jednego klawisza.","Grają tu do rana, a dym siwieje pod sklepieniem.",
+                "Na ścianach plakaty z festiwali jazzowych i zdjęcia z autografami.","Za barem półka z kieliszkami i stara kasa fiskalna."] }
       ],
       roles:[
         { id:"dorozkarz", age:["mid","old"], m:"Dorożkarz z Rynku", f:null, access:[], outfit:{shape:"jacket",c:"#2b2b2b",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
@@ -96,10 +131,18 @@
         { id:"muzyk", age:["young","mid"], m:"Muzyk jazzowy", f:"Wokalistka jazzowa", access:["piwnica_jazz"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
           flavor:["Gra do rana w piwnicy przy Rynku.","Mówi, że prawdziwy jazz skończył się na Komedzie."] },
         { id:"obwarzanki", age:["mid","old"], m:"Sprzedawca obwarzanków", f:"Sprzedawczyni obwarzanków", access:[], outfit:{shape:"apron",c:"#8a6d55",d:"#e8d9c1"}, headwear:{m:["kaszkiet"],f:["chustka"]},
-          flavor:["Od świtu stoi z wózkiem obwarzanków przy Plantach."] }
+          flavor:["Od świtu stoi z wózkiem obwarzanków przy Plantach."] },
+        { id:"przewodnik", age:["mid","old"], m:"Przewodnik miejski", f:"Przewodniczka miejska", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Zna każdą legendę o smoku i każdą datę z historii miasta.","Mówi po niemiecku lepiej niż turyści, których oprowadza."] },
+        { id:"malarz_rynek", age:["young","mid","old"], m:"Malarz spod Bramy Floriańskiej", f:"Malarka spod Bramy Floriańskiej", access:[], outfit:{shape:"jacket",c:"#6b4a8a",d:"#e8d9c1"}, headwear:{m:["beret"],f:["beret"]},
+          flavor:["Sprzedaje turystom akwarele z Wawelem i Sukiennicami.","Na murach przy Floriańskiej ma swoje stałe miejsce od lat."] }
       ],
       flavor:["Mówi, że wychodzi „na pole”, a nie na dwór.","Codziennie rano kupuje obwarzanka na rogu.",
-              "Narzeka na turystów, choć [sam|sama] na nich zarabia.","Wie, w której piwnicy przy Rynku grają najlepszy jazz."],
+              "Narzeka na turystów, choć [sam|sama] na nich zarabia.","Wie, w której piwnicy przy Rynku grają najlepszy jazz.",
+              "Na jagody mówi „borówki”.","W każdą niedzielę spaceruje Plantami dookoła Starego Miasta.","Na hejnał z wieży Mariackiej zawsze podnosi głowę.",
+              "Pamięta Kazimierz z czasów, kiedy połowa kamienic stała pusta.","Mówi, że w Krakowie nawet gołębie są starsze niż gdzie indziej.","Jest kibicem {team} od dziecka i nie wymawia nazwy drugiego klubu.",
+              "Na Wawel chodzi tylko z gośćmi z innych miast.","Mówi „sznycel” na kotlet mielony.","Na każde święta kupuje szopkę krakowską od tego samego twórcy.",
+              "Twierdzi, że prawdziwy obwarzanek jest tylko z wózka, a nie z piekarni.",{t:"Chodzi do kina na filmy o Kazimierzu, odkąd kręcili tu „Listę Schindlera”.", years:[1994,1999]}],
       quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta."]
     },
 
@@ -117,16 +160,35 @@
         flavor:["Pracuje na trzy zmiany przy krosnach, jak kiedyś [jego|jej] matka.",
                 {t:"Boi się, że fabryka padnie jak sąsiednie zakłady.", years:[1990,1999]}] },
       locations:[
-        { id:"przedzalnia", name:"Hala przędzalni", label:"Przędzalnia", gen:"przędzalni", in:"w przędzalni", from:"z przędzalni", icon:"factory", roles:["worker"],
-          open:["Na zmianie przez portiernię przechodzą setki ludzi i nikt nie sprawdza przepustek.", "Boczna brama od torów nie ma stróża."],
-          desc:["Hala z ceglanymi łukami i rzędami maszyn, które nie milkną nawet nocą.","Na portierni wisi tablica z kluczami do każdego oddziału."] },
-        { id:"filmowka", name:"Magazyn rekwizytów filmówki", label:"Rekwizytornia", gen:"rekwizytorni", in:"w rekwizytorni", from:"z rekwizytorni filmówki", icon:"workshop", roles:["student"],
-          open:["Zeszyt wypożyczeń leży otwarty, a drzwi stoją uchylone.", "Wieczorem ciągle ktoś coś stąd wynosi na zdjęcia i nikt nie pilnuje drzwi."],
-          desc:["Magazyn w pałacu przy Targowej, pełen kostiumów, reflektorów i starych taśm.","Studenci pożyczają stąd sprzęt na etiudy, wpisując się do zeszytu."] }
+        { id:"przedzalnia", name:"Hala przędzalni", label:"Przędzalnia", gen:"przędzalni", in:"w przędzalni", from:"z przędzalni", icon:"factory", roles:["worker","portier_fab"],
+          open:["Na zmianie przez portiernię przechodzą setki ludzi i nikt nie sprawdza przepustek.", "Boczna brama od torów nie ma stróża.",
+                "Okna hali są otwarte, bo przy maszynach jest gorąco jak w łaźni.", "Portier śpi w budce, a bramka obok jest zawsze otwarta."],
+          desc:["Hala z ceglanymi łukami i rzędami maszyn, które nie milkną nawet nocą.","Na portierni wisi tablica z kluczami do każdego oddziału.",
+                "W powietrzu fruwa bawełniany pył, który osiada na wszystkim.","Pod oknami stoją kosze z cewkami i bele materiału."] },
+        { id:"filmowka", name:"Magazyn rekwizytów filmówki", label:"Rekwizytornia", gen:"rekwizytorni", in:"w rekwizytorni", from:"z rekwizytorni filmówki", icon:"workshop", roles:["student","operator"],
+          open:["Zeszyt wypożyczeń leży otwarty, a drzwi stoją uchylone.", "Wieczorem ciągle ktoś coś stąd wynosi na zdjęcia i nikt nie pilnuje drzwi.",
+                "Magazynier wychodzi na kawę i zostawia drzwi szeroko otwarte.", "Do magazynu wchodzi się przez korytarz, którym chodzą wszyscy studenci."],
+          desc:["Magazyn w pałacu przy Targowej, pełen kostiumów, reflektorów i starych taśm.","Studenci pożyczają stąd sprzęt na etiudy, wpisując się do zeszytu.",
+                "Na wieszakach wiszą mundury z różnych wojen i suknie balowe.","Pod sufitem reflektory, a na podłodze zwoje kabli."] }
       ],
-      roles:[],
+      roles:[
+        { id:"operator", age:["young","mid"], m:"Operator z filmówki", f:"Montażystka z filmówki", access:["filmowka"], outfit:{shape:"jacket",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Kręci etiudy studentów i zna każdą kamerę w szkole.","Mówi, że Łódź wygląda najlepiej na czarno-białej taśmie."] },
+        { id:"portier_fab", age:["mid","old"], m:"Portier z przędzalni", f:"Portierka z przędzalni", access:["przedzalnia"], outfit:{shape:"collar",c:"#4f5560",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Od trzydziestu lat siedzi w budce przy bramie fabryki.","Zna każdą włókniarkę po imieniu i po kroku."] },
+        { id:"podmiejski", age:"mid", m:"Motorniczy tramwaju podmiejskiego", f:"Motorniczka tramwaju podmiejskiego", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+          flavor:["Jeździ tramwajem podmiejskim do Zgierza i Ozorkowa.","Na każdym przystanku zna kogoś, kto wsiada codziennie."] },
+        { id:"grand", age:["young","mid"], m:"Kelner z Grand Hotelu", f:"Kelnerka z Grand Hotelu", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Podawał kawę aktorom, którzy przyjeżdżają na zdjęcia do Łodzi.","Wie, który reżyser zostawia największe napiwki."] },
+        { id:"szwaczka", age:["mid","old"], m:"Krojczy z szwalni", f:"Szwaczka z szwalni", access:[], outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Szyje płaszcze na eksport, które potem widać w zachodnich katalogach.","Ma na palcu naparstek nawet przy obiedzie."] }
+      ],
       flavor:["Na bułkę mówi „angielka”.","Mieszka w kamienicy z podwórkiem-studnią.","Pamięta, jak fabryczne syreny wyznaczały rytm dnia.",
-              "W niedzielę zawsze spaceruje po Piotrkowskiej."],
+              "W niedzielę zawsze spaceruje po Piotrkowskiej.",
+              "Na chodnik mówi „trytuar”.","Na bilet miesięczny mówi „migawka”.","Na balkon mówi „ganek”, choć mieszka na trzecim piętrze.",
+              "Mówi, że w Łodzi każda kamienica ma swojego fabrykanta i swoją legendę.","Pamięta, jak na Bałutach woda była tylko w podwórkowej studni.","Jest kibicem {team} i nie rozmawia z sąsiadem, który kibicuje drugiej drużynie.",
+              "Do fabryki Poznańskiego ma dwa przystanki, a całe życie przepracował tam ktoś z rodziny.","W niedzielę chodzi do kina „{cinema}” na poranek.",
+              {t:"Martwi się, że zamykają kolejne fabryki.", years:[1990,1999]},"Mówi „szaber” na wszystko, co wynosi się z zakładu.","Zna każdy pasaż między Piotrkowską a Kościuszki."],
       quips:["W Łodzi każdy każdego zna, więc i tak by się wydało."]
     },
 
@@ -144,19 +206,33 @@
         flavor:["Od lat pracuje przy pochylni w stoczni.","Przy każdej okazji wspomina sierpień osiemdziesiątego."] },
       locations:[
         { id:"szopa_rybacka", name:"Szopa rybacka w Brzeźnie", label:"Szopa", gen:"szopy rybackiej", in:"w szopie rybackiej", from:"z szopy rybackiej", icon:"shed", roles:["rybak"],
-          open:["Szopa na plaży nie ma zamka, tylko drewniany skobel.", "Rybacy nigdy nie zamykają szopy. Mówią, że i tak wszyscy się znają."],
-          desc:["Smołowana szopa na plaży, pełna sieci i skrzynek na ryby.","Od morza ciągnie chłodem, a w środku pachnie śledziem."] },
+          open:["Szopa na plaży nie ma zamka, tylko drewniany skobel.", "Rybacy nigdy nie zamykają szopy. Mówią, że i tak wszyscy się znają.",
+                "Wiatr od morza ciągle otwiera drzwi szopy, więc nikt ich już nie domyka.", "Rybacy zostawiają szopę otwartą, żeby sieci schły w przeciągu."],
+          desc:["Smołowana szopa na plaży, pełna sieci i skrzynek na ryby.","Od morza ciągnie chłodem, a w środku pachnie śledziem.",
+                "Pod ścianą stoją beczki, a na hakach wiszą sztormiaki.","Przez szpary w deskach widać łodzie wyciągnięte na piasek."] },
         { id:"magazyn_port", name:"Magazyn w porcie", label:"Nabrzeże", gen:"magazynu portowego", in:"w magazynie portowym", from:"z magazynu w porcie", icon:"garage", roles:["portowiec"],
-          open:["W ogrodzeniu nabrzeża jest dziura, o której wiedzą wszyscy portowcy.", "Brama magazynu stoi otwarta, bo wieczorem jeszcze rozładowują frachtowiec."],
-          desc:["Magazyn przy nabrzeżu, gdzie składa się towar z frachtowców.","Magazyn z czerwonej cegły, pełen skrzyń i worków z kawą."] }
+          open:["W ogrodzeniu nabrzeża jest dziura, o której wiedzą wszyscy portowcy.", "Brama magazynu stoi otwarta, bo wieczorem jeszcze rozładowują frachtowiec.",
+                "Wartownik obchodzi nabrzeże raz na godzinę, a boczne drzwi zostają otwarte.", "Przez rampę załadunkową wchodzi każdy, kto ma na sobie kombinezon portowca."],
+          desc:["Magazyn przy nabrzeżu, gdzie składa się towar z frachtowców.","Magazyn z czerwonej cegły, pełen skrzyń i worków z kawą.",
+                "Pod sufitem suwnica, a na podłodze ślady wózków widłowych.","Na skrzyniach napisy po szwedzku i po niemiecku."] }
       ],
       roles:[
         { id:"rybak", age:["mid","old"], m:"Rybak z Brzeźna", f:null, access:[], outfit:{shape:"jacket",c:"#3e4a6b",d:"#c9d9e0"}, headwear:{m:["beret"]},
           flavor:["Wypływa łodzią przed świtem.","Ręce ma spękane od soli."] },
         { id:"portowiec", age:["young","mid"], m:"Portowiec", f:null, access:[], outfit:{shape:"plain",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kaszkiet"]},
-          flavor:["Wie, co przypłynęło do portu, zanim przeczyta o tym gazeta."] }
+          flavor:["Wie, co przypłynęło do portu, zanim przeczyta o tym gazeta."] },
+        { id:"bursztyn", age:["mid","old"], m:"Bursztyniarz", f:"Bursztyniarka", access:[], outfit:{shape:"apron",c:"#a5835a",d:"#e8c34a"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Szlifuje bursztyn w pracowni przy Mariackiej.","Po zapachu odróżni prawdziwy bursztyn od kalafonii."] },
+        { id:"marynarz", age:["young","mid"], m:"Marynarz z PLO", f:null, access:[], outfit:{shape:"collar",c:"#1f3a5a",d:"#e6e6e6"}, headwear:{m:["kolejarz",""]},
+          flavor:["Pół roku pływa, pół roku jest w domu i przywozi towar z Zachodu.","Na przedramieniu ma tatuaż z kotwicą."] },
+        { id:"ratownik", age:"young", m:"Ratownik WOPR", f:"Ratowniczka WOPR", access:[], outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Latem siedzi na wieży ratowniczej w Brzeźnie.","Pływa w morzu nawet w październiku."] }
       ],
-      flavor:["W weekendy jeździ kolejką do Sopotu.","W szufladzie trzyma bursztyn znaleziony na plaży.","Zimą chodzi nad morze patrzeć na sztorm."],
+      flavor:["W weekendy jeździ kolejką do Sopotu.","W szufladzie trzyma bursztyn znaleziony na plaży.","Zimą chodzi nad morze patrzeć na sztorm.",
+              "Na Długi Targ chodzi tylko z gośćmi.","Pamięta sierpień osiemdziesiątego jak wczoraj.","Na molo w Sopocie zawsze płaci za wejście, choć zna dziurę w płocie.",
+              "Mówi, że prawdziwy Gdańsk zaczyna się dopiero za Bramą Wyżynną.","W niedzielę jedzie do Oliwy na koncert organowy.","Kupuje wędzone ryby tylko w jednej budce w Brzeźnie.",
+              "Jest kibicem {team} i chodzi na mecze w deszczu.","Ma w domu barometr i codziennie rano go sprawdza.","Mówi „bulwa” na ziemniaka, jak babcia z Kaszub.",
+              "Wspomina, jak w dzieciństwie [kąpał|kąpała] się w morzu, zanim zamknęli plażę przez sinice.",{t:"Chodzi na Jarmark Dominikański co roku w sierpniu.", years:[1989,1999]},"Po samych kominach wie, które statki stoją na redzie."],
       quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie."]
     },
 
@@ -174,18 +250,34 @@
         flavor:["Po szychcie zawsze idzie z kamratami na piwo.","Pod paznokciami ma pył węglowy, którego nie da się domyć."] },
       locations:[
         { id:"golebnik", name:"Gołębnik na strychu familoka", label:"Gołębnik", gen:"gołębnika", in:"w gołębniku", from:"z gołębnika", icon:"dovecote", roles:["golebiarz"],
-          open:["Drzwi na strych familoka nie mają zamka.", "Gołębnik zamyka się na haczyk, który otworzy każdy."],
-          desc:["Gołębnik na strychu, z wylotem nad dachami familoków.","Pachnie zbożem, a na ścianie wiszą dyplomy z lotów."] },
-        { id:"lampownia", name:"Lampownia kopalni „Wieczorek”", label:"Lampownia", gen:"lampowni", in:"w lampowni", from:"z lampowni", icon:"mine", roles:["worker"],
-          open:["Przy zmianie szychty przez lampownię przechodzi cała zmiana i nikt nikogo nie pilnuje.", "Okienko lampowni jest otwarte przez całą noc."],
-          desc:["Lampownia pod szybem, gdzie górnicy pobierają lampy przed szychtą.","Na regałach równe rzędy lamp i numerowanych znaczków."] }
+          open:["Drzwi na strych familoka nie mają zamka.", "Gołębnik zamyka się na haczyk, który otworzy każdy.",
+                "Okienko gołębnika jest otwarte przez cały dzień, żeby ptaki mogły wracać.", "Na strych wchodzi, kto chce, bo lokatorzy suszą tam pranie."],
+          desc:["Gołębnik na strychu, z wylotem nad dachami familoków.","Pachnie zbożem, a na ścianie wiszą dyplomy z lotów.",
+                "Na półkach stoją kosze transportowe i puszki z ziarnem.","Na tablicy kredą wypisane wyniki ostatniego lotu z Niemiec."] },
+        { id:"lampownia", name:"Lampownia kopalni „Wieczorek”", label:"Lampownia", gen:"lampowni", in:"w lampowni", from:"z lampowni", icon:"mine", roles:["worker","sztygar"],
+          open:["Przy zmianie szychty przez lampownię przechodzi cała zmiana i nikt nikogo nie pilnuje.", "Okienko lampowni jest otwarte przez całą noc.",
+                "Lampiarka wychodzi na chwilę do cechowni i zostawia drzwi otwarte.", "Do lampowni wchodzi się prosto z łaźni, a drzwi między nimi nie mają zamka."],
+          desc:["Lampownia pod szybem, gdzie górnicy pobierają lampy przed szychtą.","Na regałach równe rzędy lamp i numerowanych znaczków.",
+                "Na ścianie wisi figura świętej Barbary, a pod nią świeże kwiaty.","Ładowarki do lamp brzęczą przez całą dobę."] }
       ],
       roles:[
         { id:"golebiarz", age:"old", m:"Gołębiarz", f:null, access:[], outfit:{shape:"jacket",c:"#4f5560",d:"#a9b4c0"}, headwear:{m:["kaszkiet"]},
-          flavor:["Jego gołębie wracały z lotów z Niemiec szybciej niż pociąg.","Na strychu ma gołębnik i zna każdego ptaka po imieniu."] }
+          flavor:["Jego gołębie wracały z lotów z Niemiec szybciej niż pociąg.","Na strychu ma gołębnik i zna każdego ptaka po imieniu."] },
+        { id:"sztygar", age:"mid", m:"Sztygar z „Wieczorka”", f:null, access:["lampownia"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+          flavor:["Prowadzi zmianę na dole i zna każdy chodnik kopalni.","Na Barbórkę zakłada galowy mundur z pióropuszem."] },
+        { id:"hutnik", age:["young","mid"], m:"Hutnik z Baildona", f:"Laborantka z huty Baildon", access:[], outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Pracuje przy piecu w hucie Baildon i ma przypalone brwi.",{t:"Boi się, że hutę zamkną jak inne zakłady.", years:[1990,1999]}] },
+        { id:"skarbek", age:["young","mid"], m:"Sprzedawca w Skarbku", f:"Sprzedawczyni w Skarbku", access:[], outfit:{shape:"collar",c:"#8c3b4a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Pracuje w domu towarowym Skarbek i wie, kiedy rzucą towar.","Odkłada spod lady dla znajomych z familoka."] },
+        { id:"orkiestra", age:["mid","old"], m:"Muzyk z orkiestry górniczej", f:null, access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kolejarz"]},
+          flavor:["Gra na tubie w orkiestrze kopalni na każdej Barbórce.","Marsze górnicze zna na pamięć od dziecka."] }
       ],
       flavor:["Mieszka w familoku od urodzenia.","Na niedzielny obiad zawsze są rolady, modro kapusta i kluski.",
-              "Mówi po śląsku tak, że przybysze nic nie rozumieją.","Na balkonie suszy pranie, choć z kopalni wciąż leci sadza."],
+              "Mówi po śląsku tak, że przybysze nic nie rozumieją.","Na balkonie suszy pranie, choć z kopalni wciąż leci sadza.",
+              "Na ziemniaki mówi „kartofle”, a na pomidory „tomaty”.","Mówi „fajrant” na koniec pracy i „szychta” na zmianę.","W szafie trzyma galowy mundur górniczy po ojcu.",
+              "Na Barbórkę zawsze idzie na karczmę piwną.","W niedzielę jeździ do Parku Śląskiego na Elkę.","Mówi „ancug” na garnitur.",
+              "Na każdy dom z czerwonej cegły mówi „familok”, nawet jeśli to szkoła.","Jest kibicem {team} i pamięta każdy mecz z Ruchem.","W kuchni ma kredens, który przeżył trzy pokolenia.",
+              {t:"Martwi się, że kopalnie zaczynają zamykać.", years:[1993,1999]},"Mówi „gryfnie” na wszystko, co [mu|jej] się podoba."],
       quips:["Szczęść Boże. Sprawa zamknięta przed szychtą."]
     },
 
@@ -203,15 +295,34 @@
         flavor:["Od lat buduje lokomotywy w Pafawagu."] },
       locations:[
         { id:"zajezdnia", name:"Zajezdnia tramwajowa", label:"Zajezdnia", gen:"zajezdni", in:"w zajezdni", from:"z zajezdni", icon:"depot", roles:["motorniczy"],
-          open:["Bramą wjeżdżają i wyjeżdżają tramwaje, a portier ledwo nadąża.", "Furtki od strony torów nikt nie pilnuje."],
-          desc:["Zajezdnia z ceglaną halą i kanałami pod torami.","Nocą stoją tu rzędem tramwaje, a dyżurny gra w karty w kanciapie."] },
-        { id:"przystan", name:"Przystań nad Odrą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:[],
-          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału."],
-          desc:["Pomost nad Odrą, z łodziami przypiętymi łańcuchem.","Wieczorem nad wodą unosi się mgła."] }
+          open:["Bramą wjeżdżają i wyjeżdżają tramwaje, a portier ledwo nadąża.", "Furtki od strony torów nikt nie pilnuje.",
+                "Drzwi do warsztatu zajezdni stoją otwarte, bo mechanicy wynoszą tamtędy części.", "Portier chodzi na obchód, a brama zostaje otwarta dla tramwajów zjeżdżających z trasy."],
+          desc:["Zajezdnia z ceglaną halą i kanałami pod torami.","Nocą stoją tu rzędem tramwaje, a dyżurny gra w karty w kanciapie.",
+                "Na ścianie wisi rozkład jazdy ze zmianami dopisanymi długopisem.","W kanale pod tramwajem leżą narzędzia i puszka smaru."] },
+        { id:"przystan", name:"Przystań nad Odrą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Pomost nad Odrą, z łodziami przypiętymi łańcuchem.","Wieczorem nad wodą unosi się mgła.",
+                "Na ścianie szopy wiszą wiosła i zdjęcia osad sprzed wojny.","Z pomostu widać wieże katedry na Ostrowie Tumskim."] }
       ],
-      roles:[],
+      roles:[
+        { id:"przewodnik", age:["mid","old"], m:"Przewodnik miejski", f:"Przewodniczka miejska", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Oprowadza Niemców, którzy przyjeżdżają szukać swoich dawnych domów.","Zna historię każdej kamienicy na Nadodrzu."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na Odrze codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"zoo", age:["young","mid"], m:"Opiekun w zoo", f:"Opiekunka w zoo", access:[], outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Karmi słonie w zoo i pachnie sianem.","Mówi, że zwierzęta są uczciwsze od ludzi."] },
+        { id:"kaletnik", age:["mid","old"], m:"Kaletnik z Nadodrza", f:"Kaletniczka z Nadodrza", access:[], outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Szyje teczki i paski w warsztacie na parterze kamienicy.","Skórę wybiera, wąchając ją jak wino."] },
+        { id:"antykwariusz", age:"old", m:"Antykwariusz", f:"Antykwariuszka", access:[], outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Handluje książkami, które zostały po dawnych mieszkańcach miasta.","Czyta po niemiecku i po łacinie."] }
+      ],
       flavor:["Mieszka w Trójkącie Bermudzkim i nikogo się nie boi.","Babcia przyjechała tu ze Lwowa i do dziś mówi z zaśpiewem.",
-              {t:"Pamięta, jak w powodzi w 1997 roku woda zalała całe podwórko.", years:[1998,1999]}],
+              {t:"Pamięta, jak w powodzi w 1997 roku woda zalała całe podwórko.", years:[1998,1999]},
+              "Mówi „ta joj” jak babcia ze Lwowa.","W niedzielę chodzi do Ogrodu Japońskiego.","Na Wyspie Słodowej spędza każde ciepłe popołudnie.",
+              "W piwnicy [znalazł|znalazła] kiedyś niemieckie gazety sprzed wojny.","Jest kibicem {team} od czasów mistrzostwa.","Mówi, że w Hali Ludowej [był|była] na wszystkich koncertach.",
+              "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko.","W domu ma kredens poniemiecki, który przyjechał z kamienicą.","Na Rynku zawsze zagląda do Piwnicy Świdnickiej, choćby na chwilę.",
+              "Zna wszystkie mosty na Odrze, a jest ich ponad sto.",{t:"Po powodzi trzyma na strychu worki z piaskiem.", years:[1997,1999]},"Mówi „mieszkanie po Niemcach” i nikt się nie dziwi."],
       quips:["Odra płynie spokojnie, a sprawa rozwiązana."]
     }
   };

@@ -108,7 +108,11 @@
     mine:     { rows: ["....aaaa....", "...a.oo.a...", "...a.oo.a...", "....a..a....", "....aaaa....", "...a....a...", "..a......a..", ".bbbbbbbbbb.", ".bwwbbbbwwb.", ".bwwbddbwwb.", ".bbbbddbbbb.", "xxxxxxxxxxxx"],
                 pal: { a: "#2b2b2e", o: "#8a8f99", b: "#7b3a2c", w: "#e8c34a", d: "#2a2420", x: "#1f1f22" } },
     depot:    { rows: [E, ".....a......", "....a.a.....", "..rrrrrrrr..", ".rwwrwwrwwr.", ".rwwrwwrwwr.", ".rrrrrrrrrr.", ".yyyyyyyyyy.", ".rrrrrrrrrr.", "..kk....kk..", "xxxxxxxxxxxx", E],
-                pal: { a: "#2b2b2e", r: "#c22a2a", w: "#c9d9e0", y: "#e8c34a", k: "#2a2420", x: "#5a5f6a" } }
+                pal: { a: "#2b2b2e", r: "#c22a2a", w: "#c9d9e0", y: "#e8c34a", k: "#2a2420", x: "#5a5f6a" } },
+    office:   { rows: [E, ".bbbbbbbbbb.", ".bwwbwwbwwb.", ".bwwbwwbwwb.", ".bbbbbbbbbb.", ".bwwbwwbwwb.", ".bwwbwwbwwb.", ".bbbbbbbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", "xxxxxxxxxxxx"],
+                pal: { b: "#9a9a90", w: "#c9d9e0", d: "#5a4433", x: "#2a2622" } },
+    hall:     { rows: [E, ".rrrrrrrrrr.", ".ryyyyyyyyr.", ".rrrrrrrrrr.", ".bbbbbbbbbb.", ".bwwbbbbwwb.", ".bwwbddbwwb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbbbbbbb.", "gggggggggggg"],
+                pal: { r: "#3e4a6b", y: "#e8c34a", b: "#cfc6b4", w: "#c9d9e0", d: "#5a4433", g: "#2a2622" } }
   };
 
   /* ---------------- KSZTAŁTY PRZEDMIOTÓW ---------------- */
@@ -129,7 +133,20 @@
     weight: [E,E,".....aa.....","....a..a....","...hhhhhh...","..hhhhhhhh..","..hhhhhhhh..",".hhhhhhhhhh.",".hhhhhhhhhh.",".hhhhhhhhhh.",E,E],
     horseshoe: [E,"..aa....aa..","..aa....aa..","..aa....aa..","..aa....aa..","..aaa..aaa..","...aaaaaa...","....aaaa....",E,E,E,E],
     lamp:   [".....aa.....","....a..a....","....hhhh....","...hbbbbh...","...hbwwbh...","...hbwwbh...","...hbbbbh...","...hhhhhh...","...hhhhhh...","....hhhh....",E,E],
-    reel:   [E,"...aaaaaa...","..aabaabaa..",".aaaaaaaaaa.",".abaahhaaba.",".aaahwwhaaa.",".aaahwwhaaa.",".abaahhaaba.",".aaaaaaaaaa.","..aabaabaa..","...aaaaaa...",E]
+    reel:   [E,"...aaaaaa...","..aabaabaa..",".aaaaaaaaaa.",".abaahhaaba.",".aaahwwhaaa.",".aaahwwhaaa.",".abaahhaaba.",".aaaaaaaaaa.","..aabaabaa..","...aaaaaa...",E],
+    /* wydanie 2.1.1: szantaż, fałszerstwo, sabotaż, wandalizm, porwanie psa */
+    typewriter: [E,"...wwwwww...","...wkkkkw...","..aaaaaaaa..",".aaaaaaaaaa.",".ahhhhhhhha.",".ahahahahaa.",".aahahahaha.",".ahhhhhhhha.",".aaaaaaaaaa.",E,E],
+    scissors: [E,".aa......aa.","a..a....a..a","a..a....a..a",".aa.h..h.aa.",".....hh.....",".....hh.....","....h..h....","...h....h...","..h......h..",".h........h.",E],
+    stamp:  [E,"....aaaa....","...aaaaaa...","...aaaaaa...","....aaaa....",".....aa.....",".....aa.....","..hhhhhhhh..","..hhhhhhhh..","..bbbbbbbb..",E,E],
+    brush:  [E,".........aa.","........aa..",".......aa...","......aa....",".....hh.....","....hhh.....","...bbbh.....","..bbbb......","..bbb.......","..b.........",E],
+    pliers: [E,"...h....h...","...hh..hh...","....hhhh....",".....hh.....","....a..a....","...a....a...","...a....a...","..a......a..","..a......a..",".aa......aa.",E],
+    saw:    [E,E,E,"a...........","aaaaaaaaaaaa","a.hhhhhhhhha","a.hhhhhhhhh.","aah.h.h.h.h.","a...........",E,E,E],
+    cage:   [E,".....aa.....",".aaaaaaaaaa.",".a.a.aa.a.a.",".a.a.aa.a.a.",".a.a.aa.a.a.",".a.a.aa.a.a.",".a.a.aa.a.a.",".a.a.aa.a.a.",".aaaaaaaaaa.",".hhhhhhhhhh.",E],
+    sack:   [E,".....aa.....","....a..a....",".....aa.....","....bbbb....","...bbbbbb...","..bbbbbbbb..","..bwbbbwbb..","..bbbbbbbb..","..bbbbbbbb..","...bbbbbb...",E],
+    basket: [E,E,"...aaaaaa...","..a......a..",".bbbbbbbbbb.",".bhbhbhbhbb.",".bbbbbbbbbb.",".bhbhbhbhbb.",".bbbbbbbbbb.","..bbbbbbbb..",E,E],
+    sheet:  [E,"..wwwwwww...","..wkkkkkww..","..wwwwwwwww.","..wkkkkkkkw.","..wwwwwwwww.","..wkkkkkkkw.","..wwwwwwwww.","..wkkkkwwww.","..wwwwwwwww.",E,E],
+    razor:  [E,E,E,"..aaaaaaaa..","..ahhhhhha..","..ah.hh.ha..","..ahhhhhha..","..aaaaaaaa..",E,E,E,E],
+    bucket: [E,"...aaaaaa...","..a......a..",".bbbbbbbbbb.",".bwwwwwwwwb.","..bbbbbbbb..","..bbbbbbbb..","..bbbbbbbb..","...bbbbbb...","...bbbbbb...",E,E]
   };
 
   /* ---------------- IKONY DOWODÓW RZECZOWYCH ---------------- */
