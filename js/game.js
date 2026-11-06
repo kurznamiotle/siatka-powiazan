@@ -519,7 +519,8 @@ function showResult() {
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
     <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
-    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
+    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>
+    ${win && window.SiatkaSupport ? `<p class="support-line"><a id="supportLink" href="${window.SiatkaSupport.url}" target="_blank" rel="noopener">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>` : ""}`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
@@ -534,6 +535,7 @@ function showResult() {
   if ($("againBtn")) $("againBtn").onclick = openNewCase;
   if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
   $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
+  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", "Wsparcie twórcy: wynik");
   paintQuota();
   /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
      przeglądarka uzna, że to już nie gest gracza */

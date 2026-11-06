@@ -209,6 +209,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .linkish{background:none;border:none;padding:6px;font-family:var(--f-body);font-size:13px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
 .set-note{margin:6px 0 0;font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
 .set-note b{color:var(--ink)}
+.support-link{display:block;box-sizing:border-box;min-height:44px;margin:14px 0 0;padding:10px 12px;border:1px dashed var(--ink-soft);border-radius:6px;text-align:center;text-decoration:none;font-family:var(--f-body);color:var(--ink-soft)}
+.support-link b{display:block;font-family:"Special Elite",var(--f-body);font-weight:400;font-size:15px;color:var(--ink)}
+.support-link small{display:block;margin-top:3px;font-size:12px;line-height:1.35}
+.support-line{margin:6px 0 0;text-align:center}
+.support-line a{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;font-family:"Special Elite",var(--f-body);font-size:13px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
 .set-foot{margin:10px 0 0;text-align:center;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
 .hw-install{margin-top:10px;padding:10px;background:var(--paper-shade);font-family:var(--f-body);font-size:13px;color:var(--ink-soft)}
 .hw-install .btn{width:100%;margin-bottom:6px}
@@ -8402,7 +8407,8 @@ function showResult() {
     <div class="lbl">Wynik do udostępnienia</div>
     <div class="share" id="shareTxt"></div>
     <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
-    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>`;
+    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>
+    ${win && window.SiatkaSupport ? `<p class="support-line"><a id="supportLink" href="${window.SiatkaSupport.url}" target="_blank" rel="noopener">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>` : ""}`;
   $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
@@ -8417,6 +8423,7 @@ function showResult() {
   if ($("againBtn")) $("againBtn").onclick = openNewCase;
   if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
   $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
+  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", "Wsparcie twórcy: wynik");
   paintQuota();
   /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
      przeglądarka uzna, że to już nie gest gracza */
@@ -9202,6 +9209,10 @@ function feedback(where, category) {
 }
 window.SiatkaFeedback = { open: feedback, device };
 
+/* ---------- wsparcie twórcy („postaw kawę”): jeden adres dla Ustawień i ekranu wyniku ---------- */
+const SUPPORT_URL = "https://buycoffee.to/szyszka_studio";
+window.SiatkaSupport = { url: SUPPORT_URL };
+
 /* ---------- pełny ekran ---------- */
 const root = document.documentElement;
 const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -9242,6 +9253,7 @@ function render() {
     ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
     ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
     ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
+    <a class="support-link" id="setSupport" href="${SUPPORT_URL}" target="_blank" rel="noopener"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>
     <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
     <p class="set-foot">siatkapowiazan.pl</p>`;
   $("menuClose").onclick = close;
@@ -9249,6 +9261,7 @@ function render() {
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
+  $("setSupport").onclick = () => track("wsparcie/ustawienia", "Wsparcie twórcy: ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };

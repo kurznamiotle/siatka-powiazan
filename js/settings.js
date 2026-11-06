@@ -75,6 +75,10 @@ function feedback(where, category) {
 }
 window.SiatkaFeedback = { open: feedback, device };
 
+/* ---------- wsparcie twórcy („postaw kawę”): jeden adres dla Ustawień i ekranu wyniku ---------- */
+const SUPPORT_URL = "https://buycoffee.to/szyszka_studio";
+window.SiatkaSupport = { url: SUPPORT_URL };
+
 /* ---------- pełny ekran ---------- */
 const root = document.documentElement;
 const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -115,6 +119,7 @@ function render() {
     ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
     ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
     ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
+    <a class="support-link" id="setSupport" href="${SUPPORT_URL}" target="_blank" rel="noopener"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>
     <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
     <p class="set-foot">siatkapowiazan.pl</p>`;
   $("menuClose").onclick = close;
@@ -122,6 +127,7 @@ function render() {
   $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
+  $("setSupport").onclick = () => track("wsparcie/ustawienia", "Wsparcie twórcy: ustawienia");
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
