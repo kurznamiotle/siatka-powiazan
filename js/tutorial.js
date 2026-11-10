@@ -13,13 +13,19 @@ const sprite = window.SiatkaSprites.svg;
 let D = null;
 function demo() {
   if (D) return D;
-  const c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, "samouczek", { size: "S", city: "warszawa", year: 1994 });
+  // plansze potrzebują 3 osób, 2 miejsc i 2 przedmiotów; kolejne seedy, aż układ pasuje (zmiana generatora zmienia sprawę)
+  let c;
+  for (let k = 0; k < 40; k++) {
+    c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
+    const n = t => c.nodes.filter(x => x.type === t).length;
+    if (n("person") >= 3 && n("location") >= 2 && n("item") >= 2) break;
+  }
   window.SiatkaSprites.tidyPortraits(c);
   const of = t => c.nodes.filter(n => n.type === t);
   D = { P: of("person"), L: of("location"), I: of("item") };
   return D;
 }
-const form = (loc, i, fb) => (loc.forms && loc.forms[i]) || fb;
+const form = (loc, i, fb) => (loc && loc.forms && loc.forms[i]) || fb;
 /* polaroid + pinezka; x, y = lewy górny róg, w = szerokość */
 function pol(n, x, y, o = {}) {
   const w = o.w || 52, r = o.r ?? 0, room = w - 8;
@@ -78,7 +84,19 @@ const SLIDES = [
         ${tag("łamie<br>1", 22, "a1")}${tag("łamie<br>3", 84, "a2")}${tag("spełnia<br>wszystkie", 146, "a3 ok")}`;
     }
   },
-
+  {
+    s: 6,
+    title: "Oskarżenie",
+    text: "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
+    tip: "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    scene() {
+      const { P, I } = demo();
+      return `<div class="hw-desk"></div><span class="hw-lives"><i></i><i></i><i></i></span>
+        <span class="hw-btn">Oskarż</span>
+        <div class="hw-acc"><b class="h">Akt oskarżenia</b><span>Sprawca: <b>${P[2].name}</b></span><span>Narzędzie: <b>${I[1].name.toLowerCase()}</b></span>
+          <span class="hw-stamp">SPRAWA ZAMKNIĘTA</span><span class="hw-stars">★★★</span></div>${F}`;
+    }
+  }
 ];
 
 const CSS = `

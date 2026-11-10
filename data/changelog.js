@@ -8,7 +8,8 @@
     "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
     "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",
     "Portrety nie zdradzają cech z notatnika: papieros pojawia się u części palących, a okulary znikają ze zdjęć, gdy dotyczy ich reguła.",
-    "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach."
+    "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach.",
+    "Naprawiony samouczek."
   ] },
   { v: "2.1.1", date: "2026-11-06", items: [
     "11 rodzajów zbrodni zamiast 4: kradzież, otrucie zwierzęcia, podpalenie, szantaż, fałszerstwo, sabotaż, napad, wandalizm, porwanie psa, otrucie człowieka.",

@@ -10685,7 +10685,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
     "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",
     "Portrety nie zdradzają cech z notatnika: papieros pojawia się u części palących, a okulary znikają ze zdjęć, gdy dotyczy ich reguła.",
-    "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach."
+    "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach.",
+    "Naprawiony samouczek."
   ] },
   { v: "2.1.1", date: "2026-11-06", items: [
     "11 rodzajów zbrodni zamiast 4: kradzież, otrucie zwierzęcia, podpalenie, szantaż, fałszerstwo, sabotaż, napad, wandalizm, porwanie psa, otrucie człowieka.",
@@ -12064,13 +12065,19 @@ const sprite = window.SiatkaSprites.svg;
 let D = null;
 function demo() {
   if (D) return D;
-  const c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, "samouczek", { size: "S", city: "warszawa", year: 1994 });
+  // plansze potrzebują 3 osób, 2 miejsc i 2 przedmiotów; kolejne seedy, aż układ pasuje (zmiana generatora zmienia sprawę)
+  let c;
+  for (let k = 0; k < 40; k++) {
+    c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
+    const n = t => c.nodes.filter(x => x.type === t).length;
+    if (n("person") >= 3 && n("location") >= 2 && n("item") >= 2) break;
+  }
   window.SiatkaSprites.tidyPortraits(c);
   const of = t => c.nodes.filter(n => n.type === t);
   D = { P: of("person"), L: of("location"), I: of("item") };
   return D;
 }
-const form = (loc, i, fb) => (loc.forms && loc.forms[i]) || fb;
+const form = (loc, i, fb) => (loc && loc.forms && loc.forms[i]) || fb;
 /* polaroid + pinezka; x, y = lewy górny róg, w = szerokość */
 function pol(n, x, y, o = {}) {
   const w = o.w || 52, r = o.r ?? 0, room = w - 8;
@@ -12129,7 +12136,19 @@ const SLIDES = [
         ${tag("łamie<br>1", 22, "a1")}${tag("łamie<br>3", 84, "a2")}${tag("spełnia<br>wszystkie", 146, "a3 ok")}`;
     }
   },
-
+  {
+    s: 6,
+    title: "Oskarżenie",
+    text: "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
+    tip: "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    scene() {
+      const { P, I } = demo();
+      return `<div class="hw-desk"></div><span class="hw-lives"><i></i><i></i><i></i></span>
+        <span class="hw-btn">Oskarż</span>
+        <div class="hw-acc"><b class="h">Akt oskarżenia</b><span>Sprawca: <b>${P[2].name}</b></span><span>Narzędzie: <b>${I[1].name.toLowerCase()}</b></span>
+          <span class="hw-stamp">SPRAWA ZAMKNIĘTA</span><span class="hw-stars">★★★</span></div>${F}`;
+    }
+  }
 ];
 
 const CSS = `
@@ -12639,7 +12658,11 @@ function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot
 const markNews = () => { try { if (NEWS[0]) localStorage.setItem(NKEY, NEWS[0].v); } catch (_) {} paintDot(); };
 // nowy gracz (bez zapisów i historii) nie dostaje kropki; ten, kto już grał, tak
 try {
-  if (NEWS[0] && newsSeen() === null && !localStorage.getItem("siatka-history") && !localStorage.getItem("siatka-save-daily") && !localStorage.getItem("siatka-save-random")) localStorage.setItem(NKEY, NEWS[0].v);
+  // game.js zapisuje świeżą sprawę od razu przy starcie, więc liczy się tylko zapis z jakąkolwiek interakcją
+  // siatka-history zakłada history.js przy każdym starcie; liczy się dopiero wpis o rozegranej sprawie
+  const hist = () => { try { const h = JSON.parse(localStorage.getItem("siatka-history") || "null"); return !!h && (Object.keys(h.daily || {}).length > 0 || Object.keys(h.archive || {}).length > 0 || ((h.totals || {}).played || 0) > 0); } catch (_) { return false; } };
+  const played = k => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return !!v && !!((v.read && v.read.length) || (v.strings && v.strings.length) || v.done); } catch (_) { return false; } };
+  if (NEWS[0] && newsSeen() === null && !hist() && !played("siatka-save-daily") && !played("siatka-save-random")) localStorage.setItem(NKEY, NEWS[0].v);
 } catch (_) {}
 {
   const st = document.createElement("style");

@@ -1,0 +1,19 @@
+{
+  "note": "Sprawy dnia wygenerowane wdrożonym kodem 0891a91 (wersja 2.1.2). Nowy kod musi dawać dla tych dni dokładnie to samo.",
+  "version": "2.1.2",
+  "commit": "0891a91",
+  "days": [
+    {
+      "date": "2026-11-11",
+      "number": 9,
+      "title": "Wymazany Polonez",
+      "sha1": "41b33420aeee0bb7bd832ff5ec3e11104acff7a6"
+    },
+    {
+      "date": "2026-11-12",
+      "number": 10,
+      "title": "Bokser z warsztatu",
+      "sha1": "10a112f772736e48c334b7735805c82635ca49d4"
+    }
+  ]
+}

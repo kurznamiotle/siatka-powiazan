@@ -108,7 +108,11 @@ function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot
 const markNews = () => { try { if (NEWS[0]) localStorage.setItem(NKEY, NEWS[0].v); } catch (_) {} paintDot(); };
 // nowy gracz (bez zapisów i historii) nie dostaje kropki; ten, kto już grał, tak
 try {
-  if (NEWS[0] && newsSeen() === null && !localStorage.getItem("siatka-history") && !localStorage.getItem("siatka-save-daily") && !localStorage.getItem("siatka-save-random")) localStorage.setItem(NKEY, NEWS[0].v);
+  // game.js zapisuje świeżą sprawę od razu przy starcie, więc liczy się tylko zapis z jakąkolwiek interakcją
+  // siatka-history zakłada history.js przy każdym starcie; liczy się dopiero wpis o rozegranej sprawie
+  const hist = () => { try { const h = JSON.parse(localStorage.getItem("siatka-history") || "null"); return !!h && (Object.keys(h.daily || {}).length > 0 || Object.keys(h.archive || {}).length > 0 || ((h.totals || {}).played || 0) > 0); } catch (_) { return false; } };
+  const played = k => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return !!v && !!((v.read && v.read.length) || (v.strings && v.strings.length) || v.done); } catch (_) { return false; } };
+  if (NEWS[0] && newsSeen() === null && !hist() && !played("siatka-save-daily") && !played("siatka-save-random")) localStorage.setItem(NKEY, NEWS[0].v);
 } catch (_) {}
 {
   const st = document.createElement("style");
