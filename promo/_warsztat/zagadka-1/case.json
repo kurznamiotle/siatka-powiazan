@@ -1,0 +1,686 @@
+{
+ "case_id": "case_zagadka_8_1",
+ "city": "wroclaw",
+ "city_name": "Wrocław",
+ "district": "Nadodrze",
+ "year": 1993,
+ "month": "styczeń",
+ "size": "S",
+ "crime": "zabojstwo",
+ "title": "Organista z parafii",
+ "intro": "Nadodrze, Wrocław, styczeń 1993. Organista Karol Szulc zostaje znaleziony martwy w zakrystii w katedrze na Ostrowie Tumskim. Został uduszony sznurem. Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
+ "tool_label": "Narzędzie zbrodni",
+ "time": {
+  "crime": {
+   "from": "20:00",
+   "to": "20:30"
+  }
+ },
+ "nodes": [
+  {
+   "id": "bernard",
+   "type": "person",
+   "g": "m",
+   "age": "mid",
+   "label": "Bernard K.",
+   "name": "Bernard Kubiak",
+   "kind": "Właściciel komisu RTV",
+   "sprite": {
+    "kind": "portrait",
+    "g": "m",
+    "skin": 1,
+    "hair": "m_short",
+    "hairC": 5,
+    "head": null,
+    "headC": 4,
+    "outfit": {
+     "shape": "jacket",
+     "c": "#2b2b33",
+     "d": "#c9a646"
+    },
+    "glasses": false,
+    "smoker": true,
+    "mustache": false
+   },
+   "text": [
+    "Od lat ma dorobiony klucz do sklepu.",
+    "Pożyczony klucz do garażu zapomniał oddać.",
+    "Zapewnia, że oglądał „Koło Fortuny” u siebie w pokoju. Potwierdzić tego nie ma kto.",
+    "Bywa w Hali Targowej każdego dnia, choćby po gazetę.",
+    "W domu trzyma tylko rybki w akwarium.",
+    "Słucha disco polo z kaset kupionych na targu."
+   ]
+  },
+  {
+   "id": "danuta",
+   "type": "person",
+   "g": "f",
+   "age": "mid",
+   "label": "Danuta W.",
+   "name": "Danuta Wysocka",
+   "kind": "Sprzedawczyni w spożywczym",
+   "sprite": {
+    "kind": "portrait",
+    "g": "f",
+    "skin": 1,
+    "hair": "f_long",
+    "hairC": 0,
+    "head": null,
+    "headC": 1,
+    "outfit": {
+     "shape": "apron",
+     "c": "#f1f1ea",
+     "d": "#b0423a"
+    },
+    "glasses": false,
+    "smoker": true,
+    "mustache": false
+   },
+   "text": [
+    "Klucz do sklepu wisi u niej na gwoździu w przedpokoju.",
+    "Zeznaje, że od 19:40 do 21:25 siedziała w poczekalni pogotowia z sąsiadem. Mówi, że ktoś musiał to zapisać.",
+    "Mówi, że zebranie koła wędkarskiego się nie odbyło, bo w świetlicy wysiadło ogrzewanie.",
+    "Codziennie rano robi zakupy w Hali Targowej.",
+    "Odkąd półki są pełne, narzeka, że ludzie nie mają pieniędzy."
+   ]
+  },
+  {
+   "id": "ryszarda",
+   "type": "person",
+   "g": "f",
+   "age": "mid",
+   "label": "Ryszarda W.",
+   "name": "Ryszarda Wrzos",
+   "kind": "Lekarka weterynarii",
+   "sprite": {
+    "kind": "portrait",
+    "g": "f",
+    "skin": 2,
+    "hair": "f_long",
+    "hairC": 0,
+    "head": null,
+    "headC": 0,
+    "outfit": {
+     "shape": "collar",
+     "c": "#3f6b3a",
+     "d": "#e6e6e6"
+    },
+    "glasses": true,
+    "smoker": true,
+    "mustache": false
+   },
+   "text": [
+    "Od 19:30 do 21:10 siedziała na zebraniu koła wędkarskiego. Potwierdzają to prezes koła i protokół.",
+    "Codziennie skraca sobie drogę przez plac budowy.",
+    "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko."
+   ]
+  },
+  {
+   "id": "sklep",
+   "type": "location",
+   "label": "Sklep",
+   "name": "Sklep spożywczy „Społem”",
+   "kind": "Miejsce",
+   "sprite": {
+    "kind": "loc",
+    "icon": "shop"
+   },
+   "text": [
+    "Spożywczy z ladą chłodniczą i zapleczem pełnym skrzynek.",
+    "Klucze mają Bernard Kubiak i Danuta Wysocka. Zamek nieuszkodzony."
+   ],
+   "forms": [
+    "sklepu",
+    "na zapleczu sklepu",
+    "z zaplecza sklepu"
+   ]
+  },
+  {
+   "id": "garaz",
+   "type": "location",
+   "label": "Garaż",
+   "name": "Garaż na podwórku",
+   "kind": "Miejsce",
+   "sprite": {
+    "kind": "loc",
+    "icon": "garage"
+   },
+   "text": [
+    "W kącie stary Maluch na klockach, czekający na części od roku.",
+    "Klucz ma Bernard Kubiak. Zamek nieuszkodzony."
+   ],
+   "forms": [
+    "garażu",
+    "w garażu",
+    "z garażu"
+   ]
+  },
+  {
+   "id": "szpagat",
+   "type": "item",
+   "g": "m",
+   "label": "Szpagat",
+   "name": "Szpagat do paczek",
+   "kind": "Przedmiot",
+   "sprite": {
+    "kind": "item",
+    "shape": "rope",
+    "pal": {
+     "a": "#c9b98f"
+    }
+   },
+   "text": [
+    "Gruby sznurek, którym wiąże się paczki.",
+    "Zniknął z zaplecza sklepu tego dnia.",
+    "Znaleziony rano pod jedną z budek w Hali Targowej."
+   ]
+  },
+  {
+   "id": "przedluzacz",
+   "type": "item",
+   "g": "m",
+   "label": "Przedłużacz",
+   "name": "Przedłużacz",
+   "kind": "Przedmiot",
+   "sprite": {
+    "kind": "item",
+    "shape": "rope",
+    "pal": {
+     "a": "#e8e8e0"
+    }
+   },
+   "text": [
+    "Pięciometrowy przedłużacz z gumową wtyczką.",
+    "Zniknął z garażu tego dnia.",
+    "Znaleziony rano na placu budowy."
+   ]
+  },
+  {
+   "id": "ev1",
+   "type": "evidence",
+   "label": "Wpis",
+   "name": "Odpis z książki przyjęć",
+   "kind": "Dowód rzeczowy",
+   "sprite": {
+    "kind": "ev",
+    "icon": "notebook"
+   },
+   "text": [
+    "Odpis z książki przyjęć pogotowia, z pieczątką rejestracji.",
+    "Sąsiad przyjęty o 19:40, wypisany o 21:25. Osoba towarzysząca, cały czas w poczekalni: D.W."
+   ]
+  },
+  {
+   "id": "ev2",
+   "type": "evidence",
+   "label": "Zeszyt",
+   "name": "Zeszyt dozorcy",
+   "kind": "Dowód rzeczowy",
+   "sprite": {
+    "kind": "ev",
+    "icon": "notebook"
+   },
+   "text": [
+    "Dozorca zapisuje w zeszycie w kratkę, kto o której kręci się po podwórku.",
+    "Wpis z tamtego wieczoru: «18:05 — R.W., w garażu»."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "has_key",
+   "who": "bernard",
+   "where": "sklep"
+  },
+  {
+   "type": "has_key",
+   "who": "bernard",
+   "where": "garaz"
+  },
+  {
+   "type": "alibi",
+   "who": "bernard",
+   "from": "19:50",
+   "to": "21:30",
+   "confirmed": false
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "hand",
+   "value": "left"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "shoe",
+   "value": 44
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "height",
+   "value": "short"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "smoker",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "car",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "glasses",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "dog",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "jacket",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "motive",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "bernard",
+   "trait": "habit",
+   "value": "bazar"
+  },
+  {
+   "type": "has_key",
+   "who": "danuta",
+   "where": "sklep"
+  },
+  {
+   "type": "alibi",
+   "who": "danuta",
+   "from": "19:40",
+   "to": "21:25",
+   "confirmed": true,
+   "src": "ev1"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "hand",
+   "value": "left"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "shoe",
+   "value": 38
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "height",
+   "value": "tall"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "smoker",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "car",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "glasses",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "dog",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "jacket",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "motive",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "danuta",
+   "trait": "habit",
+   "value": "bazar"
+  },
+  {
+   "type": "presence",
+   "who": "ryszarda",
+   "where": "garaz",
+   "at": "18:05",
+   "src": "ev2"
+  },
+  {
+   "type": "alibi",
+   "who": "ryszarda",
+   "from": "19:30",
+   "to": "21:10",
+   "confirmed": true
+  },
+  {
+   "type": "alibi_debunked",
+   "who": "ryszarda"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "hand",
+   "value": "right"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "shoe",
+   "value": 39
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "height",
+   "value": "tall"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "smoker",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "car",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "glasses",
+   "value": "yes"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "dog",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "jacket",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "motive",
+   "value": "no"
+  },
+  {
+   "type": "trait",
+   "who": "ryszarda",
+   "trait": "habit",
+   "value": "budowa"
+  },
+  {
+   "type": "item_origin",
+   "what": "szpagat",
+   "where": "sklep"
+  },
+  {
+   "type": "item_fate",
+   "what": "szpagat",
+   "value": "bazar"
+  },
+  {
+   "type": "item_origin",
+   "what": "przedluzacz",
+   "where": "garaz"
+  },
+  {
+   "type": "item_fate",
+   "what": "przedluzacz",
+   "value": "budowa"
+  },
+  {
+   "type": "mark",
+   "who": "bernard",
+   "kind": "initials",
+   "value": "B.K."
+  },
+  {
+   "type": "mark",
+   "who": "danuta",
+   "kind": "initials",
+   "value": "D.W."
+  },
+  {
+   "type": "mark",
+   "who": "ryszarda",
+   "kind": "initials",
+   "value": "R.W."
+  },
+  {
+   "type": "evidence",
+   "id": "ev1",
+   "kind": "alibi",
+   "owner": "danuta",
+   "mark": {
+    "kind": "initials",
+    "value": "D.W."
+   }
+  },
+  {
+   "type": "evidence",
+   "id": "ev2",
+   "kind": "presence",
+   "owner": "ryszarda",
+   "mark": {
+    "kind": "initials",
+    "value": "R.W."
+   }
+  }
+ ],
+ "rules": [
+  {
+   "id": "r1",
+   "type": "alibi",
+   "text": "Zgon nastąpił między 20:00 a 20:30. Sprawca nie ma potwierdzonego alibi na ten czas."
+  },
+  {
+   "id": "r2",
+   "type": "dump",
+   "text": "To, czego użył sprawca, wyrzucono w miejscu, które zna jak własną kieszeń. Bywa tam codziennie."
+  },
+  {
+   "id": "r3",
+   "type": "key",
+   "text": "Tam, skąd zniknęło narzędzie zbrodni, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem."
+  }
+ ],
+ "solution": {
+  "culprit": "bernard",
+  "weapon": "szpagat"
+ },
+ "eliminations": {
+  "danuta": "r1",
+  "ryszarda": "r3"
+ },
+ "red_herrings": [
+  "przedluzacz"
+ ],
+ "supported_connections": [
+  [
+   "bernard",
+   "sklep"
+  ],
+  [
+   "bernard",
+   "szpagat"
+  ],
+  [
+   "bernard",
+   "garaz"
+  ],
+  [
+   "bernard",
+   "przedluzacz"
+  ],
+  [
+   "danuta",
+   "sklep"
+  ],
+  [
+   "danuta",
+   "szpagat"
+  ],
+  [
+   "ryszarda",
+   "garaz"
+  ],
+  [
+   "ryszarda",
+   "przedluzacz"
+  ],
+  [
+   "sklep",
+   "szpagat"
+  ],
+  [
+   "garaz",
+   "przedluzacz"
+  ],
+  [
+   "danuta",
+   "ev1"
+  ],
+  [
+   "ryszarda",
+   "ev2"
+  ],
+  [
+   "garaz",
+   "ev2"
+  ]
+ ],
+ "culprit_chain": [
+  [
+   "bernard",
+   "sklep"
+  ],
+  [
+   "sklep",
+   "szpagat"
+  ],
+  [
+   "bernard",
+   "szpagat"
+  ]
+ ],
+ "hints": [
+  "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.",
+  "Nie każde alibi się trzyma. Porównaj, co mówią o tym samym wieczorze różne osoby.",
+  "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach."
+ ],
+ "why": [
+  [
+   "Danuta",
+   "ma potwierdzone alibi: siedziała w poczekalni pogotowia z sąsiadem (reguła 1)."
+  ],
+  [
+   "Ryszarda",
+   "była w garażu, ale nie ma klucza (reguła 3)."
+  ],
+  [
+   "Bernard",
+   "spełnia wszystkie reguły: ma klucz do sklepu, nie ma alibi, a narzędzie znaleziono w Hali Targowej, gdzie bywa codziennie."
+  ],
+  [
+   "Dowody rzeczowe:",
+   "odpis z książki przyjęć (D.W.) to Danuta Wysocka; zeszyt dozorcy (R.W.) to Ryszarda Wrzos."
+  ],
+  [
+   "Przedłużacz",
+   "to fałszywy trop. Nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie."
+  ]
+ ],
+ "epilogue": "Bernard bał się, że ofiara wyda jego przemyt zza granicy. Tego wieczoru zabrał szpagat z zaplecza sklepu i poszedł prosto do zakrystii.",
+ "quip": "Myślałem, że tę sprawę zamkniemy dopiero po świętach.",
+ "detective": "Komisarz Wacław Grzyb",
+ "culprit_name": "Bernard Kubiak",
+ "weapon_name": "Szpagat do paczek",
+ "used": {
+  "names": [
+   "Bernard",
+   "Danuta",
+   "Ryszarda"
+  ],
+  "surnames": [
+   "Kubiak",
+   "Wysocki",
+   "Wrzos"
+  ],
+  "roles": [
+   "komis",
+   "sklepowa",
+   "weterynarz"
+  ],
+  "scenes": [
+   "Organista z parafii"
+  ],
+  "flavor": [
+   "Słucha disco polo z kaset kupionych na targu.",
+   "Odkąd półki są pełne, narzeka, że ludzie nie mają pieniędzy.",
+   "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko."
+  ],
+  "alibi": [
+   "[siedział|siedziała] w poczekalni pogotowia z sąsiadem",
+   "[siedział|siedziała] na zebraniu koła wędkarskiego"
+  ]
+ },
+ "archetype": "classic",
+ "question": "culprit_weapon",
+ "gen": "2.1.1",
+ "seed": "zagadka-8",
+ "verify": {
+  "solutions": 1,
+  "necessary": {
+   "r1": true,
+   "r2": true,
+   "r3": true
+  }
+ }
+}

@@ -1,0 +1,6 @@
+*.mp4
+*_fx.wav
+*_vo.wav
+*_sfx.wav
+chk/
+__pycache__/
