@@ -26,8 +26,9 @@ engine/engine.js      RNG z seedem, tekst, wspólny kontekst sprawy, rejestr arc
                       generateCase, sprawa dnia, avoidFrom
 engine/solver.js      ogólny solver (hipotezy archetypu × reguły) + biblioteka predykatów
                       (alibi, trait, window, key, fate, dump) + kontrola dowodów rzeczowych
-engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły
-engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1), tylko dla spraw dnia
+engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły;
+                      timeline.js = oś czasu (kto zdążył na miejsce zdarzenia, pytanie: kto)
+engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
@@ -52,7 +53,9 @@ Komendy:
 - `node tools/test-realia.js` — test miesięcy (`months`: kartki tylko styczeń–lipiec 1989, wybory czerwcowe od lipca 1989, talony tylko jako wspomnienie) i kwot w dopełniaczu (część `npm test`).
 - `node tools/bundle.js` — buduje `dist/siatka.html`.
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
-- `npm test` — test dymny w przeglądarce (`tools/smoke.js`) + 4000 spraw z generatora + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
+- `node tools/generate.js 1000 --arch timeline` (albo `--arch classic`) — test jednego archetypu; raport osi czasu: obserwacje sprawcy i niewinnych, pułapki, osoby z trasą.
+- `node tools/review.js review-2.2.txt v22` — 20 spraw do przeglądu 2.2 (8 classic z nowymi regułami, 8 osi czasu, 4 XL).
+- `npm test` — test dymny w przeglądarce (`tools/smoke.js`) + 4000 spraw classic + 1000 osi czasu + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
 - `node tools/smoke.js` — test dymny w headless Chrome (świeży profil): samouczek sam się otwiera i przechodzi wszystkie kroki do „Oskarżenia”, nowy gracz bez kropki „Co nowego”, Ustawienia → „Jak grać”, sprawa dnia, akta i notatnik, zero błędów w konsoli. **Musi przejść przed każdym pushem** (w 2.1.2 samouczek wywracał się na produkcji, bo nikt go nie uruchomił w przeglądarce). Chrome z `CHROME` albo domyślnej ścieżki.
 - `node tools/freeze-version.js <commit> <wersja>` — zamraża generator z danego commita (patrz „Wersje generatora”).
 - `node tools/icons.js` — rysuje ikony PWA do `icons/`.
@@ -168,10 +171,25 @@ Wydanie 2.1.2 (poprawki, **obowiązuje od 11.11.2026**; 2.1.1 zamrożone w `engi
 - **Hotfix 2.1.2 (10.11.2026, tylko interfejs, bez zmiany generatora):** samouczek wywracał się przy każdym otwarciu (`TypeError … 'forms'`), bo sprawa demonstracyjna z seeda „samouczek” ma w 2.1.2 tylko jedno miejsce; teraz `demo()` szuka kolejnych seedów (`samouczek-1`…), aż sprawa ma 3 osoby, 2 miejsca i 2 przedmioty. Wróciła 4. plansza „Oskarżenie”. Kropka „Co nowego”: `siatka-history` i zapis świeżej sprawy powstają przy każdym starcie, więc liczy się dopiero historia z wpisem albo zapis z interakcją. Nowy test dymny `tools/smoke.js` w `npm test`. Cache `siatka-v14`.
 - Samouczek: flaga `siatka-howto` ustawiana przy otwarciu (nie przy zamknięciu), więc sam otwiera się tylko raz. Zdarzenia: `tutorial_skip/krok-N` (zastąpiło `samouczek/pominiety-krok-N`), `tutorial_quit/krok-N` (pagehide albo schowanie karty przy otwartym samouczku), `case_win/<daily|archive>/<rozmiar>` (obok `sprawa/wygrana/…`), `case_abandon/<daily|archive>/<rozmiar>` (sprawa z otwartymi aktami, sznurkiem, wykluczeniem lub podpowiedzią, nierozwiązana przy wyjściu albo starcie innej; raz na sprawę, `siatka-aband`), wszystkie zdarzenia z tego akapitu mają sufiks urządzenia `/mobile` albo `/desktop` (`SiatkaTrack.device()`: `(pointer:fine) and (min-width:1024px)` = desktop). `case_abandon` wysyła się też przy starcie gry za nierozwiązaną sprawę z zapisu (z interakcją, zapis starszy niż 30 min, `at` w zapisie), bo na telefonie `pagehide` bywa zawodny. `return_d1` i `return_d7` (pierwsza wizyta dokładnie 1. i 7. dnia kalendarzowego po dniu pierwszej gry, `siatka-first-game-day`).
 
+Wydanie 2.2 (**obowiązuje od 13.11.2026**; 2.1.2 zamrożone w `engine/versions/v2_1_2.js`, commit 0891a91, wzorzec `cases/fixtures/daily-2.1.2.json` z dniami 11–12.11):
+- **Reguły nietypowe** (classic, najwyżej 1 w S–M i 2 w L–XL, zastępują reguły cech; treści w `B.rules2` i `B.traits.known`):
+  - przeczenie: cecha `known` (bywa tam jak u siebie / jest obcy), reguła mówi, czego nie było („Pies dozorcy … nie zaszczekał”); nigdy jako wabik i nigdy razem z regułą motywu,
+  - porównanie `cmp`: miarą jest świadek spoza podejrzanych ze wzrostem w regule (`refCm`, kierunek `dir` = up/down, losowo); nikt z podejrzanych nie jest w promieniu 3 cm od miary; odcina dokładnie przypisanych niewinnych (min. 1, w L–XL 2, nigdy wszystkich), wzrosty losuje się ponownie z tego samego rozkładu, gdy miara nie pasuje; każdy ma w teczce wzrost w cm,
+  - wzrost (`HEIGHT`, `heightOf`, `heightClass` w `engine.js`): fakt `trait height_cm` w każdej sprawie z rozkładu trójkątnego wg płci (m 165–190, najczęściej 176; k 155–178, najczęściej 164), niezależnie od reguł; opis z liczby: m wysoki ≥ 182, niski ≤ 168, k ≥ 174 / ≤ 158, pomiędzy `mid` (bez zdań-wabików o wzroście); gdy wzrost opisowy jest regułą, losuje się w klasie; zdania „schyla się w drzwiach” i podobne mają `cm:{m:[od,do], f:[od,do]}` (filtr w `fitsWho`),
+  - relacja `relation` (`workmate`, `stairwell`, `inlaw`) z osobą spoza podejrzanych: kto nie odpada z reguły, ma relację z reguły, odpadający mają inną, więc nazwisko pada w 2–3+ teczkach; fakt `relation {a, b, rel}`,
+  - nieobecność `absent`: zeszyt dozorcy (zamknięta lista, wpisy w teczkach, fakty `roster` i `roster_entry`), przed zbrodnią i przez `addPresence`; lista eliminuje najwyżej połowę niewinnych; w takiej sprawie żadnych innych dozorców jako świadków (szablony obecności, ramy alibi, dowód „Zeszyt dozorcy”; `noJanitor`).
+  - role zawodowo jeżdżące (mechanik, taksówkarz, kierowca MPK, pracownik CPN) mają `need:{car:"yes"}` i `no:["nodrive"]`; opiekun w zoo `no:["dogfear"]`; `ROLE_FORBID` w `generate.js` to pilnuje. `generate.js` sprawdza też, że każde pole `t` w danych jest napisem, i szuka w tekstach „object Object”.
+- **Metryka głębokości** (`depth` w `solver.js`): `strongRule` i `strongFact` (ilu niewinnych odcina jedna reguła albo jeden fakt), `minFacts` (zachłannie najmniejszy zestaw faktów z jednym rozwiązaniem). Sprawa odpada, gdy jedna reguła albo jeden fakt odcina wszystkich niewinnych. Wynik w `c.verify.depth`, raport w `generate.js`. Odrzucane próby: 2.1.2 ok. 52%, 2.2 classic ok. 54% (głębokość 0%), oś czasu ok. 5%.
+- **Oś czasu** (`timeline.js`, waga 1 od M przy wadze 3 classic, czyli ok. 25% spraw M–XL; `supports(opts)` pomija ją przy zbrodniach spoza listy): 8 typów zbrodni (bez szantażu, fałszerstwa i otrucia człowieka), 3–5 miejsc z „Miejscem zdarzenia” (ikona `house`), czasy dojścia z punktów na płaszczyźnie (zaokrąglone do 5 min, najkrótsze drogi), okno 20 min, w nim sprawca spędził co najmniej `stay` = 10 min (reguła to mówi; predykat `reach` / `reachable(…, stay)` liczy pobyt). Sprawca ma 10–15 min, niewinni z trasą 10–20, pułapkom brakuje 5 min do wymogu. Sprawca i 1–2 niewinnych z trasą odpadają z reguł cech, reszta nie zdąży; pułapki (brakuje 5 min) co najmniej 1 (L–XL 2); liczba obserwacji 2–4 dla każdego (sprawca ≈ niewinni). Obserwacje i dowody z godziną co do minuty (`B.timeline`). Pole `travel` w sprawie → tabela w notatniku (`travelTable` w `game.js`). Oskarżenie bez narzędzia (`question: "culprit"`), wynik bez narzędzia, jednorazowa karta „Nowy typ sprawy: oś czasu” (`siatka-new-timeline`).
+- **Sprawy dnia:** do `TIMELINE_DAILY_FROM` = 2026-11-17 zawsze classic (`dailyOpts` w `engine.js`); archiwum ma oś czasu od 13.11. 17.11 to wtorek (S), więc pierwsza oś czasu w sprawie dnia wypada w środę 18.11 (M).
+- **Zaległe z 2.1.2:** cennik `B.prices` z rodzajami kwot (`{kwota_parking}`, `{kwota_oc}`… w dowodach, `{money}` i `{ransom}` w scenach; test w `test-realia.js`), `time:[od, do]` w scenie („Okienko na poczcie” 17:30–19:00), 12 motywów epilogu otrucia zwierzęcia, zapasowe motywy epilogu bez tagów.
+- **Poprawki 2.1.2:** samouczek (4 plansze, seed demonstracyjny z 2 miejscami i 2 przedmiotami) i kropka „Co nowego” poszły osobno jako hotfix 2.1.2 (commit 775a63f, cache v14); 2.2 jest na nim oparte. Cache 2.2: `siatka-v15`.
+- **Nieprzejrzane (wszystko z 2.2):** zdania `known`, wzrostu w cm, relacji, zeszytu dozorcy, reguły osi czasu, obserwacje i dowody z godziną, karta wprowadzająca, cennik.
+
 ## Najbliższe kroki
 
 1. Przejrzeć nieprzejrzane treści 2.1.1 (lista w „Stan”). Przeczytać 12 spraw z `cases/generated/` i poprawić teksty, które brzmią sztucznie. Przejrzeć teksty dowodów rzeczowych i imiona z 2.1.
-2. Wydanie 2.2: etap 2 (bogatsza logika reguł, metryka głębokości) i etap 3 (archetyp „Oś czasu”). Potem 2.3 i 2.4 wg `docs/update-spraw-v2.md`.
+2. Po 2.2: przegląd treści 2.2, potem 2.3 i 2.4 wg `docs/update-spraw-v2.md`.
 3. Notka „Co nowego” w grze dla wydania 2.1 (dowody rzeczowe) i ręczne zagranie 3 spraw z dowodami na telefonie.
 5. Kolejne archetypy: fakty pośrednie (alibi potwierdzone w aktach innej osoby), kłamiący świadek, wspólnicy.
 7. Sprawdzić realia lat i nazwy miejsc w paczkach miast (to fikcja, ale ma brzmieć wiarygodnie).

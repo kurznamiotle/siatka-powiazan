@@ -15,6 +15,25 @@
 (function (root) {
   const BASE = {
     years: [1989, 1999],
+  /* Cennik (2.2): rodzaj kwoty → [od, do] w złotych dla 1989, 1990–1994 (stare złote) i od 1995 (nowe złote).
+     W tekście {kwota_<rodzaj>} (dowody rzeczowe) albo {money} / {ransom} (sceny, motywy; z _gen w dopełniaczu). */
+  prices: {
+    parking: [[300, 1000], [10000, 40000], [3, 8]],          // doba na parkingu strzeżonym
+    fine:    [[2000, 10000], [50000, 300000], [20, 100]],    // mandat
+    shoes:   [[8000, 25000], [250000, 700000], [60, 160]],   // półbuty skórzane
+    repair:  [[10000, 40000], [300000, 900000], [80, 250]],  // naprawa auta w warsztacie
+    oc:      [[10000, 30000], [600000, 2500000], [200, 600]],// składka OC na rok
+    optic:   [[1000, 4000], [30000, 120000], [10, 30]],      // drobna naprawa okularów
+    lenses:  [[5000, 20000], [200000, 600000], [60, 200]],   // nowe szkła
+    vet:     [[1000, 5000], [50000, 200000], [20, 60]],      // wizyta w lecznicy
+    dogtax:  [[500, 2000], [30000, 100000], [20, 50]],       // roczna opłata za psa
+    sewing:  [[500, 2000], [20000, 80000], [5, 15]],         // wszycie zamka
+    jacket:  [[10000, 40000], [300000, 900000], [50, 150]],  // kurtka z ortalionu
+    keycopy: [[200, 800], [10000, 40000], [4, 12]],          // dorobienie klucza
+    bribe:   [[5000, 20000], [500000, 2000000], [50, 200]],  // łapówka za zwolnienie lekarskie
+    money:   [[200000, 900000], [3000000, 60000000], [500, 8000]], // dług, żądanie szantażysty, straty
+    ransom:  [[100000, 500000], [3000000, 20000000], [300, 2000]]  // okup za psa
+  },
     months: ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"],
     detective: "Wacław Grzyb",
 
@@ -76,7 +95,7 @@
       { id:"aptekarz", age:["mid","old"], m:"Aptekarz", f:"Aptekarka", access:["apteka"],
         outfit:{shape:"collar",c:"#f1f1ea",d:"#3e6b5c"}, headwear:{m:[],f:[]},
         flavor:["Pamięta, kto i kiedy kupował co mocniejszego.","Mówi powoli i bardzo dokładnie."] },
-      { id:"mechanik", age:["young","mid"], m:"Mechanik", f:null, access:["garaz"],
+      { id:"mechanik", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"Mechanik", f:null, access:["garaz"],
         outfit:{shape:"plain",c:"#3d5a85",d:"#2b3f5e"}, headwear:{m:["kaszkiet",""]},
         flavor:["Ma czarne od smaru paznokcie.","Naprawia sąsiadom Maluchy po godzinach.",
                 {t:"Przerabia auta sprowadzone z Niemiec, żeby przeszły przegląd.", years:[1991,1999]}] },
@@ -110,7 +129,7 @@
       { id:"emeryt", age:"old", no:["job","fired"], m:"Emerytowany kolejarz", f:"Emerytowana nauczycielka", access:[],
         outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["kolejarz",""],f:[""]},
         flavor:["Cały dzień spędza przy oknie z poduszką pod łokciami.","Pisze listy do miejscowej gazety o dziurach w chodnikach."] },
-      { id:"taksowkarz", age:"mid", need:{car:"yes"}, m:"Taksówkarz", f:null, access:[],
+      { id:"taksowkarz", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"Taksówkarz", f:null, access:[],
         outfit:{shape:"jacket",c:"#2b2b2b",d:"#d9a648"}, headwear:{m:["kaszkiet",""]},
         flavor:["Jeździ na kursy z postoju przy {dworzec}.","Zna każdy skrót w mieście.",
                 {t:"Jeździ na „radio taxi” i ma w aucie krótkofalówkę.", years:[1991,1999]}] },
@@ -189,7 +208,7 @@
       { id:"weterynarz", age:"mid", no:["dogfear"], m:"Weterynarz", f:"Lekarka weterynarii", access:[],
         outfit:{shape:"collar",c:"#3f6b3a",d:"#e6e6e6"}, headwear:{m:["kaszkiet",""],f:[""]},
         flavor:["Leczy psy i koty z całej dzielnicy, często za darmo.","W kieszeni nosi smakołyki dla pacjentów z poczekalni."] },
-      { id:"kierowca", age:"mid", m:"Kierowca autobusu MPK", f:null, access:[],
+      { id:"kierowca", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"Kierowca autobusu MPK", f:null, access:[],
         outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["kolejarz"]},
         flavor:["Jeździ nocną linią i zna każdego pasażera, który wraca o północy.","Na przystanku czeka dokładnie minutę, ani sekundy dłużej."] },
       { id:"kombatant", age:"old", no:["job","fired"], m:"Emerytowany chorąży", f:null, access:[],
@@ -252,7 +271,7 @@
       { id:"ogrodnik", age:["mid","old"], m:"Ogrodnik z zieleni miejskiej", f:"Ogrodniczka z zieleni miejskiej", access:[],
         outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Przycina żywopłoty w parku i zna każdą ławkę.","Jesienią grabi liście w parku od świtu."] },
-      { id:"cpn", age:["young","mid"], m:"Pracownik stacji CPN", f:"Pracownica stacji CPN", access:[],
+      { id:"cpn", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"Pracownik stacji CPN", f:"Pracownica stacji CPN", access:[],
         outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:["kaszkiet",""],f:[""]},
         flavor:["Nalewa benzynę na stacji CPN przy wylotówce.",{t:"Wie, kto tankuje do pełna, a kto za dwadzieścia tysięcy.", years:[1989,1994]},{t:"Wie, kto tankuje do pełna, a kto za dwadzieścia złotych.", years:[1995,1999]}] },
       { id:"portier", age:["mid","old"], m:"Portier hotelowy", f:"Portierka hotelowa", access:[],
@@ -551,6 +570,63 @@
     /* ------------------------------------------------------------------ */
     /* CECHY (logika + jak się objawiają w tekście)                         */
     /* ------------------------------------------------------------------ */
+    /* ---------- 2.2: reguły nietypowe (porównanie wzrostu, relacje, zeszyt dozorcy) ----------
+       Tekst reguły opisuje ślad albo zeznanie; wartość wynika jednoznacznie. {ref} = imię i nazwisko w mianowniku. */
+    /* ---------- 2.2: archetyp „Oś czasu” (engine/archetypes/timeline.js) ----------
+       Godziny zawsze co do minuty (bez „około”). {a} {b} = okno zdarzenia, {t} godzina, {in} miejsce w miejscowniku. */
+    timeline: {
+      scene:{ id:"miejsce", name:"Miejsce zdarzenia", label:"Miejsce zdarzenia", gen:"miejsca zdarzenia", in:"na miejscu zdarzenia", from:"z miejsca zdarzenia", icon:"house" },
+      reachRule:["Sprawca spędził na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Czasy w tabeli to najkrótsza droga, szybciej się nie da.",
+                 "Lekarz i technicy zgodnie ustalili: sprawca był na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Tabela podaje najkrótsze czasy dojścia, szybciej nie przejdzie nikt.",
+                 "Sąsiedzi słyszeli hałas między {a} a {b}. Sprawca spędził wtedy na miejscu zdarzenia co najmniej {stay} minut. Szybciej, niż podaje tabela, nie da się przejść."],
+      tableNote:"Godziny w teczkach są dokładne co do minuty. Czasy dojścia działają w obie strony.",
+      hint:"Reguła {n}: przy każdej osobie sprawdź przerwę między obserwacjami. Czy starczy czasu, żeby dojść na miejsce zdarzenia, spędzić tam co najmniej {stay} minut między {a} a {b} i zdążyć na następną?",
+      obsTpl:["Sąsiad widział [go|ją] {in} o {t}.","[Sam|Sama] przyznaje, że o {t} [był|była] {in}.","Listonosz minął [go|ją] {in} o {t}.",
+              "Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.","O {t} [rozmawiał|rozmawiała] z kimś {in}, jak mówi sąsiadka z okna.",
+              "Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat spojrzała na zegar nad kredensem.","O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu i sprawdzał godzinę na zegarku.",
+              "Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy w radiu nadawali sygnał czasu.","Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.",
+              "O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.","Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.",
+              "Dzielnicowy zanotował w notesie: {t}, {in}."],
+      evidence:[{ label:"Kwit", name:"Kwit z godziną", icon:"receipt", text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis klienta: {ini}."] },
+                { label:"Książka", name:"Książka wejść", icon:"notebook", text:["Książka wejść prowadzona przez portiera {in}.","Wpis: «{t} — {ini}, wejście»."] },
+                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, [dzwonił|dzwoniła] {ini}.»"] },
+                { label:"Raport", name:"Raport stróża", icon:"card", text:["Stróż co wieczór obchodzi teren i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] }],
+      intro:"Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Sprawdź, kto zdążyłby dojść na miejsce zdarzenia w czasie zbrodni i wrócić tam, gdzie widziano go później."
+    },
+    rules2: {
+      /* wzrost w cm w teczce, gdy w sprawie jest reguła porównania; {cm} = 172, {cmm} = 1,72 */
+      heightCm:["W dowodzie osobistym ma wpisane {cm} cm wzrostu.","Na przesłuchaniu zmierzono [go|ją] przy futrynie: {cm} cm.",
+                "Według karty z przychodni rejonowej ma {cmm} m wzrostu.","Krawiec z sąsiedztwa zapisał w zeszycie miarę: wzrost {cm} cm.",
+                {t:"Lekarz zakładowy wpisał do karty {cm} cm wzrostu.", k:["job"]},"Ma {cmm} m wzrostu.",
+                "W protokole z przeszukania zapisano wzrost: {cm} cm.","W kartotece z poradni wpisano: wzrost {cm} cm."],
+      /* miarą jest świadek spoza podejrzanych; {refm} = 1,68; dir = up (sprawca wyższy) / down (niższy) */
+      cmp:{ rule:{ up:["Świadek, {ref}, ma {refm} m wzrostu i {stal} w bramie tuż obok sprawcy. Sprawca był od {ref_od} wyraźnie wyższy.",
+                       "{ref}, {ktory} ma {refm} m wzrostu, {widzial} sprawcę z bliska, twarzą w twarz. Sprawca był od {ref_od} wyższy."],
+                   down:["Świadek, {ref}, ma {refm} m wzrostu i {stal} w bramie tuż obok sprawcy. Sprawca był od {ref_od} wyraźnie niższy.",
+                         "{ref}, {ktory} ma {refm} m wzrostu, {widzial} sprawcę z bliska, twarzą w twarz. Sprawca był od {ref_od} niższy."] },
+            hint:"porównaj wzrost w teczkach z {refm} m, które ma {ref}." },
+      relation:{
+        workmate:{ rule:["{ref} {zeznal}, że sprawcę zna z zakładu pracy: pracują w tym samym miejscu.",
+                         "Sprawca pracuje w tym samym zakładzie co {ref}. Rozpoznał go portier z tamtej zmiany."],
+                   fact:[{t:"{ref} pracuje w tym samym zakładzie co [on|ona], mijają się codziennie na portierni.", k:["job"]},
+                         {t:"{ref} i [on|ona] są na jednej zmianie w tym samym zakładzie.", k:["job"]}],
+                   what:"wspólny zakład pracy" },
+        stairwell:{ rule:["{ref} {zeznal}, że sprawcę mija codziennie na swojej klatce schodowej: mieszkają na tej samej klatce.",
+                          "Sprawca mieszka na tej samej klatce schodowej co {ref}. Sąsiadka z parteru poznała go po kroku na schodach."],
+                    fact:["{ref} mieszka piętro wyżej, na tej samej klatce schodowej co [on|ona].","{ref} mieszka z [nim|nią] na jednej klatce schodowej, drzwi w drzwi."],
+                    what:"wspólna klatka schodowa" },
+        inlaw:{ rule:["{ref} {zeznal}, że sprawca to ktoś z {ref_jego} rodziny: szwagier albo szwagierka.",
+                      "Sprawca i {ref} to szwagrowie, tak wynika z zeznań rodziny."],
+                fact:["{ref} to [jego|jej] {szw}, spotykają się na rodzinnych imieninach.","{ref} to [jego|jej] {szw}, z rodziny po małżonku."],
+                what:"szwagrostwo" },
+        hint:"kogo w teczkach łączy coś z osobą, którą jest {ref}, i co dokładnie?"
+      },
+      absent:{ rule:["Od {a} do {b} dozorca zamiatał podwórko i zapisywał w zeszycie każdego, kto przechodził. Kto jest w zeszycie, ma to w teczce. Sprawcy w zeszycie nie ma.",
+                     "Od {a} do {b} dozorca siedział przy trzepaku i notował każdego, kto szedł przez podwórko. Wszystkie wpisy są w teczkach. Sprawca przez podwórko nie przechodził."],
+               fact:["Dozorca zapisał [go|ją] w zeszycie: o {t} [przechodził|przechodziła] przez podwórko.","W zeszycie dozorcy: {t}, [szedł|szła] przez podwórko.",
+                     "Dozorca wpisał [go|ją] do zeszytu o {t}, kiedy [przechodził|przechodziła] przez podwórko.","O {t} dozorca zanotował [go|ją] na podwórku."],
+               hint:"kto ma w teczce wpis z zeszytu dozorcy?" }
+    },
     traits: {
       hand: {
         values:["left","right"],
@@ -580,7 +656,7 @@
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Kwit", name:"Kwit od szewca", icon:"receipt", text:["Kwit z zakładu szewskiego przy {street2}: zelowanie i nowe fleki.","Buty w rozmiarze {v}, do odbioru w piątek. Na kwicie: {ini}."] },
                   { label:"Pudełko", name:"Pudełko po butach", icon:"receipt", text:["Pudełko po butach z domu towarowego, znalezione w piwnicy przy komórkach lokatorów.","Na boku rozmiar {v}. Na wieczku ktoś napisał flamastrem: {ini}."] },
-                  { label:"Paragon", name:"Paragon z działu obuwia", icon:"receipt", text:["Paragon z działu obuwia w domu towarowym: półbuty skórzane, {kwota}.","Rozmiar {v}. Klient przymierzył je i wyszedł w nich ze sklepu. Na odwrocie podpis: {ini}."] },
+                  { label:"Paragon", name:"Paragon z działu obuwia", icon:"receipt", text:["Paragon z działu obuwia w domu towarowym: półbuty skórzane, {kwota_shoes}.","Rozmiar {v}. Klient przymierzył je i wyszedł w nich ze sklepu. Na odwrocie podpis: {ini}."] },
                   { label:"Spis", name:"Spis rzeczy z przeszukania", icon:"card", text:["Spis rzeczy z przeszukania mieszkania, podpisany przez dzielnicowego.","Pozycja czwarta: buty zimowe noszone na co dzień, rozmiar {v}. Właściciel, czytelne tylko inicjały: {ini}."] }],
         values:{ m:[42,43,44,45], f:[37,38,39,40] },
         facts:["Nosi buty w rozmiarze {v}.","W przedpokoju stoją [jego|jej] kalosze, rozmiar {v}.","[Kupił|Kupiła] sobie ostatnio na targu buty w rozmiarze {v}.",
@@ -593,20 +669,40 @@
         why:"nosi buty w rozmiarze {v}",
         whyFail:"nosi buty w rozmiarze {v}"
       },
+      /* 2.2: przeczenie. Reguła mówi, czego NIE było (pies nie szczekał, sprawca nie szukał drogi); wartość wynika jednoznacznie.
+         Tylko jako reguła (nigdy jako zdanie-wabik) i nigdy razem z regułą motywu. */
+      known: {
+        values:["yes","no"], ruleValues:["yes","no"],
+        facts:{ yes:["Pies dozorcy merda na [jego|jej] widok ogonem, zna [go|ją] od szczeniaka.","Bywa u poszkodowanych co tydzień i zna tam każdy kąt.",
+                     "Od lat przychodzi w to miejsce jak do siebie, wszyscy [go|ją] tam znają.","Kiedyś [pomagał|pomagała] poszkodowanym przy remoncie, więc wie, gdzie co stoi.",
+                     "Sąsiedzi poszkodowanych mówią o [nim|niej] „nasz”, bo kręci się tam od zawsze.","Ma u poszkodowanych swoje krzesło przy stole, tak często tam bywa.",
+                     "Dozorca zna [go|ją] z imienia i nigdy nie pyta, do kogo idzie.","Tam, gdzie to się stało, zna nawet skrzypiące stopnie na schodach."],
+                no:["Poszkodowanych nie zna, w tamtej okolicy nigdy nie [był|była].","Dozorca z tamtej okolicy widzi [go|ją] pierwszy raz na oczy.",
+                    "Mieszka na drugim końcu miasta i w tamte strony w ogóle nie zagląda.","Na wizję lokalną trzeba [go|ją] było prowadzić, bo nie [znał|znała] drogi.",
+                    "Z poszkodowanymi nigdy nie [zamienił|zamieniła] słowa, zna ich najwyżej ze zdjęcia w gazecie.","Sąsiedzi poszkodowanych zgodnie mówią, że nigdy [go|ją] tam nie widzieli.",
+                    "W tamtej okolicy [był|była] ostatni raz przed laty, przy przeprowadzce kuzyna.","Pies dozorcy obszczekał [go|ją] przy wizji lokalnej jak każdego obcego."] },
+        rule:{ yes:["Pies dozorcy, który oszczekuje każdego obcego, tego wieczoru ani razu nie zaszczekał. Sprawca nie był tu obcy.",
+                    "Sprawca nie szukał drogi ani włącznika światła. Nie był tu pierwszy raz."],
+               no:["Pies dozorcy ujadał tak, jak ujada tylko na obcych. Sprawca nie bywał tu wcześniej.",
+                   "Sprawca nie znał drogi: sąsiadka słyszała, jak pytał na schodach, gdzie jest wyjście. Nie był tu nigdy wcześniej."] },
+        hint:"Kto bywał na miejscu jak u siebie, a kto był tam obcy?",
+        why:{ yes:"nie [był|była] tam [obcy|obca]", no:"[był|była] tam [obcy|obca]" },
+        whyFail:{ yes:"[był|była] tam [obcy|obca]", no:"bywa tam jak u siebie" }
+      },
       height: {
         values:["tall","short"],
         facts:{
-          tall:["Ma ponad metr dziewięćdziesiąt wzrostu.","Schyla się w każdych drzwiach.","Z daleka widać [go|ją] ponad tłumem na targu.",
+          tall:[{t:"Ma ponad metr dziewięćdziesiąt wzrostu.", cm:{m:[191,250],f:[191,250]}},{t:"Schyla się w każdych drzwiach.", cm:{m:[188,250],f:[178,250]}},"Z daleka widać [go|ją] ponad tłumem na targu.",
                 "Na zdjęciu klasowym stoi w ostatnim rzędzie, o głowę [wyższy|wyższa] od reszty.","Jest tak [wysoki|wysoka], że żarówki na klatce wkręca bez drabiny.",
-                "Spodnie zawsze ma za krótkie, bo na [jego|jej] wzrost nic nie ma w sklepach.","W tramwaju musi się garbić, żeby nie uderzyć głową w sufit.",
-                "W szkole na apelu [stał|stała] zawsze na czele szeregu, jako [najwyższy|najwyższa] w klasie.","Kiedy wstaje od stołu, głową prawie dotyka lampy w kuchni.",
-                "Łóżko ma dorobione, bo w sklepie nie było takiego na [jego|jej] wzrost.","W każdej kolejce widzi ladę ponad głowami innych.",
+                "Spodnie zawsze ma za krótkie, bo na [jego|jej] wzrost nic nie ma w sklepach.",{t:"W tramwaju musi się garbić, żeby nie uderzyć głową w sufit.", cm:{m:[190,250],f:[182,250]}},
+                "W szkole na apelu [stał|stała] zawsze na czele szeregu, jako [najwyższy|najwyższa] w klasie.",{t:"Kiedy wstaje od stołu, głową prawie dotyka lampy w kuchni.", cm:{m:[188,250],f:[178,250]}},
+                {t:"Łóżko ma dorobione, bo w sklepie nie było takiego na [jego|jej] wzrost.", cm:{m:[190,250],f:[184,250]}},"W każdej kolejce widzi ladę ponad głowami innych.",
                 "Sąsiedzi wołają [go|ją], kiedy trzeba zdjąć firanki, bo przy [jego|jej] wzroście drabina niepotrzebna."],
-          short:["Ma niecałe metr sześćdziesiąt.","Do górnej półki sięga ze stołka.","W tramwaju ledwo dosięga uchwytu.",
+          short:[{t:"Ma niecałe metr sześćdziesiąt.", cm:{m:[0,159],f:[0,159]}},"Do górnej półki sięga ze stołka.","W tramwaju ledwo dosięga uchwytu.",
                  "W kolejce zza pleców innych nie widzi lady.","Na zdjęciu klasowym zawsze [stał|stała] w pierwszym rzędzie, jako [najniższy|najniższa].",
-                 "[Sam|Sama] żartuje, że ma metr pięćdziesiąt pięć w kapeluszu.","Jest tak [niski|niska], że do lustra w łazience musi stawać na palcach.",
-                 "W tłumie na targu ginie, bo innym sięga ledwo do ramienia.","Jest [niski|niska] i każde spodnie skraca u krawcowej o dobre dziesięć centymetrów.",
-                 "Na przesłuchaniu nogi ledwo [mu|jej] sięgały do podłogi.","W dowodzie ma wpisane sto pięćdziesiąt osiem centymetrów wzrostu.",
+                 {t:"[Sam|Sama] żartuje, że ma metr pięćdziesiąt pięć w kapeluszu.", cm:{m:[0,0],f:[0,156]}},{t:"Jest tak [niski|niska], że do lustra w łazience musi stawać na palcach.", cm:{m:[0,162],f:[0,154]}},
+                 {t:"W tłumie na targu ginie, bo innym sięga ledwo do ramienia.", cm:{m:[0,162],f:[0,155]}},"Jest [niski|niska] i każde spodnie skraca u krawcowej o dobre dziesięć centymetrów.",
+                 {t:"Na przesłuchaniu nogi ledwo [mu|jej] sięgały do podłogi.", cm:{m:[0,162],f:[0,155]}},"W dowodzie ma wpisane {cm} cm wzrostu.",
                  "Skrzynki pocztowej w górnym rzędzie nie dosięga bez stołka."]
         },
         rule:{ tall:["Sprawca zostawił ślady dłoni na framudze, ponad dwa metry nad podłogą.","Świadek widział, jak sprawca schyla się w drzwiach, żeby nie uderzyć głową."],
@@ -640,10 +736,10 @@
       },
       car: {
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
-        evidence:[{ label:"Mandat", name:"Mandat za parkowanie", icon:"ticket", text:["Mandat za zostawienie auta na chodniku przy {street2}, wystawiony tydzień temu.","Kierowca przyjął mandat na {kwota} i podpisał się: {ini}."] },
-                  { label:"Rachunek", name:"Rachunek z warsztatu", icon:"receipt", text:["Rachunek z warsztatu samochodowego przy {street2}: wymiana tłumika, {kwota}.","Rachunek wystawiono na właściciela auta, {ini}. Auto odebrane dzień przed zdarzeniem."] },
-                  { label:"Parking", name:"Kwit z parkingu strzeżonego", icon:"ticket", text:["Kwit z parkingu strzeżonego przy {dworzec}, za dobę postoju: {kwota}.","Parkingowy zapisał markę auta i nazwisko kierowcy, czytelne tylko inicjały: {ini}."] },
-                  { label:"Polisa", name:"Polisa OC z PZU", icon:"card", text:["Polisa obowiązkowego ubezpieczenia samochodu z PZU, opłacona do końca roku.","Składka {kwota}. Właściciel pojazdu: {ini}."] }],
+        evidence:[{ label:"Mandat", name:"Mandat za parkowanie", icon:"ticket", text:["Mandat za zostawienie auta na chodniku przy {street2}, wystawiony tydzień temu.","Kierowca przyjął mandat na {kwota_fine} i podpisał się: {ini}."] },
+                  { label:"Rachunek", name:"Rachunek z warsztatu", icon:"receipt", text:["Rachunek z warsztatu samochodowego przy {street2}: wymiana tłumika, {kwota_repair}.","Rachunek wystawiono na właściciela auta, {ini}. Auto odebrane dzień przed zdarzeniem."] },
+                  { label:"Parking", name:"Kwit z parkingu strzeżonego", icon:"ticket", text:["Kwit z parkingu strzeżonego przy {dworzec}, za dobę postoju: {kwota_parking}.","Parkingowy zapisał markę auta i nazwisko kierowcy, czytelne tylko inicjały: {ini}."] },
+                  { label:"Polisa", name:"Polisa OC z PZU", icon:"card", text:["Polisa obowiązkowego ubezpieczenia samochodu z PZU, opłacona do końca roku.","Składka {kwota_oc}. Właściciel pojazdu: {ini}."] }],
         values:["yes","no"], ruleValues:["yes"],
         facts:{ yes:["Jeździ Polonezem w kolorze kawy z mlekiem.","Ma Malucha zaparkowanego pod blokiem.",{t:"Jeździ Żukiem z napisem firmy na burcie.", ages:["young","mid"], k:["job"]},
                      {t:"Jeździ Golfem sprowadzonym z Niemiec.", years:[1990,1999], ages:["young","mid"]},
@@ -651,10 +747,10 @@
                      {t:"Jeździ nowiutkim Daewoo Tico.", years:[1997,1999]},"Co niedzielę myje pod blokiem swoje auto.",
                      "Kluczyki do swojego auta nosi na breloku z herbem miasta.","Z balkonu pilnuje swojego samochodu zaparkowanego pod oknem.",
                      "W bagażniku swojego auta wozi zapasowy kanister i linkę holowniczą.","Na podwórku zawsze parkuje swoją Syrenkę w tym samym miejscu.","Co sobotę dłubie przy swoim aucie pod blokiem."],
-                no:["Nie ma samochodu ani prawa jazdy.","Samochodu nie ma, wszędzie jeździ tramwajem.",{t:"Samochód [sprzedał|sprzedała] w zeszłym roku i nowego już nie [kupił|kupiła].", ages:["mid","old"]},
-                    "Auta nie ma, na zakupy jeździ autobusem z wózkiem na kółkach.","Nigdy nie [nauczył|nauczyła] się prowadzić i boi się samochodów.",
+                no:[{t:"Nie ma samochodu ani prawa jazdy.", k:["nodrive"]},"Samochodu nie ma, wszędzie jeździ tramwajem.",{t:"Samochód [sprzedał|sprzedała] w zeszłym roku i nowego już nie [kupił|kupiła].", ages:["mid","old"]},
+                    "Auta nie ma, na zakupy jeździ autobusem z wózkiem na kółkach.",{t:"Nigdy nie [nauczył|nauczyła] się prowadzić i boi się samochodów.", k:["nodrive"]},
                     {t:"Na zebraniu spółdzielni [narzekał|narzekała], że samochody zastawiają podwórko, bo [sam|sama] żadnego nie ma.", k:["adult"]},
-                    "Na działkę dojeżdża rowerem, bo samochodu nigdy nie [miał|miała].","Samochodu nie ma, bo nigdy nie było [go|jej] na niego stać.",{t:"Samochodu nie ma: talon na auto [sprzedał|sprzedała] kiedyś szwagrowi, bo i tak nie umie jeździć.", ages:["mid","old"], k:["adult"]},
+                    "Na działkę dojeżdża rowerem, bo samochodu nigdy nie [miał|miała].","Samochodu nie ma, bo nigdy nie było [go|jej] na niego stać.",{t:"Samochodu nie ma: talon na auto [sprzedał|sprzedała] kiedyś szwagrowi, bo i tak nie umie jeździć.", ages:["mid","old"], k:["adult","nodrive"]},
                     "Samochodu nie ma, w niedziele chodzi wszędzie pieszo.",{t:"Prawo jazdy [stracił|straciła] trzy lata temu, a auto [sprzedał|sprzedała] zaraz potem.", ages:["mid","old"]},"Samochodu nie ma, z pojazdów ma tylko rower."] },
         rule:{ yes:["Świadek widział, jak tuż po zdarzeniu sprawca wsiada do swojego auta i odjeżdża.","Ślady opon na podwórku prowadzą tam, gdzie sprawca zostawił swój samochód."] },
         hint:"Kto nie ma czym odjechać?",
@@ -664,9 +760,9 @@
       glasses: {
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Recepta", name:"Recepta od okulisty", icon:"receipt", text:["Recepta z przychodni przy {street2}: szkła minus cztery.","Wystawiona dla {ini}. Okulary odebrane u optyka w zeszłym tygodniu."] },
-                  { label:"Kwit", name:"Kwit od optyka", icon:"receipt", text:["Kwit z zakładu optycznego: naprawa zausznika w okularach, {kwota}.","Do odbioru w poniedziałek. Zamawiający: {ini}."] },
+                  { label:"Kwit", name:"Kwit od optyka", icon:"receipt", text:["Kwit z zakładu optycznego: naprawa zausznika w okularach, {kwota_optic}.","Do odbioru w poniedziałek. Zamawiający: {ini}."] },
                   { label:"Skierowanie", name:"Skierowanie do okulisty", icon:"card", text:["Skierowanie z przychodni rejonowej do poradni okulistycznej, z pieczątką lekarza.","Dopisek: «nosi okulary od lat, kontrola szkieł». Pacjent: {ini}."] },
-                  { label:"Szkła", name:"Zlecenie na szkła", icon:"receipt", text:["Zlecenie z zakładu optycznego przy {street2}: nowe szkła do okularów noszonych na co dzień, {kwota}.","Okulary odebrał właściciel. Podpis: {ini}."] }],
+                  { label:"Szkła", name:"Zlecenie na szkła", icon:"receipt", text:["Zlecenie z zakładu optycznego przy {street2}: nowe szkła do okularów noszonych na co dzień, {kwota_lenses}.","Okulary odebrał właściciel. Podpis: {ini}."] }],
         values:["yes","no"], ruleValues:["yes"],
         facts:{ yes:["Bez okularów nie przeczyta gazety.","Nosi grube okulary w rogowej oprawce.","Nosi okulary w cienkiej drucianej oprawce.",
                      "Okulary trzyma na sznurku zawieszonym na szyi.","Na przesłuchaniu co chwilę [przecierał|przecierała] okulary chusteczką.",
@@ -686,8 +782,8 @@
       dog: {
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Książeczka", name:"Książeczka szczepień psa", icon:"notebook", text:["Książeczka szczepień psa ze stemplem lecznicy weterynaryjnej.","Pies: {dogbreed}, wabi się {dogname}. Właściciel: {ini}. Ostatnie szczepienie w zeszłym miesiącu."] },
-                  { label:"Kwit", name:"Kwit z lecznicy", icon:"receipt", text:["Kwit z lecznicy dla zwierząt przy {street2}: odrobaczanie psa, który wabi się {dogname}.","Opłatę, {kwota}, pobrano od właściciela. Na kwicie: {ini}."] },
-                  { label:"Podatek", name:"Kwit za opłatę od psa", icon:"receipt", text:["Kwit z urzędu dzielnicy: opłata od posiadania psa za ten rok, {kwota}.","Pies: {dogbreed}, wabi się {dogname}. Płatnik: {ini}."] },
+                  { label:"Kwit", name:"Kwit z lecznicy", icon:"receipt", text:["Kwit z lecznicy dla zwierząt przy {street2}: odrobaczanie psa, który wabi się {dogname}.","Opłatę, {kwota_vet}, pobrano od właściciela. Na kwicie: {ini}."] },
+                  { label:"Podatek", name:"Kwit za opłatę od psa", icon:"receipt", text:["Kwit z urzędu dzielnicy: opłata od posiadania psa za ten rok, {kwota_dogtax}.","Pies: {dogbreed}, wabi się {dogname}. Płatnik: {ini}."] },
                   { label:"Dyplom", name:"Dyplom z wystawy psów", icon:"photo", text:["Dyplom z wystawy psów w hali sportowej, z pieczęcią związku kynologicznego.","Wyróżnienie dla psa, który wabi się {dogname}. Właściciel: {ini}."] }],
         values:["yes","no"], ruleValues:["yes"],
         facts:{ yes:["Ma kundla, z którym wychodzi trzy razy dziennie.","Na płaszczu ma pełno sierści swojego owczarka.","Wieczorami wyprowadza swojego jamnika na podwórko.",
@@ -706,8 +802,8 @@
       jacket: {
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Kwit", name:"Kwit z pralni chemicznej", icon:"receipt", text:["Kwit z punktu pralni chemicznej przy {street2}: kurtka z ortalionu do czyszczenia.","Odbiór za tydzień. Na kwicie: {ini}."] },
-                  { label:"Bloczek", name:"Bloczek krawcowej", icon:"receipt", text:["Kartka z bloczku krawcowej z sąsiedztwa: wszycie nowego zamka w ortalionowej kurtce, {kwota}.","Zapłacone z góry. Zamawiający: {ini}."] },
-                  { label:"Metka", name:"Metka od kurtki", icon:"receipt", text:["Kartonowa metka od ortalionowej kurtki, z ceną {kwota}, wyrzucona do kosza na klatce.","Na odwrocie handlarz zapisał, komu ją sprzedał i kto w niej odszedł od budki: {ini}."] },
+                  { label:"Bloczek", name:"Bloczek krawcowej", icon:"receipt", text:["Kartka z bloczku krawcowej z sąsiedztwa: wszycie nowego zamka w ortalionowej kurtce, {kwota_sewing}.","Zapłacone z góry. Zamawiający: {ini}."] },
+                  { label:"Metka", name:"Metka od kurtki", icon:"receipt", text:["Kartonowa metka od ortalionowej kurtki, z ceną {kwota_jacket}, wyrzucona do kosza na klatce.","Na odwrocie handlarz zapisał, komu ją sprzedał i kto w niej odszedł od budki: {ini}."] },
                   { label:"Numerek", name:"Kwit z szatni", icon:"ticket", text:["Kwit z szatni domu kultury: przyjęto kurtkę z ortalionu, granatową, z kapturem.","Szatniarka zapisała na kwicie inicjały właściciela: {ini}."] }],
         values:["yes","no"], ruleValues:["yes"],
         facts:{ yes:["Nosi szeleszczącą kurtkę z ortalionu.",{t:"Na przesłuchanie [przyszedł|przyszła] w ortalionowym dresie.", ages:["young","mid"]},"Na co dzień nosi ortalionową kurtkę z targu, w trzech kolorach.",
@@ -1062,7 +1158,7 @@
       keys: [
         { label:"Książka", name:"Książka wydań kluczy", icon:"keybook", text:["Dozorca wydaje klucze wyłącznie za wpisem do książki.","Wpis sprzed miesiąca: klucz do {gen} wydany na stałe lokatorowi spod {flat}. Do dziś nie zwrócony."] },
         { label:"Tablica", name:"Tablica z kluczami w dyżurce", icon:"keybook", text:["W dyżurce wisi deska z haczykami podpisanymi numerami mieszkań.","Haczyk z kluczem do {gen} jest pusty. Pod spodem ołówkiem: «u m. {flat}»."] },
-        { label:"Rewers", name:"Rewers od ślusarza", icon:"receipt", text:["Rewers z zakładu ślusarskiego przy {street2}: dorobienie klucza do {gen}.","Zapłacono {kwota}, odbiór potwierdzony. Zamawiający: lokator spod {flat}."] }
+        { label:"Rewers", name:"Rewers od ślusarza", icon:"receipt", text:["Rewers z zakładu ślusarskiego przy {street2}: dorobienie klucza do {gen}.","Zapłacono {kwota_keycopy}, odbiór potwierdzony. Zamawiający: lokator spod {flat}."] }
       ]
     },
     keyBookLocs: ["piwnica", "pralnia", "kotlownia", "garaz", "warsztat"],
@@ -1125,7 +1221,7 @@
       {t:"Chwali się telefonem komórkowym wielkości cegły.", years:[1996,1999]},
       {t:"Nosi przy pasku pager i co chwilę na niego zerka.", years:[1995,1999]},
       {t:"Na balkonie ma antenę satelitarną i ogląda niemieckie programy.", years:[1990,1999]},
-      {t:"[Kupił|Kupiła] na raty magnetowid i nagrywa filmy z Polsatu.", years:[1993,1999]},
+      {t:"[Kupił|Kupiła] na raty magnetowid i nagrywa filmy z Polsatu.", years:[1993,1999], k:["debt"]},
       {t:"Planuje wyjazd na saksy do Niemiec.", years:[1989,1999]},
       {t:"W każdą środę i sobotę skreśla liczby w totku.", years:[1989,1999]},
       {t:"Ma w domu komputer Atari i gra na nim po nocach.", years:[1989,1994]},
@@ -1260,7 +1356,7 @@
                  {t:"[chciał|chciała] otworzyć własną budkę {market_on}, a [brakowało mu|brakowało jej] pieniędzy", k:["adult"]},{t:"[obiecał|obiecała] dzieciom wakacje w Bułgarii i nie [miał|miała] za co", k:["adult"]}],
         suspicion:[{t:"Ostatnio [chodził|chodziła] po sąsiadach, pożyczając pieniądze.", k:["debt"]}, "Widziano [go|ją], jak [zaglądał|zaglądała] w okno poszkodowanych.", {t:"Ma długi w całej dzielnicy.", k:["debt"]}, "Ostatnio [przegrał|przegrała] w karty więcej, niż [miał|miała].", {t:"Komornik był u [niego|niej] w zeszłym miesiącu.", k:["debt"]}, "[Pytał|Pytała] sąsiadów, kiedy poszkodowani wyjeżdżają na działkę.",
                    "Od miesięcy nie ma grosza przy duszy i [pytał|pytała] znajomych o każdą robotę.","Pilnie potrzebuje pieniędzy i [sprzedał|sprzedała] {market_on} nawet zimowy płaszcz.",{t:"W lombardzie przy {street2} znają [go|ją] po imieniu.", k:["debt"]},
-                   {t:"Od tygodnia [unikał|unikała] sąsiadów, którym jest [winien|winna] pieniądze.", k:["debt"]},{t:{t:"Od wyjścia z więzienia za kradzież nie ma pracy ani pieniędzy.", k:["job","adult"]}, k:["adult"]},"Od dawna [miał|miała] na oku oszczędności poszkodowanych i [wypytywał|wypytywała], gdzie je trzymają."],
+                   {t:"Od tygodnia [unikał|unikała] sąsiadów, którym jest [winien|winna] pieniądze.", k:["debt"]},{t:"Od wyjścia z więzienia za kradzież nie ma pracy ani pieniędzy.", k:["job","adult"]},"Od dawna [miał|miała] na oku oszczędności poszkodowanych i [wypytywał|wypytywała], gdzie je trzymają."],
         noMotive:[{t:"Ma stałą pracę i nie narzeka na brak pieniędzy.", k:["job"]}, "Niedawno [odziedziczył|odziedziczyła] mieszkanie i nie potrzebuje pieniędzy.", {t:"Nie ma żadnych długów, za wszystko płaci gotówką.", k:["debt"]}, "Pieniędzy ma pod dostatkiem i nikomu niczego nie zazdrości.", {t:"To [on|ona] [pożyczył|pożyczyła] poszkodowanym pieniądze, a nie odwrotnie.", k:["debt"]}, {t:"Odkłada na książeczkę co miesiąc i nikomu nic nie jest [winien|winna].", k:["debt"]},
                   "Tydzień temu [oddał|oddała] sąsiadom znaleziony portfel, a pieniędzy [mu|jej] nie brakuje.",{t:"Zarabia w markach i na nic nie narzeka.", k:["job"]},"Niedawno [wygrał|wygrała] w Totka i nie potrzebuje cudzego.",
                   "Z poszkodowanymi przyjaźni się od lat, a pieniędzy [mu|jej] nie brakuje.","Pieniądze trzyma w PKO i nie wydaje ponad stan.","Rodzina przysyła [mu|jej] paczki i dolary z Ameryki, więc niczego [mu|jej] nie brakuje."],
@@ -1326,7 +1422,11 @@
         keyRule:["Tam, skąd zniknęła trucizna, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęła trucizna, sprawca otworzył kluczem, nie wytrychem."],
         motives:["nie [mógł|mogła] znieść hałasu o piątej rano","od miesięcy [kłócił|kłóciła] się z właścicielem o podwórko",
                  "[uważał|uważała], że to przez zwierzęta zgniły [mu|jej] pomidory","[chciał|chciała] się zemścić za skargę do administracji",
-                 "od lat nie [znosił|znosiła] właściciela i [chciał|chciała] mu odebrać to, co kocha","[uważał|uważała], że zwierzęta roznoszą choroby po całej klatce"],
+                 "od lat nie [znosił|znosiła] właściciela i [chciał|chciała] mu odebrać to, co kocha","[uważał|uważała], że zwierzęta roznoszą choroby po całej klatce",
+                 /* 2.2: więcej motywów do epilogu */
+                 "nie [mógł|mogła] darować, że pies pogryzł [mu|jej] wnuka na podwórku","[miał|miała] dość szczekania pod oknem przez całe noce",
+                 "[chciał|chciała] się odegrać za to, że właściciel doniósł na [niego|nią] do administracji","[był wściekły|była wściekła], że koty co noc rozgrzebują [mu|jej] grządki na działce",
+                 {t:"[liczył|liczyła], że bez zwierzęcia właściciel w końcu sprzeda działkę", k:["adult"]},"od zimy [obwiniał|obwiniała] zwierzęta o zniszczony wózek w wózkowni"],
         suspicion:["[Pisał|Pisała] skargi do administracji na hałas.", "[Groził|Groziła], że „zrobi z tym porządek”.", "[Pokłócił|Pokłóciła] się z właścicielem zwierząt na podwórku.", {t:"Na zebraniu lokatorów [domagał|domagała] się, żeby zwierzęta zniknęły z podwórka.", k:["adult"]}, "[Narzekał|Narzekała] u dozorcy, że zwierzęta nie dają [mu|jej] spać.", "Wylewa wodę z okna, gdy zwierzęta podchodzą pod blok.",
                    "Na klatce [mówił|mówiła], że „te zwierzaki trzeba wytruć”.","Dozorca widział, jak [sypał|sypała] coś do miski na podwórku tydzień temu.","Zwierzęta podkopały [mu|jej] grządki na działce i [poprzysiągł|poprzysięgła] zemstę.",
                    "[Napisał|Napisała] do miejscowej gazety list o „plagach zwierząt w kamienicach”.",{t:"Ma za sobą proces z sąsiadem o psa, który [go|ją] ugryzł.", k:["adult"]},{t:"Właściciel zwierząt [go|ją] wyśmiał na zebraniu lokatorów.", k:["adult"]}],
@@ -1537,7 +1637,7 @@
         letters:[{ label:"Monit", name:"Monit z banku", icon:"letter", k:["debt"], text:["Monit z banku w sprawie zaległych rat, z pieczątką oddziału.","Do spłaty {money}, ostatnie ostrzeżenie. Dłużnik: {ini}."] },
                  { label:"Odmowa", name:"Odmowa przydziału", icon:"card", k:["adult"], text:["Pismo z urzędu dzielnicy z odmową przydziału.","«Wniosek rozpatrzono negatywnie.» Wnioskodawca: {ini}. Na marginesie ołówkiem: „jeszcze zobaczymy”."] },
                  { label:"Rewers", name:"Rewers z lombardu", icon:"receipt", k:["debt"], text:["Rewers z lombardu przy {street2}, zastawiona obrączka.","Kwota {money}, termin wykupu minął. Zastawiający: {ini}."] },
-                 { label:"Cennik", name:"Notes z cennikiem", icon:"notebook", text:["Notes znaleziony w bramie, z cennikiem pisanym ołówkiem.","«Zwolnienie lekarskie {kwota}, przepustka drożej. Klienci tylko przez znajomych.» Na okładce: {ini}."] }],
+                 { label:"Cennik", name:"Notes z cennikiem", icon:"notebook", text:["Notes znaleziony w bramie, z cennikiem pisanym ołówkiem.","«Zwolnienie lekarskie {kwota_bribe}, przepustka drożej. Klienci tylko przez znajomych.» Na okładce: {ini}."] }],
         name:"Fałszerstwo", subtags:["pieczec"], toolLabel:"Czym podrobiono dokument",
         /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
         traitRule:{
@@ -1706,7 +1806,7 @@
                  "[potrzebował|potrzebowała] pieniędzy na wyjazd do Niemiec","[wiedział|wiedziała], kiedy poszkodowani mają przy sobie najwięcej pieniędzy",
                  {t:"od miesięcy nie [miał|miała] pracy i [stracił|straciła] cierpliwość", k:["fired"]},{t:"[był winien|była winna] {money} ludziom, z którymi lepiej nie zadzierać", k:["debt"]}],
         suspicion:["Ostatnio [wypytywał|wypytywała], kiedy roznosi się renty.",{t:"Ma długi u ludzi z bazaru.", k:["debt"]},{t:"Od tygodnia nie [pokazał|pokazała] się w pracy.", k:["job"]},
-                   {t:{t:"Od wyjścia z więzienia nie ma pracy, a pieniądze są [mu|jej] potrzebne od zaraz.", k:["job","adult"]}, k:["adult"]},"Widziano [go|ją], jak [przyglądał|przyglądała] się poszkodowanym z drugiej strony ulicy.",{t:"[Przegrał|Przegrała] w karty całą wypłatę.", k:["job"]},
+                   {t:"Od wyjścia z więzienia nie ma pracy, a pieniądze są [mu|jej] potrzebne od zaraz.", k:["job","adult"]},"Widziano [go|ją], jak [przyglądał|przyglądała] się poszkodowanym z drugiej strony ulicy.",{t:"[Przegrał|Przegrała] w karty całą wypłatę.", k:["job"]},
                    "Na klatce [mówił|mówiła], że „pieniądze leżą na ulicy, trzeba je tylko wziąć”.",{t:"Komornik zajął [mu|jej] telewizor w zeszłym tygodniu.", k:["debt"]},{t:"[Pożyczał|Pożyczała] pieniądze od wszystkich znajomych i nikomu nie [oddał|oddała].", k:["debt"]},
                    "Od dawna [miał|miała] na oku pieniądze poszkodowanych i [wiedział|wiedziała], kiedy je noszą.","Po pijanemu [chwalił|chwaliła] się, że „wkrótce się odkuje”.",{t:"[Stracił|Straciła] pracę, kiedy zamknęli zakład.", k:["fired"]}],
         noMotive:[{t:"Ma dobrą pracę i odkłada na książeczkę.", k:["job"]},"Z poszkodowanymi zna się od dziecka i bardzo ich lubi.","Właśnie [dostał|dostała] spadek po ciotce.",
@@ -1749,7 +1849,7 @@
             intro:"Kierowca autobusu {victim} został napadnięty na pętli przy {street}, kiedy sprzedawał bilety w kabinie." },
           { title:"Kwiaciarka spod cmentarza", vg:"f", to:"pod cmentarz", where:"przy budce",
             intro:"Kwiaciarka {victim} została napadnięta przy swojej budce pod cmentarzem niedaleko {street}, kiedy liczyła utarg." },
-          { title:"Okienko na poczcie", vg:"f", to:"na pocztę przy {street}", where:"przy okienku",
+          { title:"Okienko na poczcie", vg:"f", time:["17:30","19:00"], to:"na pocztę przy {street}", where:"przy okienku",
             intro:"Urzędniczka pocztowa {victim} została napadnięta przy okienku tuż przed zamknięciem poczty przy {street}." },
           { title:"Budka z lodami przy {street}", vg:"m", to:"pod budkę z lodami", where:"przy budce", years:[1990,1999],
             intro:"Sprzedawca lodów {victim} został napadnięty przy budce przy {street}, kiedy zamykał po całym dniu." },
@@ -1867,45 +1967,45 @@
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
           { title:"Porwany jamnik", vg:"f", vage:"old", to:"na podwórko", where:"przy furtce",
-            intro:"{victim} z {street} wypuściła jamnika na podwórko. Pies nie wrócił, a nazajutrz w skrzynce był list z żądaniem {money_gen}." },
+            intro:"{victim} z {street} wypuściła jamnika na podwórko. Pies nie wrócił, a nazajutrz w skrzynce był list z żądaniem {ransom_gen}." },
           { title:"Owczarek z {street}", vg:"m", to:"pod dom poszkodowanego", where:"przy budzie",
-            intro:"{victim} z {street} znalazł rano pustą budę. Owczarek zniknął, a na budzie wisiała kartka z żądaniem {money_gen}." },
+            intro:"{victim} z {street} znalazł rano pustą budę. Owczarek zniknął, a na budzie wisiała kartka z żądaniem {ransom_gen}." },
           { title:"Pudel z wystawy", vg:"f", to:"do mieszkania poszkodowanej", where:"w przedpokoju",
-            intro:"{victim} z {street} hoduje pudle na wystawy. Najlepszy z nich zniknął z przedpokoju, a ktoś zażądał za niego {money}." },
+            intro:"{victim} z {street} hoduje pudle na wystawy. Najlepszy z nich zniknął z przedpokoju, a ktoś zażądał za niego {ransom}." },
           { title:"Kundel z placu budowy", vg:"m", to:"na plac budowy", where:"przy baraku",
-            intro:"Stróż {victim} z budowy przy {street} stracił psa, który pilnował placu. Rano przy baraku leżała kartka: {money} albo pies nie wróci." },
+            intro:"Stróż {victim} z budowy przy {street} stracił psa, który pilnował placu. Rano przy baraku leżała kartka: {ransom} albo pies nie wróci." },
           { title:"Seter prezesa", vg:"m", to:"pod dom prezesa", where:"przy furtce",
-            intro:"Prezes spółdzielni {victim} wypuścił setera do ogrodu przy {street} na dziesięć minut. Pies zniknął, a w skrzynce był list z żądaniem {money_gen}." },
+            intro:"Prezes spółdzielni {victim} wypuścił setera do ogrodu przy {street} na dziesięć minut. Pies zniknął, a w skrzynce był list z żądaniem {ransom_gen}." },
           { title:"Spaniel aptekarki", vg:"f", to:"pod aptekę", where:"przy wejściu",
-            intro:"Aptekarka {victim} przywiązała spaniela przed apteką przy {street}. Kiedy wyszła, psa nie było, a wieczorem ktoś zażądał {money_gen}." },
+            intro:"Aptekarka {victim} przywiązała spaniela przed apteką przy {street}. Kiedy wyszła, psa nie było, a wieczorem ktoś zażądał {ransom_gen}." },
           { title:"Bokser z warsztatu", vg:"m", to:"pod warsztat", where:"przy bramie",
-            intro:"Mechanik {victim} zamknął warsztat przy {street} i zostawił boksera na podwórku. Rano psa nie było, a pod bramą leżał list z żądaniem {money_gen}." },
+            intro:"Mechanik {victim} zamknął warsztat przy {street} i zostawił boksera na podwórku. Rano psa nie było, a pod bramą leżał list z żądaniem {ransom_gen}." },
           { title:"Zaginiony pies przewodnik", vg:"m", vage:"old", to:"na klatkę schodową", where:"przy drzwiach",
-            intro:"Niewidomy {victim} z {street} stracił psa przewodnika. Ktoś zabrał go spod drzwi i zażądał {money_gen}." },
+            intro:"Niewidomy {victim} z {street} stracił psa przewodnika. Ktoś zabrał go spod drzwi i zażądał {ransom_gen}." },
           { title:"York z balkonu", vg:"f", to:"do mieszkania poszkodowanej", where:"przy balkonie", years:[1993,1999],
-            intro:"{victim} z {street} zostawiła yorka na balkonie na parterze. Pies zniknął, a na balkonie leżała karteczka z żądaniem {money_gen}." },
+            intro:"{victim} z {street} zostawiła yorka na balkonie na parterze. Pies zniknął, a na balkonie leżała karteczka z żądaniem {ransom_gen}." },
           { title:"Wilczur dozorcy", vg:"m", to:"na podwórko", where:"przy budzie",
-            intro:"Dozorca {victim} z {street} stracił wilczura, który pilnował podwórka. Kartka z żądaniem {money_gen} wisiała na trzepaku." },
+            intro:"Dozorca {victim} z {street} stracił wilczura, który pilnował podwórka. Kartka z żądaniem {ransom_gen} wisiała na trzepaku." },
           { title:"Chart z działek", vg:"m", vage:"old", to:"na ogródki działkowe", where:"przy altanie", exclude:["dzialka"],
-            intro:"Działkowiec {victim} zostawił charta przy altanie na skraju {district_gen}. Wieczorem psa nie było, a na furtce wisiał list z żądaniem {money_gen}." },
+            intro:"Działkowiec {victim} zostawił charta przy altanie na skraju {district_gen}. Wieczorem psa nie było, a na furtce wisiał list z żądaniem {ransom_gen}." },
           { title:"Szczeniak spod budki", vg:"f", to:"{market_to}", where:"przy budce",
-            intro:"Handlarka {victim}, która ma budkę {market_on}, straciła szczeniaka owczarka. Następnego dnia ktoś zażądał za niego {money}." },
+            intro:"Handlarka {victim}, która ma budkę {market_on}, straciła szczeniaka owczarka. Następnego dnia ktoś zażądał za niego {ransom}." },
           { title:"Pacjent z lecznicy", vg:"f", to:"do lecznicy dla zwierząt", where:"przy klatkach",
-            intro:"Z lecznicy dla zwierząt przy {street} zniknął rasowy pies po operacji. Lekarka weterynarii {victim} dostała telefon z żądaniem {money_gen}." },
+            intro:"Z lecznicy dla zwierząt przy {street} zniknął rasowy pies po operacji. Lekarka weterynarii {victim} dostała telefon z żądaniem {ransom_gen}." },
           { title:"Kundelek kioskarki", vg:"f", to:"pod kiosk", where:"przy kiosku", exclude:["kiosk"],
-            intro:"Kioskarka {victim} trzymała w kiosku przy {street} małego kundelka. Wieczorem pies zniknął, a w okienku ktoś zostawił list z żądaniem {money_gen}." },
+            intro:"Kioskarka {victim} trzymała w kiosku przy {street} małego kundelka. Wieczorem pies zniknął, a w okienku ktoś zostawił list z żądaniem {ransom_gen}." },
           { title:"Owczarek z hurtowni", vg:"m", to:"pod hurtownię", where:"przy bramie", years:[1992,1999],
-            intro:"{victim}, właściciel hurtowni przy {street}, stracił owczarka, który pilnował towaru. Porywacz zażądał {money_gen}." },
+            intro:"{victim}, właściciel hurtowni przy {street}, stracił owczarka, który pilnował towaru. Porywacz zażądał {ransom_gen}." },
           { title:"Pies pod szkołą", vg:"f", to:"pod szkołę", where:"przy bramie szkoły",
-            intro:"Nauczycielka {victim} przywiązała psa przy bramie szkoły przy {street} na czas wywiadówki. Psa nie było, a wieczorem w skrzynce leżał list z żądaniem {money_gen}." },
+            intro:"Nauczycielka {victim} przywiązała psa przy bramie szkoły przy {street} na czas wywiadówki. Psa nie było, a wieczorem w skrzynce leżał list z żądaniem {ransom_gen}." },
           { title:"Dog z willi", vg:"m", to:"pod willę", where:"przy ogrodzeniu", years:[1991,1999],
-            intro:"{victim}, który niedawno postawił willę przy {street}, stracił doga niemieckiego. Porywacz zażądał {money_gen}." },
+            intro:"{victim}, który niedawno postawił willę przy {street}, stracił doga niemieckiego. Porywacz zażądał {ransom_gen}." },
           { title:"Pies taksówkarza", vg:"m", to:"na postój taksówek", where:"przy taksówce",
-            intro:"Taksówkarz {victim} woził psa w taksówce. Kiedy wyszedł po papierosy na postoju przy {dworzec}, psa nie było, a wieczorem ktoś zażądał {money_gen}." },
+            intro:"Taksówkarz {victim} woził psa w taksówce. Kiedy wyszedł po papierosy na postoju przy {dworzec}, psa nie było, a wieczorem ktoś zażądał {ransom_gen}." },
           { title:"Suczka z klatki przy {street}", vg:"f", vage:"mid", to:"pod drzwi poszkodowanej", where:"przy wycieraczce",
-            intro:"{victim} z {street} wypuściła suczkę na klatkę na chwilę. Pies zniknął, a pod wycieraczką leżał list z żądaniem {money_gen}." },
+            intro:"{victim} z {street} wypuściła suczkę na klatkę na chwilę. Pies zniknął, a pod wycieraczką leżał list z żądaniem {ransom_gen}." },
           { title:"Pies z plebanii", vg:"m", vage:"old", to:"pod plebanię", where:"przy furtce plebanii",
-            intro:"Proboszcz {victim} z plebanii przy {street} stracił psa, który jej pilnował. Za zwrot ktoś zażądał {money_gen}." }
+            intro:"Proboszcz {victim} z plebanii przy {street} stracił psa, który jej pilnował. Za zwrot ktoś zażądał {ransom_gen}." }
         ]
       },
 
@@ -1923,7 +2023,8 @@
         keyRule:["Tam, skąd zniknęła trucizna, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęła trucizna, sprawca otworzył kluczem, nie wytrychem."],
         motives:[{t:"[liczył|liczyła] na spadek po ofierze", heir:true},{t:"[chciał|chciała] przejąć mieszkanie ofiary", k:["adult"], heir:true},
                  {t:"od lat [nienawidził|nienawidziła] ofiary za dawny donos", ages:["mid","old"]},{t:"[był winien|była winna] ofierze {money} i nie [miał|miała] z czego oddać", k:["debt"]},
-                 {t:"[bał|bała] się, że ofiara wyda [jego|jej] lewe interesy", k:["adult"]},{t:"[chciał|chciała] przejąć posadę ofiary w zakładzie", k:["job"]}],
+                 {t:"[bał|bała] się, że ofiara wyda [jego|jej] lewe interesy", k:["adult"]},{t:"[chciał|chciała] przejąć posadę ofiary w zakładzie", k:["job"]},
+                 "[chciał|chciała] się zemścić za upokorzenie przy ludziach","od lat [nosił|nosiła] w sobie urazę o dawną krzywdę, której ofiara nigdy nie naprawiła"],
         suspicion:["Jest w testamencie ofiary.",{t:"Od lat czeka na mieszkanie po ofierze.", k:["adult"]},"[Pokłócił|Pokłóciła] się z ofiarą o pieniądze przy świadkach.",
                    "Ofiara groziła, że [go|ją] wydziedziczy.",{t:"[Był winien|Była winna] ofierze {money}.", k:["debt"]},{t:"Ofiara wiedziała o [jego|jej] lewych interesach.", k:["adult"]},
                    "Sąsiadka słyszała, jak [mówił|mówiła], że ofiara „długo nie pociągnie”.",{t:"Ofiara chciała [go|ją] zwolnić z pracy.", k:["job"]},"Od miesięcy nie [rozmawiał|rozmawiała] z ofiarą po kłótni o działkę.",

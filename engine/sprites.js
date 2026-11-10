@@ -109,6 +109,8 @@
                 pal: { a: "#2b2b2e", o: "#8a8f99", b: "#7b3a2c", w: "#e8c34a", d: "#2a2420", x: "#1f1f22" } },
     depot:    { rows: [E, ".....a......", "....a.a.....", "..rrrrrrrr..", ".rwwrwwrwwr.", ".rwwrwwrwwr.", ".rrrrrrrrrr.", ".yyyyyyyyyy.", ".rrrrrrrrrr.", "..kk....kk..", "xxxxxxxxxxxx", E],
                 pal: { a: "#2b2b2e", r: "#c22a2a", w: "#c9d9e0", y: "#e8c34a", k: "#2a2420", x: "#5a5f6a" } },
+    house:    { rows: [E, ".....rr.....", "....rrrr....", "...rrrrrr...", "..rrrrrrrr..", ".bbbbbbbbbb.", ".bwwbbbbwwb.", ".bwwbbbbwwb.", ".bbbbddbbbb.", ".bwwbddbwwb.", ".bbbbddbbbb.", "xxxxxxxxxxxx"],
+                pal: { r: "#7b3a2c", b: "#b8a58a", w: "#e8c34a", d: "#4a3423", x: "#2a2622" } }, // 2.2: miejsce zdarzenia (oś czasu)
     office:   { rows: [E, ".bbbbbbbbbb.", ".bwwbwwbwwb.", ".bwwbwwbwwb.", ".bbbbbbbbbb.", ".bwwbwwbwwb.", ".bwwbwwbwwb.", ".bbbbbbbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", "xxxxxxxxxxxx"],
                 pal: { b: "#9a9a90", w: "#c9d9e0", d: "#5a4433", x: "#2a2622" } },
     hall:     { rows: [E, ".rrrrrrrrrr.", ".ryyyyyyyyr.", ".rrrrrrrrrr.", ".bbbbbbbbbb.", ".bwwbbbbwwb.", ".bwwbddbwwb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbddbbbb.", ".bbbbbbbbbb.", "gggggggggggg"],

@@ -4,6 +4,11 @@
  * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
  */
 (typeof window !== "undefined" ? window : globalThis).SIATKA_CHANGELOG = [
+  { v: "2.2", date: "2026-11-13", items: [
+    "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
+    "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",
+    "Kwoty z lat 90. są bliższe prawdy: parking za kilka złotych, OC za kilkaset."
+  ] },
   { v: "2.1.2", date: "2026-11-11", items: [
     "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
     "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",

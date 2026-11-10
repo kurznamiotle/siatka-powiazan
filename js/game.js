@@ -147,6 +147,21 @@ function abandonSaved() {
   } catch (_) {}
 }
 window.addEventListener("pagehide", () => abandonCheck());
+/* 2.2: jednorazowa karta przy pierwszej sprawie z osią czasu (flaga siatka-new-timeline); zegar stoi, gdy jest otwarta */
+function timelineIntro() {
+  if (ls.get("siatka-new-timeline") || !CASE || CASE.archetype !== "timeline" || ($("howto") && !$("howto").hidden)) return;
+  ls.set("siatka-new-timeline", 1);
+  const ov = document.createElement("div"); ov.className = "overlay"; const t0 = Date.now();
+  ov.innerHTML = `<div class="card tl-card" role="dialog" aria-modal="true" aria-labelledby="tlH"><h3 id="tlH">Nowy typ sprawy: oś czasu</h3>
+    <p>Nikt nie jest w dwóch miejscach naraz. W notatniku jest tabela czasów dojścia, a w teczkach godziny, o których kogo widziano: sprawdź, kto zdążyłby dojść na miejsce zdarzenia, spędzić tam tyle, ile mówi reguła, i wrócić na czas.</p>
+    <table class="tt"><tbody><tr><td>Kiosk ↔ Miejsce zdarzenia</td><td>10 min</td></tr><tr><td>Bar ↔ Miejsce zdarzenia</td><td>15 min</td></tr></tbody></table>
+    <p class="ex">Sprawca był na miejscu co najmniej 10 min. Anna była w kiosku o 19:00, a w barze o 19:40. Droga tam (10 min), 10 min na miejscu i droga do baru (15 min) to 35 min, a miała 40, więc mogła zdążyć. Gdyby w barze była o 19:30, nie zdążyłaby.</p>
+    <p>Oskarżasz tylko sprawcę, bez narzędzia.</p>
+    <div class="foot"><button class="btn red" id="tlGo">Do roboty</button></div></div>`;
+  document.body.appendChild(ov); AU.sfx("paper");
+  ov.querySelector("#tlGo").onclick = () => { ov.remove(); if (S && !S.done) S.t0 += Date.now() - t0; saveSoon(); };
+  track("os-czasu/karta", "Oś czasu: karta wprowadzająca");
+}
 function load(c, label, meta, saved) {
   abandonCheck(c);
   if (window.SiatkaSprites.tidyPortraits) window.SiatkaSprites.tidyPortraits(c);
@@ -177,6 +192,7 @@ function load(c, label, meta, saved) {
   window.scrollTo(0, 0);
   saveNow(); paintDaily();
   if (!saved) rememberUsed(c);
+  if (c.archetype === "timeline") setTimeout(timelineIntro, 400);
   if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
 }
 
@@ -206,7 +222,7 @@ function rowsOf() {
   const of = t => CASE.nodes.filter(n => n.type === t);
   const P = of("person"), rows = [];
   if (P.length <= 4) rows.push(P); else { const h = Math.ceil(P.length / 2); rows.push(P.slice(0, h), P.slice(h)); }
-  rows.push(of("location"), of("item"));
+  rows.push(of("location")); if (of("item").length) rows.push(of("item"));
   const E = of("evidence"); if (E.length) rows.push(E); // dowody rzeczowe: osobny rząd pod przedmiotami
   return rows;
 }
@@ -419,16 +435,23 @@ function select(id) {
   renderTabs(); renderSheet();
 }
 function renderTabs() { $("tab-akta").setAttribute("aria-selected", S.tab === "akta"); $("tab-notes").setAttribute("aria-selected", S.tab === "notes"); }
+/* 2.2: tabela czasów dojścia (oś czasu): wiersze „skąd → dokąd | min”, mieści się w 360 px */
+function travelTable() {
+  if (!CASE.travel) return "";
+  const nm = id => byId[id] ? byId[id].name : id;
+  return `<div class="lbl tt-h">Czasy dojścia pieszo</div><table class="tt"><tbody>${CASE.travel.map(([a, b, m]) =>
+    `<tr><td>${nm(a)} ↔ ${nm(b)}</td><td>${m} min</td></tr>`).join("")}</tbody></table>${CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : ""}`;
+}
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
   if (S.tab === "notes") {
-    sheet.innerHTML = `<h2>Notatnik detektywa</h2><div class="kind">Ustalenia techników i lekarza</div><ol>${CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join("")}</ol>`;
+    sheet.innerHTML = `<h2>Notatnik detektywa</h2><div class="kind">Ustalenia techników i lekarza</div><ol>${CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join("")}</ol>${travelTable()}`;
     return;
   }
   if (!S.sel) {
     const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
     const evTxt = ne ? ` · ${ne} ${ne === 1 ? "dowód rzeczowy" : ne < 5 ? "dowody rzeczowe" : "dowodów rzeczowych"}` : "";
-    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni} ${ni > 4 ? "przedmiotów" : "przedmioty"}${evTxt} ·${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
+    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni ? `${ni} ${ni > 4 ? "przedmiotów" : "przedmioty"}` : `${CASE.nodes.filter(n => n.type === "location").length} miejsca`}${evTxt} ·${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
       <p class="how">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>`;
     return;
   }
@@ -475,13 +498,15 @@ window.addEventListener("pagehide", saveNow);
 
 /* ---------- oskarżenie ---------- */
 const goBtn = $("accuseGo"), msg = $("accuseMsg");
+const whoOnly = () => CASE.question === "culprit"; // 2.2: oś czasu pyta tylko „kto”
 function buildPicks() {
-  $("toolLbl").textContent = CASE.tool_label;
+  $("toolLbl").textContent = CASE.tool_label || "";
+  $("toolLbl").hidden = $("pickWhat").hidden = whoOnly();
   const mk = (boxId, type, field) => {
     const box = $(boxId); box.innerHTML = "";
     CASE.nodes.filter(n => n.type === type).forEach(n => {
       const b = document.createElement("button"); b.className = "pick"; b.textContent = n.name + (S.out.has(n.id) ? " · wykluczony" : "");
-      b.onclick = () => { S.pick[field] = n.id; box.querySelectorAll(".pick").forEach(x => x.classList.remove("on")); b.classList.add("on"); goBtn.disabled = !(S.pick.who && S.pick.what); msg.textContent = ""; AU.sfx("tick"); haptic(5); };
+      b.onclick = () => { S.pick[field] = n.id; box.querySelectorAll(".pick").forEach(x => x.classList.remove("on")); b.classList.add("on"); goBtn.disabled = !(S.pick.who && (S.pick.what || whoOnly())); msg.textContent = ""; AU.sfx("tick"); haptic(5); };
       box.appendChild(b);
     });
   };
@@ -491,7 +516,7 @@ function buildPicks() {
 $("accuseBtn").onclick = () => { if (S.done) return showResult(); setPending(null); buildPicks(); AU.sfx("paper"); $("accuse").hidden = false; };
 $("accuseCancel").onclick = () => { $("accuse").hidden = true; };
 goBtn.onclick = () => {
-  if (S.pick.who === CASE.solution.culprit && S.pick.what === CASE.solution.weapon) return finish(true);
+  if (S.pick.who === CASE.solution.culprit && (whoOnly() || S.pick.what === CASE.solution.weapon)) return finish(true);
   S.wrong++; renderLives(); bounce(document.querySelectorAll("#lives i")[3 - S.wrong], "pop");
   saveSoon();
   if (S.wrong >= 3) return finish(false);
@@ -538,12 +563,12 @@ function showResult() {
   $("resultCard").innerHTML = `
     <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
     <h3></h3>
-    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}, a narzędziem ${(wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1))}.</p>`}
+    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}${wpn ? `, a narzędziem ${(wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1))}` : ""}.</p>`}
     <p class="epi">${CASE.epilogue}</p>
     <div class="lbl">Rozumowanie</div>
     <ul class="why">${CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join("")}</ul>
     <div class="lbl">Twoja tablica</div>
-    <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label} → ${wpn.label}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
+    <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label}${wpn ? " → " + wpn.label : ""}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
     ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
     <div class="lbl">Sprawy dnia</div>
     <div class="st-grid mini"><div><b>${sm.daily.cur}</b><span>seria</span></div><div><b>${sm.daily.best}</b><span>rekord</span></div><div><b>${sm.daily.pct}%</b><span>wygrane</span></div><div><b>${sm.daily.played}</b><span>rozegrane</span></div></div>
@@ -554,7 +579,7 @@ function showResult() {
     <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
     <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>
     ${win && window.SiatkaSupport ? `<p class="support-line"><a id="supportLink" href="${window.SiatkaSupport.url}" target="_blank" rel="noopener">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>` : ""}`;
-  $("resultCard").querySelector("h3").textContent = `${cul.name} · ${wpn.name}`;
+  $("resultCard").querySelector("h3").textContent = wpn ? `${cul.name} · ${wpn.name}` : cul.name;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
   $("copyBtn").onclick = e => {
@@ -721,7 +746,7 @@ function dailyCase() {
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
   if (!saveOk(sv) || sv.done) return false;
-  try { load(sv.case, sv.label || "Sprawa z archiwum", { kind: "random" }, sv); return true; } catch (_) { return false; }
+  try { load(sv.case, sv.label || "Sprawa z archiwum", { kind: "random" }, sv); return true; } catch (e) { console.warn("Zapis sprawy z archiwum pominięty", e); return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
 $("newBtn").onclick = openNewCase;

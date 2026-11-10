@@ -50,8 +50,17 @@ for (const x of V.slice(0, -1)) {
 
 // 4. bieżąca wersja w sprawie dnia
 const cur = day(V[V.length - 1].from), n = S.dailyNumber(cur);
-const c = S.dailyCase(W, cur), ref = S.generateCase(W, "daily-" + n, { size: S.dailySize(cur) }); ref.number = n;
+const c = S.dailyCase(W, cur), ref = S.generateCase(W, "daily-" + n, S.dailyOpts(cur)); ref.number = n;
 check(c.gen === S.GEN_VERSION && JSON.stringify(c) === JSON.stringify(ref), `${V[V.length - 1].from}: sprawa dnia #${n} z bieżącego generatora`);
 
+// 5. oś czasu w sprawach dnia dopiero od TIMELINE_DAILY_FROM; do tego dnia zawsze classic
+{
+  const [y, m, dd] = S.TIMELINE_DAILY_FROM.split("-").map(Number);
+  let early = true, late = false;
+  for (let k = -14; k < 0; k++) { const dt = new Date(y, m - 1, dd + k, 12); if (S.versionFor(dt) === S.GEN_VERSION && S.dailyCase(W, dt).archetype !== "classic") early = false; }
+  for (let k = 0; k < 42; k++) if (S.dailyCase(W, new Date(y, m - 1, dd + k, 12)).archetype === "timeline") late = true;
+  check(early, `przed ${S.TIMELINE_DAILY_FROM} sprawy dnia są classic`);
+  check(late, `od ${S.TIMELINE_DAILY_FROM} w sprawach dnia pojawia się oś czasu`);
+}
 console.log(fails ? `Test wersji: ${fails} błędów` : "Test wersji: wszystko się zgadza");
 process.exit(fails ? 1 : 0);
