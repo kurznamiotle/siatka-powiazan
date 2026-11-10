@@ -196,6 +196,18 @@ function coherence(c) {
   }
   const ck = persons.findIndex(n => n.id === c.solution.culprit), CW = whoOf(persons[ck], ck);
   for (const o of crime.motives) { const t = typeof o === "string" ? o : o.t; if (typeof o === "object" && c.epilogue.includes(stem(t, persons[ck].g)) && !S.util.fitsWho(o, CW)) bad(`${c.used.roles[ck]}: motyw w epilogu: ${t}`); }
+  // opis sprawy (intro) i reguły nie mogą nazywać narzędzia, którego nie ma wśród kandydatów w sprawie (np. „sznurem” przy przedłużaczu)
+  {
+    const TOOLWORDS = [ // [rdzeń w tekście, nazwa przedmiotu, który pasuje do tego słowa]
+      [/sznur|powróz/i, /sznur|lin[ak]|szpagat/i], [/n[oó]ż|nożem|nożyk/i, /nóż|nożyk/i], [/młot/i, /młot/i], [/łom/i, /łom/i], [/siekier|topor/i, /siekier/i],
+      [/brzytw/i, /brzytw/i], [/widł/i, /widł/i], [/obcęg|przecinak/i, /obcęg|przecinak/i], [/śrubokręt/i, /śrubokręt/i], [/nożyc|nożyczk/i, /nożyc|nożyczk/i],
+      [/benzyn/i, /benzyn/i], [/nafty|naftą/i, /naft/i], [/farb/i, /farb|pędzel|spray/i], [/pędzel|pędzlem/i, /pędzel/i],
+      [/przeci[ąę]|przecięt/i, /przecinak|nożyc|nożyk|nóż|obcęg|piłk|sekator|brzytw|żyletk|dłuto|widł|bosak|hak|siekier/i], [/rozkr[ęe]c|odkr[ęe]c/i, /klucz|śrubokręt|obcęg/i],
+    ];
+    const cands = c.nodes.filter(n => n.type === "item").map(n => n.name);
+    const texts = [c.intro, ...(c.rules || []).map(r => r.text)].filter(Boolean).join(" ");
+    for (const [re, ok] of TOOLWORDS) if (re.test(texts)) for (const nm of cands) if (!ok.test(nm)) bad(`opis nazywa narzędzie (${re}), a kandydatem jest „${nm}”`);
+  }
   // przedmioty w liczbie mnogiej: „zniknęły”, „znalezione”, „odniesione”, „je”
   for (const n of c.nodes.filter(n => n.type === "item")) {
     const t = n.text.join(" ");
