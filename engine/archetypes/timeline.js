@@ -47,6 +47,11 @@
     const pool = [...B.locations, ...cityLocs];
     const others = R.sample(pool, NLOC[sizeKey] - 1);
     const X = Object.assign({ desc: [scene.where ? `Tu to się stało, ${scene.where}.` : "Tu to się stało."] }, TL.scene);
+    // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
+    X.name = T((TL.places && TL.places[scene.title]) || scene.title);
+    X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
+    if (others.some(o => o.name === X.name)) X.name += " (miejsce zdarzenia)";
+    if (others.some(o => o.label === X.label)) X.label = "Miejsce zdarz.";
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
     const L = LOCS.length;
     const pt = LOCS.map((_, i) => i === 0 ? [0, 0] : (a => { const r = R.int(8, 30); return [r * Math.cos(a), r * Math.sin(a)]; })(R.next() * 2 * Math.PI));

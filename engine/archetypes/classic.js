@@ -593,18 +593,21 @@
       : "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
     if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.");
     hints = hints.slice(0, 3);
-    const relWhat = t => B.rules2.relation[t].what;
+    // orzeczenie w mianowniku, liczba mnoga, bez odmiany nazwiska; neg = w zdaniu przeczącym po „a nie”
+    const relPair = (t, g1, g2, neg) => t === "workmate" ? (neg ? "współpracownicy z jednego zakładu" : "pracują w jednym zakładzie")
+      : t === "stairwell" ? (neg ? "sąsiedzi z klatki" : "mieszkają na jednej klatce")
+      : (g1 === "m" && g2 === "m" ? (neg ? "szwagrowie" : "to szwagrowie") : g1 === "f" && g2 === "f" ? (neg ? "szwagierki" : "to szwagierki") : (neg ? "szwagrostwo" : "są szwagrostwem"));
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
       if (e.rule.type === "cmp") return [Pp.first, `ma ${Pp.cm} cm, a sprawca jest ${e.rule.dir === "up" ? "wyższy" : "niższy"} niż ${e.rule.refName} (${e.rule.refCm} cm) (reguła ${n}).`];
-      if (e.rule.type === "relation") return [Pp.first, Pp.rel ? T(`z osobą, którą jest ${e.rule.refName}, łączy [go|ją] ${relWhat(Pp.rel)}, a nie ${relWhat(e.rule.rel)} (reguła ${n}).`, g)
-        : T(`w teczce nie ma nic, co [go|ją] łączy z osobą, którą jest ${e.rule.refName} (reguła ${n}).`, g)];
+      if (e.rule.type === "relation") return [Pp.first, Pp.rel ? `i ${e.rule.refName} ${relPair(Pp.rel, g, e.rule.refG)}, a nie ${relPair(e.rule.rel, g, e.rule.refG, true)} (reguła ${n}).`
+        : `i ${e.rule.refName}: w teczce nie ma nic, co ich łączy (reguła ${n}).`];
       if (e.rule.type === "absent") return [Pp.first, T(`jest w zeszycie dozorcy: o ${toHM(Pp.s.yard)} [szedł|szła] przez podwórko (reguła ${n}).`, g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
     });
     const extraBits = [];
     if (cmpRule) extraBits.push(`ma ${C0.cm} cm, ${cmpRule.dir === "up" ? "więcej" : "mniej"} niż ${cmpRule.refName} (${cmpRule.refCm} cm)`);
-    if (relRule) extraBits.push(`łączy [go|ją] z osobą, którą jest ${relRule.refName}, ${relWhat(relRule.rel)}`);
+    if (relRule) extraBits.push(`relacja z osobą: ${relRule.refName} (${B.rules2.relation[relRule.rel].what})`);
     if (absentRule) extraBits.push("nie ma [go|jej] w zeszycie dozorcy");
     why.push([C0.first, T(`spełnia wszystkie reguły: ${[describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ")}.`, C0.s.g)]);
     if (evs.length) {
