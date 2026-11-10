@@ -1,0 +1,37 @@
+{
+  "note": "Sprawy dnia wygenerowane wdrożonym kodem 7b359e1 (wersja 2.1.1). Nowy kod musi dawać dla tych dni dokładnie to samo.",
+  "version": "2.1.1",
+  "commit": "7b359e1",
+  "days": [
+    {
+      "date": "2026-11-06",
+      "number": 4,
+      "title": "Szyba wypożyczalni",
+      "sha1": "f3f84dcd1b3f37db4681f571b5e72d848fa5d07d"
+    },
+    {
+      "date": "2026-11-07",
+      "number": 5,
+      "title": "Recepty z Janowskiej",
+      "sha1": "a40197e55e691bbea715528233d07336d8e06d77"
+    },
+    {
+      "date": "2026-11-08",
+      "number": 6,
+      "title": "Kantor przy Estery",
+      "sha1": "b20db9f6fa4d1840d12c15a265149fca2b675f3a"
+    },
+    {
+      "date": "2026-11-09",
+      "number": 7,
+      "title": "Kasa spółdzielni",
+      "sha1": "cb190288de00c7fd6017b28668479491b0d5fa1c"
+    },
+    {
+      "date": "2026-11-10",
+      "number": 8,
+      "title": "Recepty z Lendziona",
+      "sha1": "f1d3de33092b0371bbc441f0728613adbc208951"
+    }
+  ]
+}

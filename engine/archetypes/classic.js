@@ -95,8 +95,20 @@
     const win = [];
     order.forEach((i, p) => { win[i] = [C - 30 * (K + 1) + 30 * p, C - 30 * K + 30 * p]; });
     const inWin = i => { const [a, b] = win[i]; return R.int((a + 5) / 5, (b - 5) / 5) * 5; };
-    // poza wszystkimi oknami: przed pierwszym albo po ostatnim, przed zbrodnią
-    const outT = () => R.chance(.5) ? C - 30 * (K + 1) - R.int(3, 8) * 5 : C - 30 + R.int(1, 5) * 5;
+    /* poza wszystkimi oknami: przed pierwszym albo po ostatnim, przed zbrodnią. Alibi (potwierdzone
+       i „twierdzi”) zaczyna się najwcześniej o C-10, więc późna gałąź kończy się przed nim (2.1.2). */
+    const ALIBI_FROM = C - 10, MIN_GAP = 15;
+    const outT = () => R.chance(.5) ? C - 30 * (K + 1) - R.int(3, 8) * 5 : C - 30 + R.int(1, 3) * 5;
+    /* 2.1.2: obecność nigdy nie wypada w trakcie alibi ani mniej niż 15 min od obecności tej osoby w innym
+       miejscu. Przy kolizji losuje czas od nowa (do 10 razy); zwraca false, gdy się nie udało. */
+    const addPresence = (s, loc, gen) => {
+      for (let k = 0; k < 10; k++) {
+        const t = gen();
+        if (t >= ALIBI_FROM || s.pres.some(p => p.loc !== loc && Math.abs(p.t - t) < MIN_GAP)) continue;
+        s.pres.push({ loc, t }); return true;
+      }
+      return false;
+    };
 
     /* 4. Sprawca, narzędzie, fałszywe tropy */
     const sameLoc = (a, b) => locOf[a] === locOf[b];
@@ -158,16 +170,16 @@
         else s.traits[t] = R.pick(valuesOf(t, s.g));
       }
     });
-    const satisfyItem = (s, i) => { if (hasW) s.pres.push({ loc: locOf[i], t: inWin(i) }); if (hasK) s.keys.add(locOf[i]); };
+    const satisfyItem = (s, i) => { if (hasW && !addPresence(s, locOf[i], () => inWin(i))) return false; if (hasK) s.keys.add(locOf[i]); return true; };
 
     const cul = S[cIdx];
-    satisfyItem(cul, wIdx);
+    if (!satisfyItem(cul, wIdx)) return null;
     cul.traits.habit = hasD ? fate[wIdx] : R.pick(DUMP);
     for (const h of herrings) {
-      if (hMethod[h] === "window") { if (hasK) cul.keys.add(locOf[h]); if (!sameLoc(h, wIdx) && R.chance(.55)) cul.pres.push({ loc: locOf[h], t: outT() }); }
-      else if (hMethod[h] === "key") { if (hasW) cul.pres.push({ loc: locOf[h], t: inWin(h) }); }
+      if (hMethod[h] === "window") { if (hasK) cul.keys.add(locOf[h]); if (!sameLoc(h, wIdx) && R.chance(.55)) addPresence(cul, locOf[h], outT); }
+      else if (hMethod[h] === "key") { if (hasW && !addPresence(cul, locOf[h], () => inWin(h))) return null; }
       // "fate"/"dump": sprawca może mieć wszystko do tropu, bo i tak odpada z reguły o losie
-      else if (R.chance(.5) && !sameLoc(h, wIdx)) satisfyItem(cul, h);
+      else if (R.chance(.5) && !sameLoc(h, wIdx)) satisfyItem(cul, h); // opcjonalne: przy kolizji pomijamy
     }
 
     // niewinni: każdy łamie dokładnie jedną regułę; każda reguła spoza H musi kogoś wyeliminować
@@ -188,20 +200,20 @@
       let trap;
       const habitFor = t => { s.traits.habit = hasD ? fate[t] : R.pick(DUMP); };
       if (r.type === "dump") {
-        trap = R.pick(okTraps); satisfyItem(s, trap);
+        trap = R.pick(okTraps); if (!satisfyItem(s, trap)) return null;
         s.traits.habit = R.pick(DUMP.filter(d => d !== fate[trap]));
       } else if (r.type === "fate") {
         // ktoś, kto mógł zabrać przedmiot, ale nie ten, którego los się zgadza
         const c = herrings.filter(h => !fateOk(h) && (hasW || !sameLoc(h, wIdx)));
         if (!c.length) return null;
-        trap = R.pick(c); satisfyItem(s, trap); habitFor(trap);
+        trap = R.pick(c); if (!satisfyItem(s, trap)) return null; habitFor(trap);
       } else {
         const pool = okTraps.filter(i => i !== wIdx);
         trap = pool.length && R.chance(.7) ? R.pick(pool) : R.pick(okTraps);
-        if (r.type === "alibi") { s.alibi = true; satisfyItem(s, trap); }
-        else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); satisfyItem(s, trap); }
-        else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); s.pres.push({ loc: locOf[trap], t: outT() }); }
-        else if (r.type === "key") { if (hasK && s.keys.has(locOf[trap])) return null; s.pres.push({ loc: locOf[trap], t: hasW ? inWin(trap) : outT() }); }
+        if (r.type === "alibi") { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
+        else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); if (!satisfyItem(s, trap)) return null; }
+        else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); if (!addPresence(s, locOf[trap], outT)) return null; }
+        else if (r.type === "key") { if (hasK && s.keys.has(locOf[trap])) return null; if (!addPresence(s, locOf[trap], hasW ? () => inWin(trap) : outT)) return null; }
         habitFor(trap);
       }
       elim[sIdx] = { rule: r, trap };
@@ -256,7 +268,7 @@
       const s = Pp.s;
       if (hasK) for (const li of s.keys) facts.push({ type: "has_key", who: Pp.id, where: LOCS[li].id });
       for (const p of s.pres) facts.push({ type: "presence", who: Pp.id, where: LOCS[p.loc].id, at: toHM(p.t) });
-      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(2, 6) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
+      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
                          : { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
       if (s.fakeAlibi) facts.push({ type: "alibi_debunked", who: Pp.id });
       for (const t of [...TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: s.traits[t] });
@@ -339,7 +351,12 @@
           const [a, b] = crimeWin, span = RE.int(6, 14) * 5;
           // „ostatni seans”, „nocna zmiana”: godziny po zbrodni, bo przed nią brzmiałyby nieprawdopodobnie
           const late = /ostatni|nocn/.test(c.def.text.join(" ") + c.def.alibi.text);
-          const from = !late && RE.chance(.6) ? a - RE.int(2, 6) * 5 - span : b + RE.int(1, 4) * 5;
+          const early = () => a - RE.int(2, 6) * 5 - span, after = () => b + RE.int(1, 4) * 5;
+          // 2.1.2: dokument nie obejmuje czasu, w którym ta osoba ma obecność gdzie indziej
+          const hit = from => c.Pp.s.pres.some(p => p.t >= from - 5 && p.t <= from + span + 5);
+          let from = !late && RE.chance(.6) ? early() : after();
+          for (let k = 0; k < 10 && hit(from) && !late; k++) from = early();
+          if (hit(from)) from = after();
           Object.assign(c.f, { from: toHM(from), to: toHM(from + span), confirmed: true });
         } else c.f.day = "other";
         c.otherDay = c.lie === "day" ? RE.pick(B.docOtherDay) : null;
@@ -352,6 +369,16 @@
       }
       for (const c of evs) facts.push({ type: "evidence", id: c.id, kind: c.kind, owner: c.Pp.id, ...(c.lie ? { lie: c.lie } : {}),
         mark: { kind: c.mark, value: c.mark === "flat" ? String(c.Pp.flat) : ini(c.Pp) } });
+    }
+    /* 2.1.2: kontrola spójności. Nikt nie jest w dwóch miejscach naraz ani w trakcie własnego alibi. */
+    for (const Pp of persons) {
+      const ps = facts.filter(f => f.type === "presence" && f.who === Pp.id).map(f => ({ w: f.where, t: toMin(f.at) }));
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      for (let i = 0; i < ps.length; i++) {
+        if (ps[i].t >= ALIBI_FROM) return null;
+        if (al && al.confirmed && ps[i].t >= toMin(al.from) && ps[i].t <= toMin(al.to)) return null;
+        for (let j = i + 1; j < ps.length; j++) if (ps[i].w !== ps[j].w && Math.abs(ps[i].t - ps[j].t) < MIN_GAP) return null;
+      }
     }
     // alibi zawodowe (pole roles) tylko dla pasującej roli, reszta dla każdego
     function alibisFor(Pp) { return A(B.alibiConfirmed).filter(a => (!a.roles || a.roles.includes(Pp.role.id)) && fitsWho({ k: a.k }, who(Pp))); }
@@ -488,7 +515,9 @@
       : "to fałszywy trop. Nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie."]);
     const tTake = C0.s.pres.find(p => p.loc === locOf[wIdx] && p.t >= win[wIdx][0] && p.t <= win[wIdx][1]);
     const sceneTo = T(scene.to);
-    const motives = forP(crime.motives, C0); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
+    // gdy odpis testamentu wskazuje kogoś innego niż sprawcę, epilog nie może mówić o spadku ani mieszkaniu po ofierze (heir)
+    const heirTaken = evs.some(c => c.kind === "trait:motive" && c.def.heir && c.Pp.idx !== cIdx);
+    const motives = forP(heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives, C0); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
     const epilogue = T(`${C0.first} ${R.pick(motives.length ? motives : avail(crime.motives, year, monthIdx))}. ${tTake ? "O " + toHM(tTake.t) : "Tego wieczoru"} [zabrał|zabrała] ${I[wIdx].acc} ${wLoc.from} ${crime.epilogueEnd}`, C0.s.g, { to: sceneTo });
 
     const vg = scene.vg || "m";
@@ -539,8 +568,8 @@
   }
   function hintText(B, r, n, a, b, hasW) {
     if (r.type === "alibi") return `Reguła ${n}: kto ma potwierdzone alibi na ${a}–${b}?`;
-    if (r.type === "window") return `Reguła ${n}: porównaj godziny zniknięcia dowodów z tym, kto i kiedy był na miejscu.`;
-    if (r.type === "key") return hasW ? `Reguła ${n}: kto był przy dowodzie we właściwym czasie, ale nie miał klucza?` : `Reguła ${n}: sprawdź, kto ma klucze do których miejsc.`;
+    if (r.type === "window") return `Reguła ${n}: porównaj godziny zniknięcia przedmiotów z tym, kto i kiedy był na miejscu.`;
+    if (r.type === "key") return hasW ? `Reguła ${n}: kto był przy przedmiocie we właściwym czasie, ale nie miał klucza?` : `Reguła ${n}: sprawdź, kto ma klucze do których miejsc.`;
     if (r.type === "fate") return `Reguła ${n}: sprawdź w aktach przedmiotów, co się z każdym z nich stało.`;
     if (r.type === "dump") return `Reguła ${n}: porównaj, gdzie znaleziono przedmioty, z tym, gdzie kto bywa codziennie.`;
     const h = B.traits[r.trait].hint; return `Reguła ${n}: ${h.charAt(0).toLowerCase() + h.slice(1)}`;
@@ -551,7 +580,7 @@
     if (r.type === "dump") return T(`[mógł|mogła] zabrać ${item.acc}, ale nie bywa codziennie ${T(B.fates[itemFate].place, g)}, gdzie [go|ją|je] znaleziono (reguła ${n}).`.replace(/\[go\|ją\|je\]/, ["go", "ją", "je", "je"][{ m: 0, f: 1, n: 2, pl: 3 }[item.g]]), g);
     if (r.type === "window") {
       const p = Pp.s.pres.find(x => x.loc === li);
-      return T(`${hasK ? `ma klucz do ${loc.gen}, ale ` : ""}[był|była] ${loc.in} o ${toHM(p.t)}, poza czasem zniknięcia dowodów (reguła ${n}).`, g);
+      return T(`${hasK ? `ma klucz do ${loc.gen}, ale ` : ""}[był|była] ${loc.in} o ${toHM(p.t)}, poza czasem zniknięcia przedmiotów (reguła ${n}).`, g);
     }
     if (r.type === "key") return T(`[był|była] ${loc.in}${hasW ? " we właściwym czasie" : ""}, ale nie ma klucza (reguła ${n}).`, g);
     if (r.type === "fate") return T(`[mógł|mogła] zabrać ${item.acc}, ale ${T(B.fates[itemFate].why, g)}, a to nie zgadza się z regułą ${n}.`, g);

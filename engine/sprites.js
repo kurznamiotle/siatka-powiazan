@@ -186,7 +186,24 @@
     return `<svg viewBox="-1 -1 14 14" shape-rendering="crispEdges" aria-hidden="true">${out}</svg>`;
   }
 
-  const api = { svg, resolve, HAIR_BY_G, SKIN, HAIR_C, HEAD_C };
+  /* Portret nie może zdradzać cech z reguł notatnika. Palącemu rysuje się papierosa tylko w ok. 30% przypadków
+     (deterministycznie z id sprawy i osoby) i wcale, gdy palenie jest regułą. Okulary znikają z portretów,
+     gdy reguła dotyczy okularów. Idempotentne: prawdziwe cechy zostają w sprite.real. Dotyczy każdej sprawy,
+     też zamrożonych wersji i zapisów (wywoływane przy wczytaniu sprawy, nie w generatorze). */
+  const h01 = str => { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; };
+  function tidyPortraits(c) {
+    const rt = new Set(((c && c.rules) || []).filter(r => r.type === "trait").map(r => r.trait));
+    for (const n of (c && c.nodes) || []) {
+      const d = n.type === "person" && n.sprite;
+      if (!d || d.kind !== "portrait") continue;
+      if (!d.real) d.real = { smoker: !!d.smoker, glasses: !!d.glasses };
+      d.smoker = d.real.smoker && !rt.has("smoker") && h01(String(c.case_id) + n.id) < 0.3;
+      d.glasses = d.real.glasses && !rt.has("glasses");
+    }
+    return c;
+  }
+
+  const api = { svg, resolve, tidyPortraits, HAIR_BY_G, SKIN, HAIR_C, HEAD_C };
   root.SiatkaSprites = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

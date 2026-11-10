@@ -12,7 +12,8 @@ const S = require("../engine/engine.js");
 const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
 
 const [, , fileArg, ...crimeArgs] = process.argv;
-const CRIMES = crimeArgs.length ? crimeArgs : ["szantaz", "falszerstwo", "sabotaz", "napad", "wandalizm", "porwanie_psa", "otrucie_czlowieka"];
+const MIX = crimeArgs[0] === "mix"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
+const CRIMES = MIX ? [] : crimeArgs.length ? crimeArgs : ["szantaz", "falszerstwo", "sabotaz", "napad", "wandalizm", "porwanie_psa", "otrucie_czlowieka"];
 const NO_CONTACT = ["szantaz", "falszerstwo", "sabotaz", "wandalizm"];
 const SIZES = ["M", "L", "XL", "M", "L", "XL", "L"];
 const cityIds = Object.keys(WORLD.cities);
@@ -26,10 +27,16 @@ function pick(crime, k) {
   throw new Error("Brak sprawy do przeglądu dla " + crime);
 }
 
+const ids = Object.keys(WORLD.base.crimes);
+const jobs = MIX ? [
+  ...[...Array(15).keys()].map(k => ({ crime: ids[k % ids.length], get: () => pick(ids[k % ids.length], k + 20) })),
+  { crime: "(zgłoszenie gracza)", get: () => S.generateCase(WORLD, "losowa-mw6tvpcc-2", { size: "XL", city: "warszawa", year: 1995 }) },
+  ...[...Array(4).keys()].map(k => ({ crime: ids[(k * 3 + 1) % ids.length], get: () => S.generateCase(WORLD, `review-xl-${k}`, { size: "XL", crime: ids[(k * 3 + 1) % ids.length] }) }))
+] : CRIMES.map((crime, k) => ({ crime, get: () => pick(crime, k) }));
 const out = [];
 const line = (s = "") => out.push(s);
-CRIMES.forEach((crime, k) => {
-  const c = pick(crime, k), N = t => c.nodes.filter(n => n.type === t);
+jobs.forEach((job, k) => {
+  const c = job.get(), crime = c.crime, N = t => c.nodes.filter(n => n.type === t);
   const name = id => (c.nodes.find(n => n.id === id) || {}).name || id;
   line("=".repeat(78));
   line(`${k + 1}. ${WORLD.base.crimes[crime].name.toUpperCase()}: „${c.title}”`);
@@ -57,6 +64,6 @@ CRIMES.forEach((crime, k) => {
 });
 const dir = path.join(__dirname, "..", "cases", "generated");
 fs.mkdirSync(dir, { recursive: true });
-const file = path.join(dir, fileArg || "review-2.1.1.txt");
+const file = path.join(dir, fileArg || "review-2.1.2.txt");
 fs.writeFileSync(file, out.join("\n"));
-console.log(`Zapisano ${CRIMES.length} spraw do ${file}`);
+console.log(`Zapisano ${jobs.length} spraw do ${file}`);

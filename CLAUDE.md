@@ -14,7 +14,7 @@ js/settings.js        okno Ustawienia (zębatka): Jak grać, Statystyki, dźwię
                       wibracje, osiągnięcia, instalacja gry (PWA), zgłoszenia uwag; przycisk pełnego
                       ekranu w nagłówku
 js/audio.js           Web Audio bez plików: efekty + generowana muzyka noir
-js/tutorial.js        samouczek „Jak grać”: 6 animowanych plansz (CSS w pliku)
+js/tutorial.js       samouczek „Jak grać”: 4 animowane plansze (CSS w pliku)
 js/history.js         historia wyników (siatka-history), z niej liczą się wszystkie statystyki
 js/stats.js           okno Statystyki (seria, rekord, gwiazdki, wszystkie sprawy)
 js/shareimg.js        wynik jako obrazek PNG 1080×1350 (canvas) bez spoilerów
@@ -27,10 +27,12 @@ engine/engine.js      RNG z seedem, tekst, wspólny kontekst sprawy, rejestr arc
 engine/solver.js      ogólny solver (hipotezy archetypu × reguły) + biblioteka predykatów
                       (alibi, trait, window, key, fate, dump) + kontrola dowodów rzeczowych
 engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły
-engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77), tylko dla spraw dnia
+engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
+data/changelog.js      dziennik zmian („Co nowego” w Ustawieniach, kropka przy zębatce po nowej wersji;
+                      nowe wydanie = nowy wpis na górze)
 data/cities.js        paczki miast: Warszawa, Poznań, Kraków, Łódź, Gdańsk,
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
 tools/generate.js     test generatora i zapis spraw do cases/generated/
@@ -50,7 +52,7 @@ Komendy:
 - `node tools/test-realia.js` — test miesięcy (`months`: kartki tylko styczeń–lipiec 1989, wybory czerwcowe od lipca 1989, talony tylko jako wspomnienie) i kwot w dopełniaczu (część `npm test`).
 - `node tools/bundle.js` — buduje `dist/siatka.html`.
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
-- `npm test` — 1000 spraw z generatora + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
+- `npm test` — 4000 spraw z generatora + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
 - `node tools/freeze-version.js <commit> <wersja>` — zamraża generator z danego commita (patrz „Wersje generatora”).
 - `node tools/icons.js` — rysuje ikony PWA do `icons/`.
 - `node tools/og.js` — robi grafikę podglądu linku `icons/og.jpg` (1200×630) z `tools/og.html` (wymaga Chrome).
@@ -156,6 +158,13 @@ Obrazek wyniku: przycisk „Zapisz obrazek” pod wynikiem. Nazwa gry, sprawa, m
 Historia wyników i statystyki: `js/history.js` (ładuje się przed `game.js`) trzyma w `siatka-history` jeden obiekt z polem `v` (format 1), gotowy do przeniesienia na konto gracza: `daily` (wszystkie sprawy dnia po numerze, liczy się pierwszy wynik), `archive` (ostatnie 500 spraw z archiwum po seedzie) i `totals` (archiwum łącznie: rozegrane, wygrane, suma czasu, liczba wyników z czasem; przycinanie listy ich nie rusza). Wpis: id, typ, wynik, czas, pomyłki, podpowiedzi, gwiazdki, wielkość, miasto, rok, wersja generatora, data. Statystyki zawsze liczą się z historii, nigdy z osobnego licznika. Zamknięty zapis postępu, którego nie ma w historii (wynik zapisała inna kopia gry), dopisuje się przy wczytaniu. Zapis z inną wersją generatora niż jego sprawa niczego nie dopisuje. Jednorazowa migracja (`migrated`) przenosi stare `siatka-stats` i zamknięte zapisy postępu, bez dublowania. Stare `siatka-stats` zostaje nietknięte. Seria i rekord liczą tylko sprawy dnia: kolejne rozwiązane, kończące się dziś albo wczoraj, a sprawa dnia jeszcze nierozegrana nie przerywa serii. Wynik pokazuje dwa wiersze: „Sprawy dnia” (seria, rekord, % wygranych, rozegrane) i „Wszystkie sprawy” (rozegrane, % wygranych, średni czas). Tekst wyniku kończy się adresem `siatkapowiazan.pl` i serią od 2 dni. Na telefonie przycisk to systemowe „Udostępnij”.
 
 Osiągnięcia: 18 odznak w trzech klasach (brąz, srebro, złoto), lista `ACH` w `js/achievements.js`, zapis w `siatka-ach` (zdobyte z datą + zebrane miasta, lata i typy zbrodni; „Wszechstronny” od 2.1.1 wymaga 11 typów). Liczba rozwiązanych spraw i seria pochodzą z historii wyników (`SiatkaHistory`). Po zamkniętej sprawie `game.js` woła `SiatkaAch.onFinish(...)`, a nowe odznaki pokazują się kolejno na planszy (dźwięk `medal`, iskry, wibracja) nad wynikiem. Lista z postępem jest w Ustawieniach.
+
+Wydanie 2.1.2 (poprawki, **obowiązuje od 11.11.2026**; 2.1.1 zamrożone w `engine/versions/v2_1_1.js`, commit 7b359e1, wzorzec `cases/fixtures/daily-2.1.1.json` z dniami 6–10.11):
+- Błąd „sprawca w dwóch miejscach naraz”: w 2.1.1 ok. 17% spraw miało osobę w dwóch miejscach w odstępie < 15 min albo obecność w trakcie własnego alibi. `addPresence` w `classic.js` odrzuca czas kolidujący (do 10 losowań, potem opcjonalną obecność pomija, a wymaganą odrzuca całą sprawę); alibi zaczyna się najwcześniej o C-10, późna gałąź `outT` kończy się przed nim; godziny dokumentu, który obala alibi, nie nakrywają obecności tej osoby; na końcu kontrola spójności w `build`. `tools/generate.js` ma niezależną kontrolę (0 kolizji w 4000 spraw, stary generator: ok. 17%).
+- Reguła o oknie czasowym (`windowRule`): zamiast „Nikt nie podał sprawcy X” jest „Sprawca osobiście zabrał X z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.”.
+- Portrety (`SiatkaSprites.tidyPortraits`, wołane z `load()` w `game.js` i w samouczku, więc działa też dla starych wersji i zapisów): papieros tylko u ok. 30% palących (hash id sprawy i osoby), wcale, gdy palenie jest regułą; okulary znikają z portretów, gdy regułą są okulary (inaczej portret zdradzałby cechę). Inne akcesoria (wąsy, nakrycie głowy) nie są cechami z reguł.
+- Samouczek skrócony do 4 kroków: Tablica i akta → Sznurek → Notatnik i wykluczanie → Oskarżenie (pole `s` slajdu wskazuje scenę/animację w CSS). „Co nowego”: `data/changelog.js`, w Ustawieniach, kropka przy zębatce do czasu otwarcia (`siatka-news-seen`; nowy gracz bez zapisów jej nie dostaje).
+- Samouczek: flaga `siatka-howto` ustawiana przy otwarciu (nie przy zamknięciu), więc sam otwiera się tylko raz. Zdarzenia: `tutorial_skip/krok-N` (zastąpiło `samouczek/pominiety-krok-N`), `tutorial_quit/krok-N` (pagehide albo schowanie karty przy otwartym samouczku), `case_win/<daily|archive>/<rozmiar>` (obok `sprawa/wygrana/…`), `case_abandon/<daily|archive>/<rozmiar>` (sprawa z otwartymi aktami, sznurkiem, wykluczeniem lub podpowiedzią, nierozwiązana przy wyjściu albo starcie innej; raz na sprawę, `siatka-aband`), wszystkie zdarzenia z tego akapitu mają sufiks urządzenia `/mobile` albo `/desktop` (`SiatkaTrack.device()`: `(pointer:fine) and (min-width:1024px)` = desktop). `case_abandon` wysyła się też przy starcie gry za nierozwiązaną sprawę z zapisu (z interakcją, zapis starszy niż 30 min, `at` w zapisie), bo na telefonie `pagehide` bywa zawodny. `return_d1` i `return_d7` (pierwsza wizyta dokładnie 1. i 7. dnia kalendarzowego po dniu pierwszej gry, `siatka-first-game-day`).
 
 ## Najbliższe kroki
 

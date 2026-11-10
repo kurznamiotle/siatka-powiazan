@@ -195,11 +195,12 @@
      Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
      w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
      północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
-  const GEN_VERSION = "2.1.1";
+  const GEN_VERSION = "2.1.2";
   const GENERATOR_VERSIONS = [
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
     { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
-    { id: "2.1.1", from: "2026-11-06" }                                    // bieżący kod; data = północ po dniu wypchnięcia (5.11)
+    { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
+    { id: "2.1.2", from: "2026-11-11" }                                    // bieżący kod; data = północ po dniu wypchnięcia (10.11)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {

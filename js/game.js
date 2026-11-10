@@ -65,7 +65,7 @@ function saveNow() {
   if (!S || !META) return;
   if (closedElsewhere()) return;
   ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
-    hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, elapsed: (S.tEnd || Date.now()) - S.t0 });
+    hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
 let saveT;
@@ -117,7 +117,39 @@ const rich = s => String(s).replace(RICH, (m, ...a) => {
 });
 
 /* ---------- ładowanie sprawy ---------- */
+/* 2.1.2: sprawa rozpoczęta (otwarte akta, sznurek, wykluczenie albo podpowiedź) i nierozwiązana przy wyjściu
+   albo przy starcie innej sprawy; raz na sprawę w tej przeglądarce (siatka-aband) */
+const deviceType = () => (window.SiatkaTrack && window.SiatkaTrack.device) ? window.SiatkaTrack.device() : "mobile";
+function reportAbandon(c, kindRaw) {
+  const id = String(c.seed || c.case_id), sent = ls.get("siatka-aband") || [];
+  if (sent.includes(id)) return;
+  sent.push(id); ls.set("siatka-aband", sent.slice(-60));
+  const kind = kindRaw === "daily" ? "daily" : "archive";
+  track(`case_abandon/${kind}/${c.size}/${deviceType()}`, `Sprawa porzucona: ${kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size} (${deviceType()})`);
+}
+function abandonCheck(next) {
+  try {
+    if (!S || !CASE || S.done || (next && next.seed === CASE.seed)) return;
+    if (!(S.strings.size || S.read.size || S.out.size || S.hints)) return;
+    reportAbandon(CASE, META && META.kind);
+  } catch (_) {}
+}
+/* drugi moment wysyłki: na telefonie pagehide nie zawsze się odpala, więc przy starcie gry zgłaszamy nierozwiązane
+   sprawy z poprzedniej sesji (z interakcją, zapis starszy niż 30 min, jeszcze niezgłoszone) */
+function abandonSaved() {
+  try {
+    for (const kind of ["daily", "random"]) {
+      const sv = ls.get(SAVE[kind]);
+      if (!sv || !sv.case || sv.done || !(sv.strings?.length || sv.read?.length || sv.out?.length || sv.hints)) continue;
+      if (sv.at && Date.now() - sv.at < 30 * 60000) continue;
+      reportAbandon(sv.case, kind);
+    }
+  } catch (_) {}
+}
+window.addEventListener("pagehide", () => abandonCheck());
 function load(c, label, meta, saved) {
+  abandonCheck(c);
+  if (window.SiatkaSprites.tidyPortraits) window.SiatkaSprites.tidyPortraits(c);
   CASE = c; META = meta;
   byId = Object.fromEntries(c.nodes.map(n => [n.id, n]));
   supportedSet = new Set(c.supported_connections.map(([a, b]) => key(a, b)));
@@ -477,6 +509,7 @@ function finish(win) {
   saveNow();
   HIST.record(CASE, { kind: META.kind, win, stars: starsOf(), ms: S.tEnd - S.t0, wrong: S.wrong, hints: S.hints });
   paintDaily();
+  if (win) track(`case_win/${META.kind === "daily" ? "daily" : "archive"}/${CASE.size}/${deviceType()}`, `Wygrana (${deviceType()})`);
   track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
   if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
   const cur = META.kind === "daily" ? HIST.summary().daily.cur : 0;
@@ -707,6 +740,7 @@ if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
 let rT;
 window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(layout, 60); });
 if (document.fonts) document.fonts.ready.then(layout);
+abandonSaved();
 if (!(ls.get(SAVE.last) === "random" && resumeRandom()) && !warmupCase()) dailyCase();
 
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */

@@ -19,14 +19,31 @@ function flush() {
   while (q.length) { const [path, title] = q.shift(); try { gc.count({ path, title: title || path, event: true }); } catch (_) {} }
   return true;
 }
+const dayNo = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
 function track(path, title) {
+  // dzień pierwszej rozpoczętej sprawy: punkt odniesienia dla return_d1 i return_d7
+  if (path.startsWith("sprawa/start/")) { try { if (!localStorage.getItem("siatka-first-game-day")) localStorage.setItem("siatka-first-game-day", String(dayNo())); } catch (_) {} }
   if (OFF) return;
   q.push([path, title]);
   if (flush() || timer) return;
   let n = 0; // skrypt GoatCountera ładuje się asynchronicznie; czekamy na niego do 15 s
   timer = setInterval(() => { if (flush() || ++n > 30) { clearInterval(timer); timer = null; } }, 500);
 }
+/* typ urządzenia jako sufiks ścieżki zdarzeń (case_win, case_abandon, tutorial_*, return_d*) */
+track.device = () => { try { return matchMedia("(pointer:fine) and (min-width:1024px)").matches ? "desktop" : "mobile"; } catch (_) { return "mobile"; } };
 window.SiatkaTrack = track;
+
+/* retencja od pierwszej gry: return_d1 = pierwsza wizyta w kalendarzowym dniu po dniu pierwszej gry, return_d7 = siódmego dnia.
+   Sprawdzane przy wczytaniu i przy powrocie na kartę (gra zainstalowana jako PWA bywa tygodniami w tle). */
+function checkReturn() {
+  try {
+    const g = +localStorage.getItem("siatka-first-game-day"); if (!g) return;
+    const since = dayNo() - g, sent = JSON.parse(localStorage.getItem("siatka-ret2") || "[]");
+    for (const n of [1, 7]) if (since === n && !sent.includes(n)) { sent.push(n); localStorage.setItem("siatka-ret2", JSON.stringify(sent)); track(`return_d${n}/${track.device()}`, `Powrót w dniu ${n} po pierwszej grze (${track.device()})`); }
+  } catch (_) {}
+}
+checkReturn();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkReturn(); });
 
 /* powroty: dzień pierwszej wizyty i jednorazowe zdarzenia po 1, 3, 7, 14, 30 dniach */
 try {

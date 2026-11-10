@@ -1,5 +1,5 @@
 /*
- * Siatka Powiązań — samouczek „Jak grać”: 6 animowanych plansz na miniaturze tablicy.
+ * Siatka Powiązań — samouczek „Jak grać”: 4 animowane plansze na miniaturze tablicy.
  * Portrety i nazwy pochodzą z prawdziwej sprawy demonstracyjnej z generatora (seed „samouczek”).
  * Bez animacji (prefers-reduced-motion) każda plansza pokazuje stan końcowy.
  * API: SiatkaHowto.open(poZamknieciu), SiatkaHowto.seen()
@@ -14,6 +14,7 @@ let D = null;
 function demo() {
   if (D) return D;
   const c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, "samouczek", { size: "S", city: "warszawa", year: 1994 });
+  window.SiatkaSprites.tidyPortraits(c);
   const of = t => c.nodes.filter(n => n.type === t);
   D = { P: of("person"), L: of("location"), I: of("item") };
   return D;
@@ -34,22 +35,10 @@ const t = s => `<b class="fx fx-t">${s}</b>`, l = s => `<b class="fx fx-l">${s}<
 
 const SLIDES = [
   {
-    title: "Tablica",
-    text: "Codziennie nowa sprawa z lat 90. Na tablicy wiszą podejrzani, miejsca i przedmioty. Jeden podejrzany jest sprawcą, a jeden przedmiot posłużył mu za narzędzie.",
-    tip: "Na początku tygodnia sprawy są małe, w niedzielę największe.",
-    scene() {
-      const { P, L, I } = demo();
-      const tag = (txt, y) => `<span class="hw-tag" style="left:8px;top:${y}px">${txt}</span>`;
-      return `<div class="hw-cork"></div>
-        <div class="r1">${tag("Podejrzani", 26)}${P.map((n, i) => pol(n, 84 + i * 58, 3, { w: 50, r: [-3, 2, -1][i] })).join("")}</div>
-        <div class="r2">${tag("Miejsca", 88)}${L.map((n, i) => pol(n, 98 + i * 80, 66, { w: 50, r: [2, -2][i] })).join("")}</div>
-        <div class="r3">${tag("Przedmioty", 150)}${I.map((n, i) => pol(n, 112 + i * 80, 129, { w: 50, r: [-2, 3][i] })).join("")}</div>`;
-    }
-  },
-  {
-    title: "Akta",
-    text: "Stuknij zdjęcie, żeby otworzyć akta. Godziny, miejsca i klucze są wyróżnione. Na nich opiera się śledztwo.",
-    tip: "Czerwona kropka w rogu zdjęcia znaczy, że akt jeszcze nie czytałeś.",
+    s: 2,
+    title: "Tablica i akta",
+    text: "Codziennie nowa sprawa z lat 90. Stuknij zdjęcie, żeby otworzyć akta.",
+    tip: "Na tablicy wiszą podejrzani, miejsca i przedmioty. Czerwona kropka na zdjęciu znaczy, że akt jeszcze nie czytałeś.",
     scene() {
       const { P, L } = demo(), p = P[0], f = p.g === "f";
       return `<div class="hw-desk"></div>${pol(p, 20, 50, { w: 66, r: -2, cls: "pick" })}
@@ -61,9 +50,22 @@ const SLIDES = [
     }
   },
   {
-    title: "Notatnik",
-    text: "W notatniku są ustalenia techników: reguły o sprawcy. Sprawca spełnia wszystkie. Każdy niewinny łamie jedną z nich.",
-    tip: "Szukaj, kto łamie którą regułę. Ten, kto nie łamie żadnej, jest sprawcą.",
+    s: 4,
+    title: "Sznurek",
+    text: "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
+    tip: "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
+    scene() {
+      const { P, L, I } = demo();
+      return `<div class="hw-cork"></div>${pol(P[0], 21, 18, { r: -2 })}${pol(L[0], 177, 62, { r: 2 })}${pol(I[0], 97, 116, { r: -1 })}
+        <i class="hw-ring g1" style="left:203px;top:65px"></i><i class="hw-ring g1" style="left:123px;top:119px"></i><i class="hw-ring g2" style="left:123px;top:119px"></i>
+        <svg class="hw-str" viewBox="0 0 264 196"><path class="s1" pathLength="1" d="M47,21 Q125,56 203,65"/><path class="s2" pathLength="1" d="M203,65 Q163,104 123,119"/></svg>${F}`;
+    }
+  },
+  {
+    s: 3,
+    title: "Notatnik i wykluczanie",
+    text: "Sprawca spełnia wszystkie reguły z notatnika. Każdy niewinny łamie co najmniej jedną – wtedy stuknij w jego aktach „Wyklucz”.",
+    tip: "Ten, kto nie łamie żadnej reguły, jest sprawcą. Pomyłka? „Przywróć” cofa wykluczenie.",
     scene() {
       const { P, L } = demo();
       const tag = (txt, y, cls) => `<span class="hw-tag2 ${cls}" style="top:${y}px">${txt}</span>`;
@@ -76,40 +78,7 @@ const SLIDES = [
         ${tag("łamie<br>1", 22, "a1")}${tag("łamie<br>3", 84, "a2")}${tag("spełnia<br>wszystkie", 146, "a3 ok")}`;
     }
   },
-  {
-    title: "Sznurek",
-    text: "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
-    tip: "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
-    scene() {
-      const { P, L, I } = demo();
-      return `<div class="hw-cork"></div>${pol(P[0], 21, 18, { r: -2 })}${pol(L[0], 177, 62, { r: 2 })}${pol(I[0], 97, 116, { r: -1 })}
-        <i class="hw-ring g1" style="left:203px;top:65px"></i><i class="hw-ring g1" style="left:123px;top:119px"></i><i class="hw-ring g2" style="left:123px;top:119px"></i>
-        <svg class="hw-str" viewBox="0 0 264 196"><path class="s1" pathLength="1" d="M47,21 Q125,56 203,65"/><path class="s2" pathLength="1" d="M203,65 Q163,104 123,119"/></svg>${F}`;
-    }
-  },
-  {
-    title: "Wyklucz",
-    text: "Gdy ktoś łamie regułę, otwórz jego akta i stuknij „Wyklucz”. Zdjęcie dostaje czerwony krzyżyk. To samo działa z przedmiotami.",
-    tip: "Pomyłka? „Przywróć” cofa wykluczenie.",
-    scene() {
-      const { P } = demo(), p = P[1];
-      return `<div class="hw-desk"></div>${pol(p, 26, 40, { w: 72, r: -2, x: true, cls: "gray" })}
-        <div class="hw-sheet small"><b class="h">${p.name}</b><span class="ln"></span><span class="ln s"></span><span class="ln"></span>
-          <span class="hw-chip"><span class="c-a">Wyklucz</span><span class="c-b">Przywróć</span></span></div>${F}`;
-    }
-  },
-  {
-    title: "Oskarżenie",
-    text: "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
-    tip: "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
-    scene() {
-      const { P, I } = demo();
-      return `<div class="hw-desk"></div><span class="hw-lives"><i></i><i></i><i></i></span>
-        <span class="hw-btn">Oskarż</span>
-        <div class="hw-acc"><b class="h">Akt oskarżenia</b><span>Sprawca: <b>${P[2].name}</b></span><span>Narzędzie: <b>${I[1].name.toLowerCase()}</b></span>
-          <span class="hw-stamp">SPRAWA ZAMKNIĘTA</span><span class="hw-stars">★★★</span></div>${F}`;
-    }
-  }
+
 ];
 
 const CSS = `
@@ -117,7 +86,7 @@ const CSS = `
 .hw-card{max-width:420px;padding:14px 16px 16px}
 .hw-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .hw-step{font-family:var(--f-pixel);font-size:13px;color:var(--ink-soft);letter-spacing:.06em}
-.hw-skip{background:none;border:none;font-family:var(--f-body);font-size:13px;color:var(--ink-soft);text-decoration:underline;padding:4px}
+.hw-skip{background:rgba(0,0,0,.06);border:1px solid var(--ink-soft);border-radius:4px;font-family:var(--f-body);font-size:14px;color:var(--ink);padding:6px 12px;min-height:34px}
 .hw-stage{position:relative;width:264px;height:196px;max-width:100%;margin:0 auto 12px;overflow:hidden;border-radius:3px;touch-action:pan-y;user-select:none}
 .hw-card h3{margin:0 0 4px}
 .hw-txt{margin:0;font-size:14.5px;line-height:1.45;min-height:4.4em}
@@ -164,11 +133,6 @@ const CSS = `
 .hw-stamp{position:absolute;left:12px;top:78px;width:142px;text-align:center;font-family:var(--f-pixel);font-weight:700;font-size:12px;letter-spacing:.05em;color:var(--ok);border:3px solid var(--ok);padding:1px 4px;rotate:-5deg;background:rgba(236,227,207,.6)}
 .hw-stars{position:absolute;right:12px;bottom:10px;font-family:var(--f-pixel);font-size:20px;color:var(--brass);letter-spacing:2px}
 
-/* plansza 1: rzędy spadają po kolei */
-.hw-s1 .r1>*{animation:hw-in1 5s infinite}.hw-s1 .r2>*{animation:hw-in2 5s infinite}.hw-s1 .r3>*{animation:hw-in3 5s infinite}
-@keyframes hw-in1{0%{opacity:0;translate:0 -14px}8%,92%{opacity:1;translate:0 0}100%{opacity:0}}
-@keyframes hw-in2{0%,20%{opacity:0;translate:0 -14px}28%,92%{opacity:1;translate:0 0}100%{opacity:0}}
-@keyframes hw-in3{0%,40%{opacity:0;translate:0 -14px}48%,92%{opacity:1;translate:0 0}100%{opacity:0}}
 /* plansza 2: stuknięcie zdjęcia, akta wjeżdżają, marker zaznacza */
 .hw-s2 .hw-f{animation:hw-tap2 4.5s infinite}
 @keyframes hw-tap2{0%{opacity:0;translate:var(--x) var(--y);scale:1}10%{opacity:1;scale:1}16%{scale:.75}22%{scale:1;opacity:1}30%,100%{opacity:0;translate:var(--x) var(--y)}}
@@ -200,16 +164,6 @@ const CSS = `
 .hw-s4 .g1{animation:hw-g1 5.5s infinite}.hw-s4 .g2{animation:hw-g2 5.5s infinite}
 @keyframes hw-g1{0%,10%{opacity:0;scale:.5}11%{opacity:.95;scale:.5}24%{opacity:0;scale:1.7}24.5%{opacity:.95;scale:.5}37%{opacity:0;scale:1.7}100%{opacity:0}}
 @keyframes hw-g2{0%,50%{opacity:0;scale:.5}51%{opacity:.95;scale:.5}64%{opacity:0;scale:1.7}64.5%{opacity:.95;scale:.5}77%{opacity:0;scale:1.7}100%{opacity:0}}
-/* plansza 5: wykluczenie */
-.hw-s5 .hw-f{animation:hw-tap5 4.5s infinite}
-@keyframes hw-tap5{0%,12%{opacity:0;translate:161px 143px;scale:1}18%{opacity:1;scale:1}26%{scale:.75}32%{scale:1;opacity:1}42%,100%{opacity:0;translate:161px 143px}}
-.hw-s5 .gray{animation:hw-gray 4.5s infinite}
-@keyframes hw-gray{0%,28%{filter:none}34%,94%{filter:grayscale(1) brightness(.8)}100%{filter:none}}
-.hw-s5 .hw-x{animation:hw-x 4.5s infinite}
-@keyframes hw-x{0%,28%{opacity:0;scale:1.9}34%{opacity:1;scale:.9}38%,94%{opacity:1;scale:1}100%{opacity:0}}
-.hw-s5 .c-a{animation:hw-ca 4.5s infinite}.hw-s5 .c-b{animation:hw-cb 4.5s infinite}
-@keyframes hw-ca{0%,28%{opacity:1}30%,96%{opacity:0}100%{opacity:1}}
-@keyframes hw-cb{0%,28%{opacity:0}30%,94%{opacity:1}100%{opacity:0}}
 /* plansza 6: oskarżenie, pieczątka, gwiazdki */
 .hw-s6 .hw-f{animation:hw-tap6 6s infinite}
 @keyframes hw-tap6{0%,4%{opacity:0;translate:200px 172px;scale:1}8%{opacity:1;scale:1}12%{scale:.75}16%{scale:1;opacity:1}22%,100%{opacity:0;translate:200px 172px}}
@@ -221,10 +175,10 @@ const CSS = `
 @keyframes hw-star{0%,58%{opacity:0;scale:.3}64%{opacity:1;scale:1.3}68%,94%{opacity:1;scale:1}100%{opacity:0}}
 `;
 
-let i = 0, after = null, styled = false, withInstall = false;
+let i = 0, after = null, styled = false, withInstall = false, quitSent = false;
 function render() {
   const s = SLIDES[i], stage = $("hwStage");
-  stage.className = "hw-stage hw-s" + (i + 1);
+  stage.className = "hw-stage hw-s" + s.s; // s = numer sceny (CSS animacji)
   stage.innerHTML = s.scene();
   stage.setAttribute("aria-label", `Ilustracja: ${s.title}`);
   $("hwTitle").textContent = s.title; $("hwTxt").textContent = s.text; $("hwTip").textContent = s.tip;
@@ -250,17 +204,27 @@ function go(d) {
 function open(cb, opts = {}) {
   withInstall = !!opts.install;
   if (!styled) { const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st); styled = true; }
-  after = cb || null; i = 0; render();
+  after = cb || null; i = 0; quitSent = false; render();
+  // 2.1.2: samouczek otwiera się sam tylko przy pierwszej wizycie; flaga od razu przy otwarciu, nie dopiero przy zamknięciu
+  try { localStorage.setItem(KEY, "1"); } catch (_) {}
   $("howto").hidden = false; $("hwNext").focus({ preventScroll: true });
 }
+const dev = () => (window.SiatkaTrack && window.SiatkaTrack.device) ? window.SiatkaTrack.device() : "mobile";
 const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
 function close(done) {
   if ($("howto").hidden) return;
   $("howto").hidden = true;
-  track(done === true ? "samouczek/ukonczony" : `samouczek/pominiety-krok-${i + 1}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
+  track(done === true ? "samouczek/ukonczony" : `tutorial_skip/krok-${i + 1}/${dev()}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
   try { localStorage.setItem(KEY, "1"); } catch (_) {}
   const cb = after; after = null; if (cb) cb();
 }
+/* wyjście z gry w trakcie samouczka (pagehide, schowanie karty): raz na otwarcie, z numerem kroku */
+function quitting() {
+  if ($("howto").hidden || quitSent) return;
+  quitSent = true; track(`tutorial_quit/krok-${i + 1}/${dev()}`, `Samouczek: wyjście z gry na kroku ${i + 1}`);
+}
+window.addEventListener("pagehide", quitting);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") quitting(); });
 $("hwNext").onclick = () => go(1);
 $("hwPrev").onclick = () => go(-1);
 $("hwSkip").onclick = () => close();

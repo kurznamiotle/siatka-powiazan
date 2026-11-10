@@ -100,11 +100,40 @@ $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, paintFs));
 paintFs();
 
+/* ---------- „Co nowego”: dziennik zmian z data/changelog.js, kropka przy zębatce po nowej wersji ---------- */
+const NEWS = window.SIATKA_CHANGELOG || [], NKEY = "siatka-news-seen";
+const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
+const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
+function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }
+const markNews = () => { try { if (NEWS[0]) localStorage.setItem(NKEY, NEWS[0].v); } catch (_) {} paintDot(); };
+// nowy gracz (bez zapisów i historii) nie dostaje kropki; ten, kto już grał, tak
+try {
+  if (NEWS[0] && newsSeen() === null && !localStorage.getItem("siatka-history") && !localStorage.getItem("siatka-save-daily") && !localStorage.getItem("siatka-save-random")) localStorage.setItem(NKEY, NEWS[0].v);
+} catch (_) {}
+{
+  const st = document.createElement("style");
+  st.textContent = `#menuBtn{position:relative}#menuBtn.has-dot::after{content:"";position:absolute;top:-4px;right:-4px;width:9px;height:9px;border-radius:50%;background:var(--stamp);box-shadow:0 0 0 2px var(--desk-edge)}
+.set-go .pick .dot{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--stamp);vertical-align:middle}
+.news h4{font-family:var(--f-pixel);font-size:15px;margin:14px 0 4px}.news h4 small{font-family:var(--f-body);font-size:12px;color:var(--ink-soft);margin-left:6px}
+.news ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.45;display:flex;flex-direction:column;gap:4px}`;
+  document.head.appendChild(st);
+}
+paintDot();
+let view = "main";
+const fmtDate = d => { const [y, m, dd] = d.split("-"); return `${+dd}.${+m}.${y}`; };
+function renderNews() {
+  $("menuCard").innerHTML = `<h3>Co nowego</h3><div class="news">${NEWS.map(n => `<h4>Wersja ${n.v}<small>${fmtDate(n.date)}</small></h4><ul>${n.items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("")}</div>
+    <div class="foot"><button class="btn ghost" id="newsBack">Wróć</button></div>`;
+  $("newsBack").onclick = () => { view = "main"; render(); };
+  markNews();
+}
+
 /* ---------- okno ustawień ---------- */
 const hapticAvailable = typeof navigator.vibrate === "function" || ios;
 const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-l">${label}</span>${sub ? `<small>${sub}</small>` : ""}</span>
   <button class="switch" id="${id}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button></div>`;
 function render() {
+  if (view === "news") return renderNews();
   let app;
   if (installed()) app = `<p class="set-note">Gra jest zainstalowana na tym urządzeniu.</p>`;
   else if (deferred) app = `<button class="btn red set-install" id="setInstall">Zainstaluj grę</button><p class="set-note">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>`;
@@ -112,6 +141,7 @@ function render() {
   else app = "";
   $("menuCard").innerHTML = `<h3>Ustawienia</h3>
     <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
+      <button class="pick wide" id="setNews">Co nowego${hasNews() ? '<span class="dot" aria-label="nowe"></span>' : ""}</button>
       ${window.SiatkaAch ? (c => `<button class="pick wide set-ach" id="setAch">Osiągnięcia <small>${c.got}/${c.all}</small></button>`)(window.SiatkaAch.count()) : ""}
       <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
     <div class="lbl">Dźwięk</div>
@@ -124,7 +154,8 @@ function render() {
     <p class="set-foot">siatkapowiazan.pl</p>`;
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
-  $("setStats").onclick = () => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
+  $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", "Co nowego"); render(); };
+  $("setStats").onclick =() => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
   $("setSupport").onclick = () => track("wsparcie/ustawienia", "Wsparcie twórcy: ustawienia");
@@ -134,7 +165,7 @@ function render() {
   if ($("setInstall")) $("setInstall").onclick = () => run("ustawienia");
 }
 function refresh() { if (!$("menu").hidden) render(); }
-function open() { render(); $("menu").hidden = false; AU.sfx("paper"); }
+function open() { view = "main"; render(); $("menu").hidden = false; AU.sfx("paper"); }
 function close() { $("menu").hidden = true; }
 $("menuBtn").onclick = () => { tap(6); open(); };
 $("menu").addEventListener("click", e => { if (e.target.id === "menu") close(); });

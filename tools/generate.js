@@ -61,7 +61,27 @@ for (const r of allRoleDefs) for (const o of r.flavor || []) { const t = typeof 
 /* kartki na mięso zniesiono 31 lipca 1989: kartki (na mięso, cukier, buty) tylko styczeń–lipiec 1989 */
 const KARTKI = /[Kk]art(ki|ek|kach|kami) na (mięso|cukier|buty)|[Kk]artki na cukier/;
 const incoherent = [];
+/* 2.1.2: nikt nie jest w dwóch miejscach naraz (< 15 min) ani w trakcie własnego alibi (sprawdzane na gotowych faktach) */
+const tm = h => { const [a, b] = h.split(":").map(Number); return a * 60 + b; };
+function noDoubleBooking(c) {
+  const crimeFrom = tm(c.time.crime.from);
+  for (const id of new Set(c.facts.filter(f => f.type === "presence").map(f => f.who))) {
+    const ps = c.facts.filter(f => f.type === "presence" && f.who === id), al = c.facts.find(f => f.type === "alibi" && f.who === id);
+    for (let i = 0; i < ps.length; i++) {
+      const t = tm(ps[i].at);
+      if (t >= crimeFrom - 10) incoherent.push([c.seed, `${id}: obecność ${ps[i].at} w trakcie alibi`]);
+      else if (al && al.confirmed && t >= tm(al.from) && t <= tm(al.to)) incoherent.push([c.seed, `${id}: obecność ${ps[i].at} w trakcie alibi ${al.from}–${al.to}`]);
+      for (let j = i + 1; j < ps.length; j++) if (ps[i].where !== ps[j].where && Math.abs(t - tm(ps[j].at)) < 15) incoherent.push([c.seed, `${id}: w dwóch miejscach naraz (${ps[i].where}@${ps[i].at}, ${ps[j].where}@${ps[j].at})`]);
+    }
+  }
+}
 function coherence(c) {
+  noDoubleBooking(c);
+  // testament na kogoś innego niż sprawca nie idzie w parze z epilogiem o spadku albo mieszkaniu po ofierze
+  for (const e of c.facts.filter(f => f.type === "evidence" && f.kind === "trait:motive" && f.owner !== c.solution.culprit)) {
+    const n = c.nodes.find(x => x.id === e.id);
+    if (n && /testament/i.test(n.name) && /spadek|mieszkanie ofiary/i.test(c.epilogue)) incoherent.push([c.seed, "epilog o spadku mimo testamentu na inną osobę: " + c.epilogue]);
+  }
   const city = WORLD.cities[c.city];
   const roleDef = id => [...B.roles, ...(city.roles || []), city.worker].find(r => r.id === id);
   const traitsOf = id => Object.fromEntries(c.facts.filter(f => f.type === "trait" && f.who === id).map(f => [f.trait, f.value]));
@@ -78,7 +98,7 @@ function coherence(c) {
   { const m = all.match(/(żądaniem|zażądał[a]?|chce|nie dostanie) \d+ (tysiące|tysiąc|miliony|milion) /); if (m) bad("kwota nie w dopełniaczu: " + m[0]); }
   // „zajrzał” wymaga kierunku („do”, „na”), a {in} daje miejscownik („w kiosku”, „na zapleczu”)
   { const m = all.match(/zajrzał[a]? (\S+ )?(w|we|na) [^ ,.]+(u|iu|e|ni|ce|dzie|ach)\b/); if (m) bad("„zajrzał” z miejscownikiem: " + m[0]); }
-  for (const r of c.rules) if (r.type === "window" && !/gdy [^.]*znika/.test(r.text)) bad("okno bez czasu: " + r.text);
+  for (const r of c.rules) if (r.type === "window" && !/gdy [^.]*znik/.test(r.text)) bad("okno bez czasu: " + r.text);
   persons.forEach((n, k) => {
     const role = c.used.roles[k], txt = n.text.join(" "), W = whoOf(n, k);
     for (const a of workAlibi) if (!a.roles.includes(role) && txt.includes(stem(a.text, n.g))) bad(`${role} z cudzym alibi: ${stem(a.text, n.g)}`);
@@ -137,7 +157,7 @@ for (let i = 0; i < N; i++) {
   coherence(c);
   out.push(c);
 }
-console.log(`Niespójności treści (okno bez czasu, cudze alibi zawodowe, zdanie nie na wiek/rolę/cechę, obcy smaczek roli, liczba mnoga, powtórzony szablon dowodu, dokument z innego dnia): ${incoherent.length}`);
+console.log(`Niespójności treści (okno bez czasu, cudze alibi zawodowe, zdanie nie na wiek/rolę/cechę, obcy smaczek roli, liczba mnoga, powtórzony szablon dowodu, dokument z innego dnia, osoba w dwóch miejscach naraz albo w trakcie alibi): ${incoherent.length}`);
 if (incoherent.length) console.log(incoherent.slice(0, 5));
 console.log(`Wygenerowano ${N - fail}/${N} spraw w ${Date.now() - t0} ms. Błędów generatora: ${fail}. Spraw z niewypełnionym tekstem: ${bad.length}`);
 if (bad.length) console.log(bad.slice(0, 5));

@@ -180,7 +180,7 @@
           flavor:["Jeździ tramwajem podmiejskim do Zgierza i Ozorkowa.","Na każdym przystanku zna kogoś, kto wsiada codziennie."] },
         { id:"grand", age:["young","mid"], m:"Kelner z Grand Hotelu", f:"Kelnerka z Grand Hotelu", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
           flavor:["Podawał kawę aktorom, którzy przyjeżdżają na zdjęcia do Łodzi.","Wie, który reżyser zostawia największe napiwki."] },
-        { id:"szwaczka", age:["mid","old"], m:"Krojczy z szwalni", f:"Szwaczka z szwalni", access:[], outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:["chustka"]},
+        { id:"szwaczka", age:["mid","old"], m:"Krojczy ze szwalni", f:"Szwaczka ze szwalni", access:[], outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:["chustka"]},
           flavor:["Szyje płaszcze na eksport, które potem widać w zachodnich katalogach.","Ma na palcu naparstek nawet przy obiedzie."] }
       ],
       flavor:["Na bułkę mówi „angielka”.","Mieszka w kamienicy z podwórkiem-studnią.","Pamięta, jak fabryczne syreny wyznaczały rytm dnia.",
