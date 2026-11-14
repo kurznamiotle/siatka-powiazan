@@ -813,8 +813,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
     { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
-    { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91
-    { id: "2.2", from: "2026-11-13" }                                      // bieżący kod; data = północ po dniu wypchnięcia (12.11)
+    { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
+    { id: "2.2", from: "2026-11-15" }                                      // bieżący kod; wydanie przesunięte z 13.11 (nie wdrożone w czwartek), data = północ po dniu wypchnięcia (14.11)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
@@ -831,7 +831,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   }
   /* 2.2: oś czasu wchodzi do spraw dnia dopiero od TIMELINE_DAILY_FROM (zapowiedź dla graczy); wcześniej sprawa dnia
      jest zawsze classic, a archiwum dostaje oś czasu od razu. */
-  const TIMELINE_DAILY_FROM = "2026-11-17";
+  const TIMELINE_DAILY_FROM = "2026-11-18";
   const dailyOpts = date => Object.assign({ size: dailySize(date) }, ymd(date) < TIMELINE_DAILY_FROM ? { archetype: "classic" } : {});
   function dailyCase(world, date = new Date()) {
     const n = dailyNumber(date), ver = versionFor(date);
@@ -1616,18 +1616,21 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       : "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
     if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.");
     hints = hints.slice(0, 3);
-    const relWhat = t => B.rules2.relation[t].what;
+    // orzeczenie w mianowniku, liczba mnoga, bez odmiany nazwiska; neg = w zdaniu przeczącym po „a nie”
+    const relPair = (t, g1, g2, neg) => t === "workmate" ? (neg ? "współpracownicy z jednego zakładu" : "pracują w jednym zakładzie")
+      : t === "stairwell" ? (neg ? "sąsiedzi z klatki" : "mieszkają na jednej klatce")
+      : (g1 === "m" && g2 === "m" ? (neg ? "szwagrowie" : "to szwagrowie") : g1 === "f" && g2 === "f" ? (neg ? "szwagierki" : "to szwagierki") : (neg ? "szwagrostwo" : "są szwagrostwem"));
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
       if (e.rule.type === "cmp") return [Pp.first, `ma ${Pp.cm} cm, a sprawca jest ${e.rule.dir === "up" ? "wyższy" : "niższy"} niż ${e.rule.refName} (${e.rule.refCm} cm) (reguła ${n}).`];
-      if (e.rule.type === "relation") return [Pp.first, Pp.rel ? T(`z osobą, którą jest ${e.rule.refName}, łączy [go|ją] ${relWhat(Pp.rel)}, a nie ${relWhat(e.rule.rel)} (reguła ${n}).`, g)
-        : T(`w teczce nie ma nic, co [go|ją] łączy z osobą, którą jest ${e.rule.refName} (reguła ${n}).`, g)];
+      if (e.rule.type === "relation") return [Pp.first, Pp.rel ? `i ${e.rule.refName} ${relPair(Pp.rel, g, e.rule.refG)}, a nie ${relPair(e.rule.rel, g, e.rule.refG, true)} (reguła ${n}).`
+        : `i ${e.rule.refName}: w teczce nie ma nic, co ich łączy (reguła ${n}).`];
       if (e.rule.type === "absent") return [Pp.first, T(`jest w zeszycie dozorcy: o ${toHM(Pp.s.yard)} [szedł|szła] przez podwórko (reguła ${n}).`, g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
     });
     const extraBits = [];
     if (cmpRule) extraBits.push(`ma ${C0.cm} cm, ${cmpRule.dir === "up" ? "więcej" : "mniej"} niż ${cmpRule.refName} (${cmpRule.refCm} cm)`);
-    if (relRule) extraBits.push(`łączy [go|ją] z osobą, którą jest ${relRule.refName}, ${relWhat(relRule.rel)}`);
+    if (relRule) extraBits.push(`relacja z osobą: ${relRule.refName} (${B.rules2.relation[relRule.rel].what})`);
     if (absentRule) extraBits.push("nie ma [go|jej] w zeszycie dozorcy");
     why.push([C0.first, T(`spełnia wszystkie reguły: ${[describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ")}.`, C0.s.g)]);
     if (evs.length) {
@@ -1817,6 +1820,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const pool = [...B.locations, ...cityLocs];
     const others = R.sample(pool, NLOC[sizeKey] - 1);
     const X = Object.assign({ desc: [scene.where ? `Tu to się stało, ${scene.where}.` : "Tu to się stało."] }, TL.scene);
+    // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
+    X.name = T((TL.places && TL.places[scene.title]) || scene.title);
+    X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
+    if (others.some(o => o.name === X.name)) X.name += " (miejsce zdarzenia)";
+    if (others.some(o => o.label === X.label)) X.label = "Miejsce zdarz.";
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
     const L = LOCS.length;
     const pt = LOCS.map((_, i) => i === 0 ? [0, 0] : (a => { const r = R.int(8, 30); return [r * Math.cos(a), r * Math.sin(a)]; })(R.next() * 2 * Math.PI));
@@ -12766,8 +12774,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         icon:{shape:"brush",p:{a:"#7a5232",h:"#8a8f99",b:"#2b2b2b"}}, desc:["Szeroki pędzel, sztywny od zaschniętej farby."] },
       { id:"plakatowe", name:"Słoik farby plakatowej", label:"Plakatówka", acc:"słoik farby plakatowej", g:"m", tags:["farba"], origins:["swietlica","kiosk"],
         icon:{shape:"bucket",p:{a:"#8a8f99",b:"#3e4a6b",w:"#e8dcc0"}}, desc:["Litrowy słoik niebieskiej plakatówki do malowania transparentów."] },
-      { id:"wapno", name:"Wiadro wapna", label:"Wapno", acc:"wiadro wapna", g:"n", tags:["farba"], origins:["dzialka","piwnica","kotlownia"],
-        icon:{shape:"bucket",p:{a:"#5a5f6a",b:"#8a8f99",w:"#f1f1ea"}}, desc:["Wiadro gaszonego wapna do bielenia drzew i piwnic."] },
+      { id:"wapno", name:"Wiadro białej farby wapiennej", label:"Farba wapienna", acc:"wiadro białej farby wapiennej", g:"n", tags:["farba"], origins:["dzialka","piwnica","kotlownia"],
+        icon:{shape:"bucket",p:{a:"#5a5f6a",b:"#8a8f99",w:"#f1f1ea"}}, desc:["Wiadro białej farby wapiennej do bielenia drzew i piwnic."] },
       { id:"klatka", name:"Klatka na króliki", label:"Klatka", acc:"klatkę na króliki", g:"f", tags:["klatka"], origins:["dzialka"],
         icon:{shape:"cage",p:{a:"#8a8f99",h:"#7a5232"}}, desc:["Drewniana klatka z siatką, dość duża na jamnika."] },
       { id:"worek", name:"Worek jutowy", label:"Worek", acc:"worek jutowy", g:"m", tags:["klatka"], origins:["piwnica","sklep","kotlownia","dzialka"],
@@ -12818,6 +12826,168 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* ---------- 2.2: archetyp „Oś czasu” (engine/archetypes/timeline.js) ----------
        Godziny zawsze co do minuty (bez „około”). {a} {b} = okno zdarzenia, {t} godzina, {in} miejsce w miejscowniku. */
     timeline: {
+      /* nazwa miejsca zbrodni (mianownik) wg tytułu sceny: tytuł bywa nazwą ofiary („Papuga z …”), a węzeł ma być miejscem */
+      places:{
+        "Zegarmistrz z {street}":"Pracownia zegarmistrza przy {street}",
+        "Szewc z {street}":"Zakład szewski przy {street}",
+        "Kantor przy {street}":"Kantor przy {street}",
+        "Wdowa z {street}":"Mieszkanie przy {street}",
+        "Wypożyczalnia przy {street}":"Wypożyczalnia przy {street}",
+        "Krawcowa z {street}":"Pracownia krawiecka przy {street}",
+        "Kioskarz z {street}":"Kiosk przy {street}",
+        "Fotograf z {street}":"Ciemnia fotografa przy {street}",
+        "Lichwiarz {district_gen}":"Mieszkanie lichwiarza",
+        "Antykwariat przy {street}":"Antykwariat przy {street}",
+        "Pani z magla":"Magiel przy {street}",
+        "Bramkarz z „{bar}”":"Zaplecze baru „{bar}”",
+        "Cukiernia przy {street}":"Cukiernia przy {street}",
+        "Prezes spółdzielni":"Gabinet prezesa spółdzielni",
+        "Taksówkarz z postoju":"Postój taksówek",
+        "Komis przy {street}":"Komis przy {street}",
+        "Organista z parafii":"Zakrystia parafii",
+        "Lokatorka z {street}":"Klatka schodowa przy {street}",
+        "Handlarz {market_from}":"Budka {market_on}",
+        "Ogródki działkowe {district_gen}":"Altana w ogródkach działkowych",
+        "Utarg {market_from}":"Budka {market_on}",
+        "Magnetowid z {street}":"Mieszkanie przy {street}",
+        "Puszka po herbacie":"Mieszkanie w kamienicy",
+        "Kasa kina „{cinema}”":"Kasa kina „{cinema}”",
+        "Futro z {street}":"Mieszkanie przy {street}",
+        "Kasa spółdzielni":"Kasa spółdzielni",
+        "Rower spod schodów":"Klatka schodowa w kamienicy",
+        "Klaser ze znaczkami":"Gabinet filatelisty",
+        "Obrączki z {street}":"Mieszkanie przy {street}",
+        "Zaplecze Peweksu":"Zaplecze Peweksu",
+        "Utarg z kiosku przy {street}":"Kiosk przy {street}",
+        "Złoty zegarek z kredensu":"Mieszkanie w kamienicy",
+        "Radiomagnetofon z {street}":"Mieszkanie przy {street}",
+        "Dolary w „Potopie”":"Mieszkanie w kamienicy",
+        "Dżinsy ze szczęki":"Szczęka z ciuchami",
+        "Skarbonka na remont dachu":"Plebania parafii",
+        "Wypłata w kopercie":"Księgowość zakładu",
+        "Utarg apteki przy {street}":"Apteka przy {street}",
+        "Złoto od złotnika":"Pracownia złotnika",
+        "Gołębie z {street}":"Gołębnik przy {street}",
+        "Jamnik z {street}":"Podwórko przy {street}",
+        "Akwarium inżyniera":"Mieszkanie inżyniera",
+        "Kot z {street}":"Podwórko przy {street}",
+        "Kanarek z {street}":"Mieszkanie przy {street}",
+        "Owczarek z warsztatu":"Warsztat samochodowy",
+        "Kury z działek":"Kurnik na działkach",
+        "Króliki z podwórka":"Klatki na podwórku",
+        "Kot ze spożywczego":"Sklep spożywczy",
+        "Szkolne akwarium":"Pracownia biologiczna w szkole",
+        "Pies z placu budowy":"Plac budowy",
+        "Papuga z {street}":"Mieszkanie przy {street}",
+        "Kaczki w parku":"Staw w parku",
+        "Kundel {district_na}":"Podwórko na osiedlu",
+        "Akwarium w przychodni":"Poczekalnia przychodni",
+        "Oswojona kawka":"Balkon w kamienicy",
+        "Owczarek prezesa":"Willa prezesa",
+        "Piwniczny kot z {street}":"Piwnica przy {street}",
+        "Gęsi {market_from}":"Klatki {market_on}",
+        "Pies przewodnik":"Podwórko przy {street}",
+        "Szopa z rowerami":"Szopa z rowerami",
+        "Budka z warzywami":"Budka z warzywami",
+        "Altana prezesa":"Altana prezesa",
+        "Wiata przy {street}":"Wiata przy {street}",
+        "Szczęka z ciuchami":"Szczęka z ciuchami",
+        "Kiosk przy {street}":"Kiosk przy {street}",
+        "Wózkownia przy {street}":"Wózkownia przy {street}",
+        "Polonez z podwórka":"Podwórko przy {street}",
+        "Komórka z węglem":"Piwnica z komórkami",
+        "Garaż mechanika":"Garaż mechanika",
+        "Stragan z zabawkami":"Stragan z zabawkami",
+        "Muszla koncertowa w parku":"Muszla koncertowa w parku",
+        "Stodoła na skraju {district_gen}":"Stodoła na skraju osiedla",
+        "Budka z lodami":"Budka z lodami",
+        "Szopa dozorcy":"Szopa dozorcy",
+        "Wypożyczalnia kaset w ogniu":"Wypożyczalnia kaset",
+        "Barak na budowie":"Barak na budowie",
+        "Drzwi prezesa":"Biuro prezesa",
+        "Bar mleczny przy {street}":"Bar mleczny przy {street}",
+        "Budka z kwiatami":"Budka z kwiatami",
+        "Winda przy {street}":"Maszynownia windy przy {street}",
+        "Zimne kaloryfery przy {street}":"Kotłownia przy {street}",
+        "Zwrotnica przy {street}":"Zwrotnica przy {street}",
+        "Rower listonoszki":"Poczta przy {street}",
+        "Ciemna klatka przy {street}":"Klatka schodowa przy {street}",
+        "Maszyna w szwalni":"Szwalnia spółdzielni",
+        "Polonez prezesa":"Parking przed spółdzielnią",
+        "Pompa na działkach":"Pompa na działkach",
+        "Chłodnia w barze mlecznym":"Bar mleczny",
+        "Nagłośnienie na festynie":"Scena na festynie",
+        "Hydrofor w bloku":"Hydrofornia w bloku",
+        "Szlaban na parkingu":"Parking strzeżony",
+        "Taksówka z postoju":"Postój taksówek",
+        "Piec w piekarni przy {street}":"Piekarnia przy {street}",
+        "Antena zbiorcza":"Dach bloku",
+        "Żuk z mleczarni":"Dziedziniec mleczarni",
+        "Karuzela w wesołym miasteczku":"Wesołe miasteczko",
+        "Domofon przy {street}":"Klatka schodowa przy {street}",
+        "Krosno w spółdzielni pracy":"Spółdzielnia pracy",
+        "Motorower listonosza":"Poczta przy {street}",
+        "Napad na kiosk przy {street}":"Kiosk przy {street}",
+        "Listonosz z rentami":"Klatka schodowa przy {street}",
+        "Napad na kantor {district_na}":"Kantor na osiedlu",
+        "Ostatni kurs taksówki":"Postój taksówek",
+        "Napad {market_on}":"Budka {market_on}",
+        "Wypłaty dla załogi":"Brama zakładu",
+        "Emerytka spod PKO":"Brama przy PKO",
+        "Stacja CPN przy {street}":"Stacja CPN przy {street}",
+        "Napad pod Peweksem":"Wejście do Peweksu",
+        "Konwojent z banku":"Parking przed bankiem",
+        "Złotnik z {street}":"Pracownia złotnika przy {street}",
+        "Napad na kasę kina":"Kasa kina",
+        "Sklep monopolowy przy {street}":"Sklep monopolowy przy {street}",
+        "Inkasentka z rachunkami":"Klatka schodowa przy {street}",
+        "Kierowca na pętli":"Pętla autobusowa",
+        "Kwiaciarka spod cmentarza":"Budka pod cmentarzem",
+        "Okienko na poczcie":"Poczta przy {street}",
+        "Budka z lodami przy {street}":"Budka z lodami przy {street}",
+        "Fałszywy inkasent":"Mieszkanie przy {street}",
+        "Napad na komis":"Komis przy {street}",
+        "Gablota spółdzielni":"Gablota przed spółdzielnią",
+        "Szyld fryzjerki":"Zakład fryzjerski",
+        "Mur szkoły {district_na}":"Mur szkoły na osiedlu",
+        "Witryna sklepu przy {street}":"Sklep przy {street}",
+        "Pomnik w parku":"Pomnik w parku",
+        "Wymazany Polonez":"Parking przy {street}",
+        "Zamalowany kiosk":"Kiosk przy {street}",
+        "Świeżo odmalowana klatka":"Klatka schodowa przy {street}",
+        "Ławki w parku przy {street}":"Park przy {street}",
+        "Szyld kantoru":"Kantor przy {street}",
+        "Zamalowany przystanek":"Przystanek przy {street}",
+        "Plakaty wyborcze":"Tablica ogłoszeń przy {street}",
+        "Dekoracje do jasełek":"Scena w domu kultury",
+        "Działka sąsiada":"Altana na działce",
+        "Tramwaj na pętli":"Pętla tramwajowa",
+        "Drzwi przy {street}":"Klatka schodowa przy {street}",
+        "Szyba wypożyczalni":"Wypożyczalnia przy {street}",
+        "Wejście do przychodni":"Przychodnia przy {street}",
+        "Zamalowany stragan":"Stragan {market_on}",
+        "Boisko szkolne":"Boisko szkolne",
+        "Porwany jamnik":"Furtka przy {street}",
+        "Owczarek z {street}":"Podwórko przy {street}",
+        "Pudel z wystawy":"Mieszkanie przy {street}",
+        "Kundel z placu budowy":"Barak na budowie",
+        "Seter prezesa":"Willa prezesa",
+        "Spaniel aptekarki":"Apteka przy {street}",
+        "Bokser z warsztatu":"Warsztat samochodowy",
+        "Zaginiony pies przewodnik":"Podwórko przy {street}",
+        "York z balkonu":"Balkon w kamienicy",
+        "Wilczur dozorcy":"Budka dozorcy",
+        "Chart z działek":"Altana na działce",
+        "Szczeniak spod budki":"Budka {market_on}",
+        "Pacjent z lecznicy":"Lecznica dla zwierząt",
+        "Kundelek kioskarki":"Kiosk przy {street}",
+        "Owczarek z hurtowni":"Brama hurtowni",
+        "Pies pod szkołą":"Brama szkoły",
+        "Dog z willi":"Ogrodzenie willi",
+        "Pies taksówkarza":"Postój taksówek",
+        "Suczka z klatki przy {street}":"Klatka schodowa przy {street}",
+        "Pies z plebanii":"Furtka plebanii"
+      },
       scene:{ id:"miejsce", name:"Miejsce zdarzenia", label:"Miejsce zdarzenia", gen:"miejsca zdarzenia", in:"na miejscu zdarzenia", from:"z miejsca zdarzenia", icon:"house" },
       reachRule:["Sprawca spędził na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Czasy w tabeli to najkrótsza droga, szybciej się nie da.",
                  "Lekarz i technicy zgodnie ustalili: sprawca był na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Tabela podaje najkrótsze czasy dojścia, szybciej nie przejdzie nikt.",
@@ -12830,9 +13000,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy w radiu nadawali sygnał czasu.","Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.",
               "O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.","Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.",
               "Dzielnicowy zanotował w notesie: {t}, {in}."],
-      evidence:[{ label:"Kwit", name:"Kwit z godziną", icon:"receipt", text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis klienta: {ini}."] },
+      evidence:[{ label:"Kwit", name:"Kwit z godziną", icon:"receipt", text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis: {ini}."] },
                 { label:"Książka", name:"Książka wejść", icon:"notebook", text:["Książka wejść prowadzona przez portiera {in}.","Wpis: «{t} — {ini}, wejście»."] },
-                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, [dzwonił|dzwoniła] {ini}.»"] },
+                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, zamówiona na: {ini}.»"] },
                 { label:"Raport", name:"Raport stróża", icon:"card", text:["Stróż co wieczór obchodzi teren i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] }],
       intro:"Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Sprawdź, kto zdążyłby dojść na miejsce zdarzenia w czasie zbrodni i wrócić tam, gdzie widziano go później."
     },
@@ -12862,7 +13032,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                       "Sprawca i {ref} to szwagrowie, tak wynika z zeznań rodziny."],
                 fact:["{ref} to [jego|jej] {szw}, spotykają się na rodzinnych imieninach.","{ref} to [jego|jej] {szw}, z rodziny po małżonku."],
                 what:"szwagrostwo" },
-        hint:"kogo w teczkach łączy coś z osobą, którą jest {ref}, i co dokładnie?"
+        hint:"sprawdź, kogo w teczkach łączy coś z osobą: {ref}."
       },
       absent:{ rule:["Od {a} do {b} dozorca zamiatał podwórko i zapisywał w zeszycie każdego, kto przechodził. Kto jest w zeszycie, ma to w teczce. Sprawcy w zeszycie nie ma.",
                      "Od {a} do {b} dozorca siedział przy trzepaku i notował każdego, kto szedł przez podwórko. Wszystkie wpisy są w teczkach. Sprawca przez podwórko nie przechodził."],
@@ -12889,8 +13059,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                right:["Ślady sprawcy {where} zostawiła prawa ręka.","Odciski palców sprawcy {where} układają się jak u kogoś, kto wszystko robi prawą ręką."] },
         ruleMurder:{ left:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z lewej ręki.","Lekarz nie ma wątpliwości: cios zadała lewa ręka."],
                      right:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z prawej ręki.","Lekarz nie ma wątpliwości: cios zadała prawa ręka."] },
-        ruleStrangle:{ left:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła lewa ręka.","Węzeł na sznurze zawiązano od lewej strony, tak jak wiąże mańkut."],
-                       right:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła prawa ręka.","Węzeł na sznurze zawiązano od prawej strony, tak jak wiąże ktoś praworęczny."] },
+        ruleStrangle:{ left:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła lewa ręka.","Pętlę zaciągnięto od lewej strony, tak jak robi mańkut."],
+                       right:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła prawa ręka.","Pętlę zaciągnięto od prawej strony, tak jak robi ktoś praworęczny."] },
         hint:"Porównaj, którą ręką posługują się podejrzani.",
         why:{ left:"jest [leworęczny|leworęczna]", right:"jest [praworęczny|praworęczna]" },
         whyFail:{ left:"jest [praworęczny|praworęczna]", right:"jest [leworęczny|leworęczna]" }
@@ -12899,7 +13069,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Kwit", name:"Kwit od szewca", icon:"receipt", text:["Kwit z zakładu szewskiego przy {street2}: zelowanie i nowe fleki.","Buty w rozmiarze {v}, do odbioru w piątek. Na kwicie: {ini}."] },
                   { label:"Pudełko", name:"Pudełko po butach", icon:"receipt", text:["Pudełko po butach z domu towarowego, znalezione w piwnicy przy komórkach lokatorów.","Na boku rozmiar {v}. Na wieczku ktoś napisał flamastrem: {ini}."] },
-                  { label:"Paragon", name:"Paragon z działu obuwia", icon:"receipt", text:["Paragon z działu obuwia w domu towarowym: półbuty skórzane, {kwota_shoes}.","Rozmiar {v}. Klient przymierzył je i wyszedł w nich ze sklepu. Na odwrocie podpis: {ini}."] },
+                  { label:"Paragon", name:"Paragon z działu obuwia", icon:"receipt", text:["Paragon z działu obuwia w domu towarowym: półbuty skórzane, {kwota_shoes}.","Rozmiar {v}. Buty przymierzono na miejscu i wyniesiono w nich ze sklepu. Na odwrocie podpis: {ini}."] },
                   { label:"Spis", name:"Spis rzeczy z przeszukania", icon:"card", text:["Spis rzeczy z przeszukania mieszkania, podpisany przez dzielnicowego.","Pozycja czwarta: buty zimowe noszone na co dzień, rozmiar {v}. Właściciel, czytelne tylko inicjały: {ini}."] }],
         values:{ m:[42,43,44,45], f:[37,38,39,40] },
         facts:["Nosi buty w rozmiarze {v}.","W przedpokoju stoją [jego|jej] kalosze, rozmiar {v}.","[Kupił|Kupiła] sobie ostatnio na targu buty w rozmiarze {v}.",
@@ -12939,17 +13109,17 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                 "Na zdjęciu klasowym stoi w ostatnim rzędzie, o głowę [wyższy|wyższa] od reszty.","Jest tak [wysoki|wysoka], że żarówki na klatce wkręca bez drabiny.",
                 "Spodnie zawsze ma za krótkie, bo na [jego|jej] wzrost nic nie ma w sklepach.",{t:"W tramwaju musi się garbić, żeby nie uderzyć głową w sufit.", cm:{m:[190,250],f:[182,250]}},
                 "W szkole na apelu [stał|stała] zawsze na czele szeregu, jako [najwyższy|najwyższa] w klasie.",{t:"Kiedy wstaje od stołu, głową prawie dotyka lampy w kuchni.", cm:{m:[188,250],f:[178,250]}},
-                {t:"Łóżko ma dorobione, bo w sklepie nie było takiego na [jego|jej] wzrost.", cm:{m:[190,250],f:[184,250]}},"W każdej kolejce widzi ladę ponad głowami innych.",
+                {t:"Łóżko ma dorobione, bo w sklepie nie było takiego na [jego|jej] wzrost.", cm:{m:[190,250],f:[184,250]}},"W każdej kolejce widzi ladę ponad głowami większości.",
                 "Sąsiedzi wołają [go|ją], kiedy trzeba zdjąć firanki, bo przy [jego|jej] wzroście drabina niepotrzebna."],
           short:[{t:"Ma niecałe metr sześćdziesiąt.", cm:{m:[0,159],f:[0,159]}},"Do górnej półki sięga ze stołka.","W tramwaju ledwo dosięga uchwytu.",
                  "W kolejce zza pleców innych nie widzi lady.","Na zdjęciu klasowym zawsze [stał|stała] w pierwszym rzędzie, jako [najniższy|najniższa].",
                  {t:"[Sam|Sama] żartuje, że ma metr pięćdziesiąt pięć w kapeluszu.", cm:{m:[0,0],f:[0,156]}},{t:"Jest tak [niski|niska], że do lustra w łazience musi stawać na palcach.", cm:{m:[0,162],f:[0,154]}},
-                 {t:"W tłumie na targu ginie, bo innym sięga ledwo do ramienia.", cm:{m:[0,162],f:[0,155]}},"Jest [niski|niska] i każde spodnie skraca u krawcowej o dobre dziesięć centymetrów.",
+                 {t:"W tłumie na targu ginie, bo wysokim sięga ledwo do ramienia.", cm:{m:[0,162],f:[0,155]}},"Jest [niski|niska] i każde spodnie skraca u krawcowej o dobre dziesięć centymetrów.",
                  {t:"Na przesłuchaniu nogi ledwo [mu|jej] sięgały do podłogi.", cm:{m:[0,162],f:[0,155]}},"W dowodzie ma wpisane {cm} cm wzrostu.",
                  "Skrzynki pocztowej w górnym rzędzie nie dosięga bez stołka."]
         },
         rule:{ tall:["Sprawca zostawił ślady dłoni na framudze, ponad dwa metry nad podłogą.","Świadek widział, jak sprawca schyla się w drzwiach, żeby nie uderzyć głową."],
-               short:["Świadek widział sprawcę z okna: postać ledwo wystawała zza zaparkowanego Malucha.","Sprawca musiał podstawić sobie skrzynkę, żeby dosięgnąć zasuwki, do której inni sięgają bez trudu."] },
+               short:["Świadek widział sprawcę z okna: postać ledwo wystawała zza zaparkowanego Malucha.","Sprawca musiał podstawić sobie skrzynkę, żeby dosięgnąć zasuwki, do której ktoś wysoki sięga bez trudu."] },
         hint:"Kto nie pasuje wzrostem?",
         why:{ tall:"jest [wysoki|wysoka]", short:"jest [niski|niska]" },
         whyFail:{ tall:"jest [niski|niska]", short:"jest [wysoki|wysoka]" }
@@ -12958,7 +13128,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
         evidence:[{ label:"Kartka", name:"Kartka z kiosku", icon:"receipt", text:["Kioskarka zapisuje stałym klientom papierosy „na zeszyt”, do pierwszego.","Na kartce z tego tygodnia: «{ini} — {packs} {cig}, pali jak smok»."] },
                   { label:"Zeszyt", name:"Zeszyt sklepowej", icon:"notebook", text:["Sprzedawczyni ze spożywczego zapisuje stałym klientom zakupy w zeszycie pod ladą.","Wśród wpisów z tego tygodnia: «{ini}: {goods} i {packs} {cig} dla siebie, zapłaci w piątek»."] },
-                  { label:"Rachunek", name:"Rachunek z baru", icon:"receipt", text:["Rachunek z baru „{bar}”: piwo, zapałki i {packs} {cig}.","Kelnerka zapamiętała, że klient zapalił od razu przy barze, i zapisała na odwrocie: {ini}."] },
+                  { label:"Rachunek", name:"Rachunek z baru", icon:"receipt", text:["Rachunek z baru „{bar}”: piwo, zapałki i {packs} {cig}.","Kelnerka zapamiętała, że papierosa zapalono od razu przy barze, i zapisała na odwrocie: {ini}."] },
                   { label:"Zamówienie", name:"Zeszyt stałych zamówień z kiosku", icon:"notebook", text:["Zeszyt stałych zamówień z kiosku Ruchu przy {street2}.","«{ini} — {packs} {cig} na dzień, odkładać przed siódmą. Pali jak komin.»"] }],
         values:["yes","no"], ruleValues:["yes"],
         facts:{ yes:["Pali Sporty, paczkę dziennie.","Palce ma żółte od papierosów.","Na przesłuchaniu [zapalił|zapaliła] dwa papierosy pod rząd.",
@@ -13078,7 +13248,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { text:"[grał|grała] w karty w barze „{bar}”", k:["adult"], debunk:"Tego wieczoru [przechodził|przechodziła] obok baru „{bar}”. Był zamknięty, w oknach było ciemno.", witness:"potwierdzają to barman i trzech stałych bywalców",
         doc:{ label:"Tabela", name:"Tabela wyników z baru", icon:"card", text:["Barman z baru „{bar}” zapisuje wyniki partii tysiąca na kartce przypiętej do lady.","Tamtego wieczoru, od {from} do {to}, przy jednym stoliku w każdym rozdaniu zapisano: {ini}."] } },
       { text:"[był|była] na mszy wieczornej {church_at}", debunk:"Mówi, że tego wieczoru mszy {church_at} nie było, bo proboszcz miał pogrzeb za miastem.", witness:"widzieli [go|ją] ksiądz proboszcz i kościelny",
-        doc:{ label:"Zeszyt", name:"Zeszyt kościelnego", icon:"notebook", text:["Kościelny {church_at} zapisuje, kto czytał lekcję i kto zbierał na tacę.","Pod datą tamtego dnia, msza od {from} do {to}: na tacę [zbierał|zbierała] {ini}."] } },
+        doc:{ label:"Zeszyt", name:"Zeszyt kościelnego", icon:"notebook", text:["Kościelny {church_at} zapisuje, kto czytał lekcję i kto zbierał na tacę.","Pod datą tamtego dnia, msza od {from} do {to}. Przy zbiórce na tacę wpisano: {ini}."] } },
       { text:"[oglądał|oglądała] mecz {team} u szwagra", debunk:"Wie z radia, że mecz {team} tego dnia przełożono, bo boisko zalało.", witness:"potwierdzają to szwagier i jego żona" },
       { text:"[pracował|pracowała] na drugiej zmianie {zaklad_at}", roles:["worker"], debunk:"[Słyszał|Słyszała] w kolejce, że druga zmiana {zaklad_at} miała tego dnia wolne, bo stanęła produkcja.", witness:"potwierdzają to brygadzista i lista obecności",
         doc:{ label:"Karta", name:"Karta zegarowa", icon:"card", text:["Karta zegarowa z portierni {zaklad_at}.","Odbita przy wejściu o {from} i przy wyjściu o {to}. Nazwisko zatarte, czytelne tylko inicjały: {ini}."] } },
@@ -13217,7 +13387,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       /* --- wydanie 2.1.1: alibi zawodowe nowych ról --- */
       { roles:["kaowiec"], text:"[prowadził|prowadziła] próbę zespołu wokalnego w świetlicy", witness:"potwierdzają to rodzice dzieci z zespołu",
         debunk:"Mówi, że próba zespołu w świetlicy się nie odbyła, bo pękła rura i zalało salę.",
-        doc:{ label:"Dziennik", name:"Dziennik zajęć świetlicy", icon:"notebook", text:["Dziennik zajęć świetlicy spółdzielni, z listą dzieci.","Zajęcia od {from} do {to}. Prowadzący podpisał się przy temacie: {ini}."] } },
+        doc:{ label:"Dziennik", name:"Dziennik zajęć świetlicy", icon:"notebook", text:["Dziennik zajęć świetlicy spółdzielni, z listą dzieci.","Zajęcia od {from} do {to}. Przy temacie podpis prowadzącego: {ini}."] } },
       { roles:["ksiegowa"], text:"[zamykał|zamykała] bilans kwartalny w biurze spółdzielni po godzinach", witness:"potwierdzają to prezes spółdzielni i portier",
         debunk:"Wie, że biuro spółdzielni tego wieczoru było ciemne, bo bilans przesunięto na koniec miesiąca.",
         doc:{ label:"Wyjścia", name:"Zeszyt portiera spółdzielni", icon:"notebook", text:["Zeszyt portiera z budynku spółdzielni, wejścia i wyjścia po godzinach.","Wpis: wejście {from}, wyjście {to}, «księgowość, bilans». Podpis: {ini}."] } },
@@ -13241,7 +13411,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         doc:{ label:"Wizyty", name:"Książka wizyt domowych", icon:"notebook", text:["Książka wizyt domowych z przychodni rejonowej.","Wizyty od {from} do {to}, adres po adresie. Lekarz: {ini}."] } },
       { roles:["weterynarz"], text:"[operował|operowała] psa w lecznicy dla zwierząt", witness:"potwierdzają to właścicielka psa i technik",
         debunk:"Wie, że lecznica dla zwierząt była tego dnia nieczynna, bo nie było prądu.",
-        doc:{ label:"Lecznica", name:"Książka zabiegów z lecznicy", icon:"notebook", text:["Książka zabiegów z lecznicy dla zwierząt.","Zabieg od {from} do {to}: owczarek, złamana łapa. Operujący: {ini}."] } },
+        doc:{ label:"Lecznica", name:"Książka zabiegów z lecznicy", icon:"notebook", text:["Książka zabiegów z lecznicy dla zwierząt.","Zabieg od {from} do {to}: owczarek, złamana łapa. Wykonanie zabiegu: {ini}."] } },
       { roles:["kierowca"], text:"[prowadził|prowadziła] autobus na nocnej linii", witness:"potwierdzają to dyspozytor i karta drogowa",
         debunk:"Mówi, że nocna linia nie wyjechała tego dnia z zajezdni, bo zabrakło ropy.",
         doc:{ label:"Karta", name:"Karta drogowa autobusu", icon:"card", text:["Karta drogowa autobusu MPK, z pieczątką dyspozytora.","Kurs od {from} do {to}. Kierujący: {ini}."] } },
@@ -13517,7 +13687,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                  { label:"Kartka", name:"Kartka spod drzwi", icon:"letter", ages:["mid","old"], text:["Kartka w kratkę, wsunięta ofierze pod drzwi kilka dni przed śmiercią.","«Wiem, kto na mnie doniósł w osiemdziesiątym pierwszym. Policzymy się.» Podpis: {ini}."] },
                  { label:"Pocztówka", name:"Pocztówka z groźbą", icon:"letter", k:["adult"], text:["Pocztówka z Kołobrzegu, bez znaczka, wrzucona ofierze do skrzynki.","Na odwrocie: «Mieszkanie po ciotce należy się mnie. Wyprowadź się po dobroci.» Podpis: {ini}."] }],
         name:"Zabójstwo", subtags:["tepe","ostre","sznur"], toolLabel:"Narzędzie zbrodni",
-        cause:{ tepe:"[Zginął|Zginęła] od ciosu ciężkim przedmiotem.", ostre:"[Zginął|Zginęła] od rany zadanej ostrym narzędziem.", sznur:"[Został uduszony|Została uduszona] sznurem." },
+        cause:{ tepe:"[Zginął|Zginęła] od ciosu ciężkim przedmiotem.", ostre:"[Zginął|Zginęła] od rany zadanej ostrym narzędziem.", sznur:"[Został uduszony|Została uduszona] czymś długim i giętkim, na szyi został wąski ślad." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
         alibiEvent:"Zgon nastąpił",
         windowRule:["Sprawca osobiście zabrał narzędzie zbrodni z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie zbrodni nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Narzędzie zbrodni zabrała ta sama osoba, która potem go użyła. Była na miejscu wtedy, gdy narzędzie znikało."],
@@ -13589,7 +13759,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                  { label:"Kartka", name:"Kartka z długami", icon:"letter", k:["debt"], text:["Kartka wyrwana z kalendarza, znaleziona na klatce schodowej.","Lista pożyczek: od dozorcy, od sąsiadów z trzeciego, od szwagra. Razem {money}. Podpis: {ini}."] },
                  { label:"Liścik", name:"Liścik wyrwany z zeszytu", icon:"letter", text:["Liścik wyrwany z zeszytu w kratkę, zgubiony w bramie poszkodowanych.","«Do soboty muszę skombinować {money}. Wiem, gdzie trzymają pieniądze, i wiem, kiedy wychodzą.» Podpis: {ini}."] }],
         name:"Kradzież", subtags:["wlam"], toolLabel:"Narzędzie włamania",
-        cause:{ wlam:"Drzwi podważono czymś ciężkim i płaskim." },
+        cause:{ wlam:"Drzwi podważono czymś twardym, wsuniętym w szczelinę przy zamku." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się to zrobić.",
         alibiEvent:"Do włamania doszło",
         windowRule:["Złodziej osobiście zabrał narzędzie włamania z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie włamania nie przechodziło z rąk do rąk. Złodziej był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Złodziej sam przyniósł sobie narzędzie. Był na miejscu, z którego zniknęło, wtedy, gdy znikało."],
@@ -13653,7 +13823,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       },
       otrucie: {
         /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
-        letters:[{ label:"Skarga", name:"Skarga do administracji", icon:"letter", k:["adult"], text:["Skarga złożona w administracji osiedla, z pieczątką wpływu.","«Zwierzęta z podwórka nie dają spać całej klatce. Jak administracja nic nie zrobi, zrobię to [sam|sama].» Podpis: {ini}."] },
+        letters:[{ label:"Skarga", name:"Skarga do administracji", icon:"letter", k:["adult"], text:["Skarga złożona w administracji osiedla, z pieczątką wpływu.","«Zwierzęta z podwórka nie dają spać całej klatce. Jak administracja nic nie zrobi, zrobię to osobiście.» Podpis: {ini}."] },
                  { label:"Ogłoszenie", name:"Ogłoszenie z klatki", icon:"letter", text:["Kartka zerwana z tablicy ogłoszeń na klatce schodowej.","«Kto trzyma zwierzęta w bloku, niech się z nimi wyprowadzi. Inaczej pożałuje.» Podpis: {ini}."] },
                  { label:"Protokół", name:"Protokół zebrania lokatorów", icon:"card", k:["adult"], text:["Protokół z zebrania lokatorów, przepisany na maszynie.","Punkt trzeci: wniosek o usunięcie zwierząt z budynku. Wniosek przepadł. Wnioskodawca: {ini}."] }],
         name:"Otrucie zwierzęcia", subtags:["trucizna"], toolLabel:"Trucizna",
@@ -13800,7 +13970,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         /* dowody z motywem: długi, wiedza o tajemnicy, uraza */
         letters:[{ label:"Weksel", name:"Weksel od lichwiarza", icon:"receipt", k:["debt"], text:["Weksel na {money}, wystawiony przez lichwiarza z {street2}.","Termin wykupu minął w poniedziałek. Dłużnik: {ini}."] },
                  { label:"Kartka", name:"Kartka do poszkodowanych", icon:"letter", text:["Kartka wsunięta poszkodowanym pod drzwi miesiąc temu, jeszcze podpisana.","«Wiem, skąd macie na to wszystko. Pogadamy?» Podpis: {ini}."] },
-                 { label:"Wymówienie", name:"Wymówienie z pracy", icon:"card", k:["fired"], text:["Wymówienie z pracy podpisane przez poszkodowanego, z pieczątką zakładu.","«Z powodu utraty zaufania.» Zwolniony pracownik: {ini}."] }],
+                 { label:"Wymówienie", name:"Wymówienie z pracy", icon:"card", k:["fired"], text:["Wymówienie z pracy podpisane przez poszkodowanego, z pieczątką zakładu.","«Z powodu utraty zaufania.» Sprawa dotyczy pracownika: {ini}."] }],
         name:"Szantaż", subtags:["pismo"], toolLabel:"Czym zrobiono anonim",
         /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
         traitRule:{
@@ -13957,27 +14127,27 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       },
 
       sabotaz: {
-        letters:[{ label:"Zwolnienie", name:"Zwolnienie dyscyplinarne", icon:"card", k:["fired"], text:["Zwolnienie dyscyplinarne z pieczątką kierownika.","«Za rażące naruszenie obowiązków.» Zwolniony: {ini}. Odwołanie odrzucono."] },
-                 { label:"Skarga", name:"Skarga do spółdzielni", icon:"letter", k:["adult"], text:["Skarga do zarządu spółdzielni, z pieczątką wpływu.","«Jak nikt tego nie naprawi porządnie, to sam pokażę, jaki to szmelc.» Podpis: {ini}."] },
+        letters:[{ label:"Zwolnienie", name:"Zwolnienie dyscyplinarne", icon:"card", k:["fired"], text:["Zwolnienie dyscyplinarne z pieczątką kierownika.","«Za rażące naruszenie obowiązków.» Sprawa dotyczy: {ini}. Odwołanie odrzucono."] },
+                 { label:"Skarga", name:"Skarga do spółdzielni", icon:"letter", k:["adult"], text:["Skarga do zarządu spółdzielni, z pieczątką wpływu.","«Jak nikt tego nie naprawi porządnie, to osobiście pokażę, jaki to szmelc.» Podpis: {ini}."] },
                  { label:"Upomnienie", name:"Upomnienie z wpisem do akt", icon:"card", k:["job"], text:["Upomnienie z wpisem do akt osobowych, podpisane przez kierownika.","Odebrano premię za kwartał. Ukarany: {ini}."] }],
         name:"Sabotaż", subtags:["sabotaz"], toolLabel:"Czym to uszkodzono",
         /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
         traitRule:{
           hand:{left:["{where} został w smarze odcisk kciuka sprawcy. Narzędzie trzymał w lewej ręce.","Cięcie {where} poprowadzono od lewej strony, tak trzyma ostrze mańkut."],right:["{where} został w smarze odcisk kciuka sprawcy. Narzędzie trzymał w prawej ręce.","Cięcie {where} poprowadzono od prawej strony, tak trzyma ostrze ktoś praworęczny."]},
           shoe:["{where} został w smarze ślad buta sprawcy, rozmiar {v}.","Na zakurzonej ziemi {where} został odcisk podeszwy sprawcy, rozmiar {v}."],
-          height:{tall:["Na ścianie nad miejscem, gdzie to zrobiono, ponad dwa metry nad ziemią, zostały odciski palców sprawcy. Opierał się tam ręką, stojąc.","Świadek widział sprawcę {where} z daleka: przy każdym ruchu musiał się mocno schylać."],short:["Żeby dosięgnąć tego, co uszkodził, sprawca podstawił sobie skrzynkę, która została na miejscu. Każdy inny sięgnąłby bez niej.","Świadek widział sprawcę {where}: stawał na palcach, żeby sięgnąć tam, gdzie inni sięgają ręką."]},
+          height:{tall:["Na ścianie nad miejscem, gdzie to zrobiono, ponad dwa metry nad ziemią, zostały odciski palców sprawcy. Opierał się tam ręką, stojąc.","Świadek widział sprawcę {where} z daleka: przy każdym ruchu musiał się mocno schylać."],short:["Żeby dosięgnąć tego, co uszkodził, sprawca podstawił sobie skrzynkę, która została na miejscu. Wysoki człowiek sięgnąłby bez niej.","Świadek widział sprawcę {where}: stawał na palcach, żeby sięgnąć tam, gdzie wysoki człowiek sięga ręką."]},
           smoker:{yes:["{where} leży świeży niedopałek sprawcy.","W powietrzu {where} jeszcze wisiał dym z papierosa sprawcy."]},
           car:{yes:["Świadek widział, jak zaraz potem sprawca wsiada do swojego auta i odjeżdża.","Niedaleko miejsca, gdzie to zrobiono, zostały świeże ślady opon. Sprawca przyjechał tu swoim samochodem."]},
           glasses:{yes:["{where} leżało etui na okulary sprawcy, ubrudzone smarem.","W smarze {where} został zausznik od okularów sprawcy, ułamany przy zawiasie."]},
           dog:{yes:["Do smaru {where} przykleiła się psia sierść z ubrania sprawcy. Nikt tu psa nie trzyma.","W kurzu {where} zostały odciski psich łap, a obok ślady butów sprawcy."]},
           jacket:{yes:["Na ostrej krawędzi blachy {where} został strzęp ortalionu z rękawa sprawcy.","Świadek słyszał w ciemności, jak kurtka sprawcy szeleści ortalionem."]}
         },
-        cause:{ sabotaz:"Biegły nie ma wątpliwości: ktoś to przeciął albo rozkręcił, samo się nie zepsuło." },
+        cause:{ sabotaz:"Biegły nie ma wątpliwości: to nie była zwykła awaria, samo się to nie zepsuło." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły narzędzia, którymi można było to zrobić.",
         alibiEvent:"Do uszkodzenia doszło",
         windowRule:["Sprawca osobiście zabrał narzędzie z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Narzędzie zabrała ta sama osoba, która potem go użyła. Była na miejscu wtedy, gdy znikało."],
         keyRule:["Tam, skąd zniknęło narzędzie, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Narzędzie wzięto zza zamkniętych drzwi, a zamek jest nietknięty. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęło narzędzie, sprawca otworzył kluczem, nie wytrychem."],
-        motives:[{t:"[mścił|mściła] się za zwolnienie z pracy", k:["fired"]},"[chciał|chciała], żeby kierownik stracił posadę",
+        motives:[{t:"[mścił|mściła] się za zwolnienie z pracy", k:["fired"]},"[chciał|chciała], żeby ktoś w końcu odpowiedział za zaniedbania",
                  {t:"[liczył|liczyła], że po awarii dostanie zlecenie na naprawę", roles:["hydraulik","elektryk","administrator","palacz","mechanik","dozorca"]},{t:"od miesięcy [kłócił|kłóciła] się z administracją o remont", k:["adult"]},
                  {t:"[chciał|chciała] zepsuć interes konkurencji", roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"[uważał|uważała], że należy [mu|jej] się premia, której nie [dostał|dostała]", k:["job"]}],
         suspicion:[{t:"Kierownik zwolnił [go|ją] dyscyplinarnie w zeszłym miesiącu.", k:["fired"]},"[Odgrażał|Odgrażała] się, że „jeszcze tu wszystko stanie”.",{t:"Na zebraniu [krzyczał|krzyczała], że administracja okrada lokatorów.", k:["adult"]},
@@ -13988,50 +14158,50 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
                   "[Pomagał|Pomagała] potem sprzątać po awarii, bo z administracją żyje w zgodzie.","Nie [miał|miała] z administracją żadnych zatargów.",{t:"Lubi kierownika i [chwalił|chwaliła] go na zebraniu.", k:["adult"]},
                   {t:"Dopiero co [dostał|dostała] podwyżkę.", k:["job"]},"Cieszy się, że po remoncie wszystko w końcu działa.","Z poszkodowanymi nie ma żadnych interesów.",
                   "Na awarii nic nie [zyskał|zyskała] i z nikim tu nie ma porachunków.",{t:"Kierownik załatwił [mu|jej] kiedyś pracę i do dziś są w zgodzie.", k:["job"]},{t:"Kierownik pożyczył [mu|jej] kiedyś pieniądze i nigdy nie naciskał na zwrot.", k:["debt"]}],
-        motiveRule:["To nie była zwykła awaria. Ktoś miał żal do poszkodowanych i chciał im zaszkodzić.", "Sprawca miał porachunki z poszkodowanymi albo liczył, że na awarii zarobi.", "Ktoś zrobił to ze złości albo dla zysku. Przypadkowy chuligan nie wiedziałby, co przeciąć."],
+        motiveRule:["To nie była zwykła awaria. Ktoś miał żal do poszkodowanych i chciał im zaszkodzić.", "Sprawca miał porachunki z poszkodowanymi albo liczył, że na awarii zarobi.", "Ktoś zrobił to ze złości albo dla zysku. Przypadkowy chuligan nie wiedziałby, co uszkodzić."],
         alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "O {a} wszystko jeszcze działało, o {b} już nie. Kto ma potwierdzone alibi, nie jest sprawcą.", "Wszystko rozegrało się między {a} a {b}. Sprawca nie ma alibi na ten czas."],
         epilogueEnd:"i [poszedł|poszła] prosto {to}.",
         scenes:[
           { title:"Winda przy {street}", vg:"m", to:"do maszynowni windy", where:"w maszynowni windy",
-            intro:"W bloku przy {street} stanęła winda, a w niej utknął administrator {victim}. W maszynowni ktoś przeciął przewody." },
+            intro:"W bloku przy {street} stanęła winda, a w niej utknął administrator {victim}. W maszynowni ktoś uszkodził przewody." },
           { title:"Zimne kaloryfery przy {street}", vg:"m", to:"do kotłowni", where:"przy kotle", exclude:["kotlownia"],
-            intro:"W całej kamienicy przy {street} wystygły kaloryfery. Palacz {victim} znalazł rano rozkręcone zawory przy kotle." },
+            intro:"W całej kamienicy przy {street} wystygły kaloryfery. Palacz {victim} znalazł rano uszkodzone zawory przy kotle." },
           { title:"Zwrotnica przy {street}", vg:"m", to:"na tory", where:"przy zwrotnicy",
-            intro:"Tramwaj wypadł z szyn na zwrotnicy przy {street}. Motorniczy {victim} mówi, że ktoś rozkręcił śruby." },
+            intro:"Tramwaj wypadł z szyn na zwrotnicy przy {street}. Motorniczy {victim} mówi, że ktoś majstrował przy zwrotnicy." },
           { title:"Rower listonoszki", vg:"f", to:"pod pocztę", where:"przy rowerze",
-            intro:"Listonoszka {victim} wywróciła się na rowerze przy {street}. Ktoś przeciął jej linkę od hamulca." },
+            intro:"Listonoszka {victim} wywróciła się na rowerze przy {street}. Ktoś uszkodził jej linkę od hamulca." },
           { title:"Ciemna klatka przy {street}", vg:"m", to:"na klatkę schodową", where:"przy skrzynce elektrycznej",
-            intro:"W kamienicy przy {street} zgasło światło na całej klatce. Elektryk z administracji, {victim}, znalazł w skrzynce przecięte kable." },
+            intro:"W kamienicy przy {street} zgasło światło na całej klatce. Elektryk z administracji, {victim}, znalazł w skrzynce uszkodzone kable." },
           { title:"Maszyna w szwalni", vg:"f", to:"do szwalni", where:"przy maszynie",
-            intro:"W szwalni przy {street} stanęła najnowsza maszyna. Kierowniczka {victim} znalazła przecięty pasek napędu." },
+            intro:"W szwalni przy {street} stanęła najnowsza maszyna. Kierowniczka {victim} znalazła uszkodzony pasek napędu." },
           { title:"Polonez prezesa", vg:"m", to:"na parking pod spółdzielnią", where:"przy Polonezie",
-            intro:"Prezes spółdzielni {victim} nie mógł ruszyć Polonezem spod bloku przy {street}. Ktoś przeciął przewody pod maską." },
+            intro:"Prezes spółdzielni {victim} nie mógł ruszyć Polonezem spod bloku przy {street}. Ktoś uszkodził przewody pod maską." },
           { title:"Pompa na działkach", vg:"m", vage:"old", to:"na ogródki działkowe", where:"przy pompie", exclude:["dzialka"],
-            intro:"Na działkach na skraju {district_gen} stanęła pompa, z której podlewa się wszystkie ogródki. Prezes ogródków {victim} znalazł rozkręcony zawór." },
+            intro:"Na działkach na skraju {district_gen} stanęła pompa, z której podlewa się wszystkie ogródki. Prezes ogródków {victim} znalazł uszkodzony zawór." },
           { title:"Chłodnia w barze mlecznym", vg:"f", to:"do baru mlecznego", where:"przy chłodni",
-            intro:"W barze mlecznym przy {street} stanęła chłodnia i zepsuło się całe mięso. Kierowniczka {victim} znalazła przecięty kabel." },
+            intro:"W barze mlecznym przy {street} stanęła chłodnia i zepsuło się całe mięso. Kierowniczka {victim} znalazła uszkodzony kabel." },
           { title:"Nagłośnienie na festynie", vg:"m", to:"na festyn w parku", where:"przy scenie",
-            intro:"Na festynie w parku przy {street} zamilkło nagłośnienie. Organizator {victim} znalazł przecięte kable za sceną." },
+            intro:"Na festynie w parku przy {street} zamilkło nagłośnienie. Organizator {victim} znalazł uszkodzone kable za sceną." },
           { title:"Hydrofor w bloku", vg:"m", to:"do piwnicy bloku", where:"przy hydroforze",
-            intro:"W bloku przy {street} przestała lecieć woda na górnych piętrach. Administrator {victim} znalazł przy hydroforze rozkręcone śruby." },
+            intro:"W bloku przy {street} przestała lecieć woda na górnych piętrach. Administrator {victim} znalazł przy hydroforze uszkodzone elementy." },
           { title:"Szlaban na parkingu", vg:"m", to:"na strzeżony parking", where:"przy szlabanie", years:[1991,1999],
-            intro:"Na strzeżonym parkingu przy {street} ktoś przeciął kable od szlabanu i alarmu. Właściciel parkingu {victim} zgłosił to {police_dat}." },
+            intro:"Na strzeżonym parkingu przy {street} ktoś uszkodził kable od szlabanu i alarmu. Właściciel parkingu {victim} zgłosił to {police_dat}." },
           { title:"Taksówka z postoju", vg:"m", to:"na postój taksówek", where:"przy taksówce",
-            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś przeciął przewody i odkręcił klemy." },
+            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i uszkodził klemy." },
           { title:"Piec w piekarni przy {street}", vg:"m", to:"do piekarni", where:"przy piecu", exclude:["piekarnia"],
-            intro:"W piekarni przy {street} wygasł piec w środku nocnej zmiany. Majster {victim} znalazł przecięty przewód od palnika." },
+            intro:"W piekarni przy {street} wygasł piec w środku nocnej zmiany. Majster {victim} znalazł uszkodzony przewód od palnika." },
           { title:"Antena zbiorcza", vg:"f", to:"na dach kamienicy", where:"przy antenie", years:[1990,1999],
-            intro:"Na całej klatce przy {street} zniknął obraz w telewizorach. {victim}, która zebrała od lokatorów pieniądze na antenę zbiorczą, znalazła na dachu przecięty kabel." },
+            intro:"Na całej klatce przy {street} zniknął obraz w telewizorach. {victim}, która zebrała od lokatorów pieniądze na antenę zbiorczą, znalazła na dachu uszkodzony kabel." },
           { title:"Żuk z mleczarni", vg:"m", to:"na zaplecze mleczarni", where:"przy Żuku",
-            intro:"Kierowca mleczarni {victim} nie mógł rano ruszyć Żukiem z mlekiem dla sklepów przy {street}. Ktoś przeciął przewody hamulcowe." },
+            intro:"Kierowca mleczarni {victim} nie mógł rano ruszyć Żukiem z mlekiem dla sklepów przy {street}. Ktoś uszkodził przewody hamulcowe." },
           { title:"Karuzela w wesołym miasteczku", vg:"m", to:"do wesołego miasteczka", where:"przy karuzeli",
-            intro:"W wesołym miasteczku na skraju {district_gen} stanęła karuzela. Właściciel {victim} znalazł rozkręcone śruby przy silniku." },
+            intro:"W wesołym miasteczku na skraju {district_gen} stanęła karuzela. Właściciel {victim} znalazł uszkodzone elementy przy silniku." },
           { title:"Domofon przy {street}", vg:"f", to:"pod klatkę z domofonem", where:"przy domofonie", years:[1994,1999],
-            intro:"Tydzień po założeniu domofonu przy {street} ktoś przeciął jego przewody. Administratorka {victim} zgłosiła to {police_dat}." },
+            intro:"Tydzień po założeniu domofonu przy {street} ktoś uszkodził jego przewody. Administratorka {victim} zgłosiła to {police_dat}." },
           { title:"Krosno w spółdzielni pracy", vg:"f", to:"do spółdzielni pracy", where:"przy krośnie",
-            intro:"W spółdzielni pracy przy {street} stanęło krosno tuż przed ważnym zamówieniem. Prezeska {victim} znalazła rozkręcone przekładnie." },
+            intro:"W spółdzielni pracy przy {street} stanęło krosno tuż przed ważnym zamówieniem. Prezeska {victim} znalazła uszkodzone przekładnie." },
           { title:"Motorower listonosza", vg:"m", to:"pod pocztę", where:"przy motorowerze",
-            intro:"Listonosz {victim} z poczty przy {street} nie mógł uruchomić motoroweru z rentami. Ktoś przeciął przewód paliwowy." }
+            intro:"Listonosz {victim} z poczty przy {street} nie mógł uruchomić motoroweru z rentami. Ktoś uszkodził przewód paliwowy." }
         ]
       },
 
@@ -14119,7 +14289,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           dog:{yes:["W świeżej farbie {where} odbiły się psie łapy, a obok buty sprawcy.","Do mokrej farby {where} przykleiła się psia sierść z ubrania sprawcy."]},
           jacket:{yes:["{where} został w farbie odcisk ortalionowego rękawa sprawcy, z prążkowanym splotem.","Na drucie z płotu nieopodal został strzęp ortalionu z rękawa sprawcy, w plamach farby."]}
         },
-        cause:{ farba:"Wszystko oblano farbą i wymazano napisami. Z daleka widać, że celowo." },
+        cause:{ farba:"Wszystko zamalowano i pokryto napisami. Z daleka widać, że celowo." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
         alibiEvent:"Do zniszczeń doszło",
         windowRule:["Sprawca osobiście zabrał to, czym malował, z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.", "To, czym zniszczono, nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Sprawca sam zabrał to, czego użył. Był na miejscu, z którego to zniknęło, wtedy, gdy znikało."],
@@ -14189,7 +14359,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         name:"Porwanie psa", subtags:["klatka","sznur"], toolLabel:"Czym zabrano psa",
         /* porwany pies zostawia sierść wszędzie, więc ślad psa sprawcy brzmi inaczej */
         traitRule:{ glasses:{ yes:["Sprawca zgubił na miejscu etui na okulary.","Na miejscu leżał zausznik od okularów sprawcy, ułamany przy samym zawiasie."] }, dog:{ yes:["Na miejscu została sierść innego psa niż porwany. Przyniósł ją na ubraniu sprawca.","Porwany pies poszedł za sprawcą bez szczekania, jak za kimś, kto pachnie własnym psem."] } },
-        cause:{ klatka:"Psa wyniesiono w czymś zamkniętym, bo nikt nie słyszał szczekania.", sznur:"Psa wyprowadzono na prowizorycznej smyczy. Na furtce zostały włókna." },
+        cause:{ klatka:"Psa wyniesiono w czymś zamkniętym, bo nikt nie słyszał szczekania.", sznur:"Psa wyprowadzono na prowizorycznej smyczy. Na furtce został po niej ślad." },
         itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się zabrać psa.",
         alibiEvent:"Psa zabrano",
         windowRule:["Porywacz osobiście zabrał to, czym potem uprowadził psa, z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.", "To, czym zabrano psa, nie przechodziło z rąk do rąk. Porywacz był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Porywacz sam przyniósł to, czym zabrał psa. Był na miejscu, z którego zniknęło, wtedy, gdy znikało."],
@@ -14255,7 +14425,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       otrucie_czlowieka: {
         letters:[{ label:"Testament", name:"Odpis testamentu", icon:"card", heir:true, text:["Odpis testamentu ofiary, z pieczątką notariusza.","Mieszkanie i oszczędności przypadają jednej osobie: {ini}."] },
                  { label:"Weksel", name:"Weksel na ofiarę", icon:"receipt", k:["debt"], text:["Weksel wystawiony na ofiarę, znaleziony w jej szufladzie.","Kwota {money}, termin minął w zeszłym tygodniu. Dłużnik: {ini}."] },
-                 { label:"List", name:"List z pretensjami", icon:"letter", k:["fired","adult"], text:["List znaleziony w kredensie ofiary.","«Przez ciebie [straciłem|straciłam] pracę i mieszkanie. Jeszcze się policzymy.» Podpis: {ini}."] }],
+                 { label:"List", name:"List z pretensjami", icon:"letter", k:["fired","adult"], text:["List znaleziony w kredensie ofiary.","«Przez ciebie nie mam pracy ani mieszkania. Jeszcze się policzymy.» Podpis: {ini}."] }],
         name:"Otrucie człowieka", subtags:["trucizna"], toolLabel:"Trucizna",
         /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
         traitRule:{ glasses:{ yes:["Sprawca zgubił na miejscu etui na okulary.","Na miejscu leżał zausznik od okularów sprawcy, ułamany przy samym zawiasie."] } },
@@ -14672,7 +14842,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
  */
 (typeof window !== "undefined" ? window : globalThis).SIATKA_CHANGELOG = [
-  { v: "2.2", date: "2026-11-13", items: [
+  { v: "2.2", date: "2026-11-15", items: [
     "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
     "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",
     "Kwoty z lat 90. są bliższe prawdy: parking za kilka złotych, OC za kilkaset."
