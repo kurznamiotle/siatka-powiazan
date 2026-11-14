@@ -237,8 +237,8 @@
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
     { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
-    { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91
-    { id: "2.2", from: "2026-11-13" }                                      // bieżący kod; data = północ po dniu wypchnięcia (12.11)
+    { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
+    { id: "2.2", from: "2026-11-15" }                                      // bieżący kod; wydanie przesunięte z 13.11 (nie wdrożone w czwartek), data = północ po dniu wypchnięcia (14.11)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
@@ -255,7 +255,7 @@
   }
   /* 2.2: oś czasu wchodzi do spraw dnia dopiero od TIMELINE_DAILY_FROM (zapowiedź dla graczy); wcześniej sprawa dnia
      jest zawsze classic, a archiwum dostaje oś czasu od razu. */
-  const TIMELINE_DAILY_FROM = "2026-11-17";
+  const TIMELINE_DAILY_FROM = "2026-11-18";
   const dailyOpts = date => Object.assign({ size: dailySize(date) }, ymd(date) < TIMELINE_DAILY_FROM ? { archetype: "classic" } : {});
   function dailyCase(world, date = new Date()) {
     const n = dailyNumber(date), ver = versionFor(date);
