@@ -39,7 +39,7 @@ function checkReturn() {
   try {
     const g = +localStorage.getItem("siatka-first-game-day"); if (!g) return;
     const since = dayNo() - g, sent = JSON.parse(localStorage.getItem("siatka-ret2") || "[]");
-    for (const n of [1, 7]) if (since === n && !sent.includes(n)) { sent.push(n); localStorage.setItem("siatka-ret2", JSON.stringify(sent)); track(`return_d${n}/${track.device()}`, `Powrót w dniu ${n} po pierwszej grze (${track.device()})`); }
+    for (const n of [1, 7]) if (since === n && !sent.includes(n)) { sent.push(n); localStorage.setItem("siatka-ret2", JSON.stringify(sent)); track(`return_d${n}/${track.device()}`, t("ui.track.powrot_w_dniu_n_po_pierwszej", { n, device: track.device() })); }
   } catch (_) {}
 }
 checkReturn();
@@ -49,11 +49,11 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 try {
   const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
   let first = +localStorage.getItem("siatka-first-day");
-  if (!first) { first = day; localStorage.setItem("siatka-first-day", String(day)); track("gracz/nowy", "Nowy gracz"); }
+  if (!first) { first = day; localStorage.setItem("siatka-first-day", String(day)); track("gracz/nowy", t("ui.track.nowy_gracz")); }
   const sent = JSON.parse(localStorage.getItem("siatka-ret") || "[]"), since = day - first;
   const label = { 1: "po-1-dniu", 3: "po-3-dniach", 7: "po-7-dniach", 14: "po-14-dniach", 30: "po-30-dniach" };
   for (const n of [1, 3, 7, 14, 30]) {
-    if (since >= n && !sent.includes(n)) { track("powrot/" + label[n], `Powrót po ${n} ${n === 1 ? "dniu" : "dniach"}`); sent.push(n); }
+    if (since >= n && !sent.includes(n)) { track("powrot/" + label[n], t("ui.track.powrot_po_n_v", { n, v: n === 1 ? t("ui.track.dniu") : t("ui.track.dniach") })); sent.push(n); }
   }
   localStorage.setItem("siatka-ret", JSON.stringify(sent));
 } catch (_) {}

@@ -23,30 +23,30 @@ const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform ==
 const installed = () => matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches || navigator.standalone === true;
 let deferred = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; refresh(); });
-window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); paintFs(); });
+window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", t("ui.settings.gra_zainstalowana")); refresh(); paintFs(); });
 const available = () => !installed() && (!!deferred || !!hint());
 async function run(where) {
   if (deferred) {
     const d = deferred; deferred = null;
     d.prompt();
-    try { const c = await d.userChoice; track(`instalacja/${c.outcome === "accepted" ? "zgoda" : "odmowa"}-${where}`, `Instalacja: ${c.outcome === "accepted" ? "zgoda" : "odmowa"} (${where})`); } catch (_) {}
+    try { const c = await d.userChoice; track(`instalacja/${c.outcome === "accepted" ? "zgoda" : "odmowa"}-${where}`, t("ui.settings.instalacja_v_where", { v: c.outcome === "accepted" ? "zgoda" : "odmowa", where })); } catch (_) {}
     refresh();
     return true;
   }
   return false;
 }
-const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
+const IOS_HINT = t("ui.settings.w_safari_stuknij_b_udostepnij_b");
 /* Gdy przeglądarka nie wyśle beforeinstallprompt (gra już zainstalowana, okno wcześniej odrzucone
  * albo przeglądarka go nie ma), pokazujemy, gdzie w jej menu jest instalacja. Bez wskazówki: "". */
 function hint() {
   if (ios) return IOS_HINT;
   const ua = navigator.userAgent, android = /Android/.test(ua);
-  if (/SamsungBrowser/.test(ua)) return `Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.`;
-  if (/Firefox/.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Zainstaluj”</b> (albo „Dodaj do ekranu głównego”).` : "";
-  if (/EdgA?\//.test(ua)) return android ? `Stuknij menu <b>…</b>, potem <b>„Dodaj do telefonu”</b>.`
-    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>…</b> → <b>„Aplikacje”</b> → <b>„Zainstaluj tę witrynę jako aplikację”</b>.`;
-  if (/Chrome\//.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Dodaj do ekranu głównego”</b> → <b>„Zainstaluj”</b>.`
-    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>⋮</b> → <b>„Przesyłaj, zapisuj i udostępniaj”</b> → <b>„Zainstaluj stronę jako aplikację”</b>.`;
+  if (/SamsungBrowser/.test(ua)) return t("ui.settings.stuknij_menu_b_b_potem_b_4");
+  if (/Firefox/.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b_3") : "";
+  if (/EdgA?\//.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b_2")
+    : t("ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2");
+  if (/Chrome\//.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b")
+    : t("ui.settings.kliknij_ikone_instalacji_w_pasku_adresu");
   return "";
 }
 window.SiatkaInstall = { available, installed, ios, run, canPrompt: () => !!deferred, hintHtml: hint };
@@ -58,12 +58,12 @@ function device() {
   const ua = navigator.userAgent, v = re => { const m = ua.match(re); return m ? m[1].replace(/_/g, ".") : ""; };
   const os = /Android/.test(ua) ? "Android " + v(/Android ([\d.]+)/)
     : /iPhone|iPad|iPod/.test(ua) ? (/iPad/.test(ua) ? "iPadOS " : "iOS ") + v(/OS ([\d_]+)/)
-    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "inny system";
-  const br = /SamsungBrowser/.test(ua) ? "Samsung Internet " + v(/SamsungBrowser\/(\d+)/)
+    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : t("ui.settings.inny_system");
+  const br = /SamsungBrowser/.test(ua) ? t("ui.settings.samsung_internet") + v(/SamsungBrowser\/(\d+)/)
     : /EdgA?\//.test(ua) ? "Edge " + v(/EdgA?\/(\d+)/) : /CriOS/.test(ua) ? "Chrome " + v(/CriOS\/(\d+)/)
     : /FxiOS|Firefox/.test(ua) ? "Firefox " + v(/(?:FxiOS|Firefox)\/(\d+)/) : /Chrome\//.test(ua) ? "Chrome " + v(/Chrome\/(\d+)/)
-    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : "inna przeglądarka";
-  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? "aplikacja" : "przeglądarka"}`;
+    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : t("ui.settings.inna_przegladarka");
+  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? t("ui.settings.aplikacja") : t("ui.settings.przegladarka")}`;
 }
 function feedback(where, category) {
   const p = new URLSearchParams({ usp: "pp_url" });
@@ -71,7 +71,7 @@ function feedback(where, category) {
   const info = window.SiatkaGame && window.SiatkaGame.caseInfo(); if (info) p.set(F.caseInfo, info);
   p.set(F.device, device());
   window.open(FORM + "?" + p.toString(), "_blank", "noopener");
-  track("uwagi/" + where, "Zgłoszenie uwagi: " + where);
+  track("uwagi/" + where, t("ui.settings.zgloszenie_uwagi") + where);
 }
 window.SiatkaFeedback = { open: feedback, device };
 
@@ -94,14 +94,14 @@ function paintFs() {
   const b = $("fsBtn"), on = fsActive();
   b.hidden = !fsSupported || installed();
   b.innerHTML = on ? FS_OFF : FS_ON;
-  b.title = on ? "Wyjdź z pełnego ekranu" : "Pełny ekran"; b.setAttribute("aria-label", b.title);
+  b.title = on ? t("ui.settings.wyjdz_z_pelnego_ekranu") : t("ui.settings.pelny_ekran"); b.setAttribute("aria-label", b.title);
 }
 $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, paintFs));
 paintFs();
 
-/* ---------- „Co nowego”: dziennik zmian z data/changelog.js, kropka przy zębatce po nowej wersji ---------- */
-const NEWS = window.SIATKA_CHANGELOG || [], NKEY = "siatka-news-seen";
+/* ---------- „Co nowego”: dziennik zmian (klucz ui.changelog w data/i18n/pl.js), kropka przy zębatce po nowej wersji ---------- */
+const NEWS = SiatkaI18n.get("ui.changelog") || [], NKEY = "siatka-news-seen";
 const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
 const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
 function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }
@@ -126,8 +126,7 @@ paintDot();
 let view = "main";
 const fmtDate = d => { const [y, m, dd] = d.split("-"); return `${+dd}.${+m}.${y}`; };
 function renderNews() {
-  $("menuCard").innerHTML = `<h3>Co nowego</h3><div class="news">${NEWS.map(n => `<h4>Wersja ${n.v}<small>${fmtDate(n.date)}</small></h4><ul>${n.items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("")}</div>
-    <div class="foot"><button class="btn ghost" id="newsBack">Wróć</button></div>`;
+  $("menuCard").innerHTML = t("ui.settings.co_nowego_wroc_html", { join: NEWS.map(n => t("ui.settings.wersja_html", { v: n.v, fmtDate: fmtDate(n.date), join: n.items.map(i => `<li>${i}</li>`).join("") })).join("") });
   $("newsBack").onclick = () => { view = "main"; render(); };
   markNews();
 }
@@ -139,30 +138,18 @@ const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-
 function render() {
   if (view === "news") return renderNews();
   let app;
-  if (installed()) app = `<p class="set-note">Gra jest zainstalowana na tym urządzeniu.</p>`;
-  else if (deferred) app = `<button class="btn red set-install" id="setInstall">Zainstaluj grę</button><p class="set-note">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>`;
-  else if (hint()) app = `<p class="set-note"><b>Zainstaluj grę:</b> ${hint()}</p>`;
+  if (installed()) app = t("ui.settings.gra_jest_zainstalowana_na_tym_html");
+  else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
+  else if (hint()) app = t("ui.settings.zainstaluj_gre_html", { hint: hint() });
   else app = "";
-  $("menuCard").innerHTML = `<h3>Ustawienia</h3>
-    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
-      <button class="pick wide" id="setNews">Co nowego${hasNews() ? '<span class="dot" aria-label="nowe"></span>' : ""}</button>
-      ${window.SiatkaAch ? (c => `<button class="pick wide set-ach" id="setAch">Osiągnięcia <small>${c.got}/${c.all}</small></button>`)(window.SiatkaAch.count()) : ""}
-      <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
-    <div class="lbl">Dźwięk</div>
-    ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
-    ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
-    ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
-    ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
-    <a class="support-link" id="setSupport" href="${SUPPORT_URL}" target="_blank" rel="noopener"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>
-    <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
-    <p class="set-foot">siatkapowiazan.pl</p>`;
+  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", SUPPORT_URL });
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
-  $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", "Co nowego"); render(); };
+  $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
   $("setStats").onclick =() => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
-  $("setSupport").onclick = () => track("wsparcie/ustawienia", "Wsparcie twórcy: ustawienia");
+  $("setSupport").onclick = () => track("wsparcie/ustawienia", t("ui.settings.wsparcie_tworcy_ustawienia"));
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };

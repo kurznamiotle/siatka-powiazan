@@ -363,5 +363,8 @@
   };
 
   root.SIATKA_CITIES = CITIES;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { cities: CITIES } });
   if (typeof module !== "undefined" && module.exports) module.exports = CITIES;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -9,7 +9,7 @@
 const fs = require("fs"), path = require("path");
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
+const WORLD = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
 
 const [, , a1, a2, city, year, size] = process.argv;
 if (a1 === "verify") {

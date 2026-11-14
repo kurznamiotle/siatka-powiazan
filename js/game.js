@@ -3,7 +3,8 @@
  * Wymaga: engine/sprites.js, engine/engine.js, data/base.js, data/cities.js, js/audio.js
  */
 (() => {
-const WORLD = { base: window.SIATKA_BASE, cities: window.SIATKA_CITIES };
+const WORLD = SiatkaI18n.world();
+SiatkaI18n.apply(document); // statyczne teksty index.html (data-i18n)
 const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
@@ -106,8 +107,8 @@ function buildRich() {
     "(?<t>\\d{1,2}:\\d{2})",
     ...(locs.size ? [`(?<l>${[...locs].sort((a, b) => b.length - a.length).map(esc).join("|")})`] : []),
     // klucze i alibi, a do łączenia dowodów z teczkami: inicjały (B.S.) i numery mieszkań
-    "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek|\\p{Lu}\\.\\p{Lu}\\.|m\\. \\d+|(?:mieszkani\\p{L}*|numer\\p{L}*|spod) (?:nr )?\\d+)",
-    "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)"
+    t("ui.game.hl_keys_re"),
+    t("ui.game.hl_cars_re")
   ];
   RICH = new RegExp(`(?<![\\p{L}\\d])(?:${parts.join("|")})(?![\\p{L}\\d])`, "giu");
 }
@@ -125,7 +126,7 @@ function reportAbandon(c, kindRaw) {
   if (sent.includes(id)) return;
   sent.push(id); ls.set("siatka-aband", sent.slice(-60));
   const kind = kindRaw === "daily" ? "daily" : "archive";
-  track(`case_abandon/${kind}/${c.size}/${deviceType()}`, `Sprawa porzucona: ${kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size} (${deviceType()})`);
+  track(`case_abandon/${kind}/${c.size}/${deviceType()}`, t("ui.game.sprawa_porzucona_v_size_devicetype", { v: kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum"), size: c.size, deviceType: deviceType() }));
 }
 function abandonCheck(next) {
   try {
@@ -152,15 +153,10 @@ function timelineIntro() {
   if (ls.get("siatka-new-timeline") || !CASE || CASE.archetype !== "timeline" || ($("howto") && !$("howto").hidden)) return;
   ls.set("siatka-new-timeline", 1);
   const ov = document.createElement("div"); ov.className = "overlay"; const t0 = Date.now();
-  ov.innerHTML = `<div class="card tl-card" role="dialog" aria-modal="true" aria-labelledby="tlH"><h3 id="tlH">Nowy typ sprawy: oś czasu</h3>
-    <p>Nikt nie jest w dwóch miejscach naraz. W notatniku jest tabela czasów dojścia, a w teczkach godziny, o których kogo widziano: sprawdź, kto zdążyłby dojść na miejsce zdarzenia, spędzić tam tyle, ile mówi reguła, i wrócić na czas.</p>
-    <table class="tt"><tbody><tr><td>Kiosk ↔ Miejsce zdarzenia</td><td>10 min</td></tr><tr><td>Bar ↔ Miejsce zdarzenia</td><td>15 min</td></tr></tbody></table>
-    <p class="ex">Sprawca był na miejscu co najmniej 10 min. Anna była w kiosku o 19:00, a w barze o 19:40. Droga tam (10 min), 10 min na miejscu i droga do baru (15 min) to 35 min, a miała 40, więc mogła zdążyć. Gdyby w barze była o 19:30, nie zdążyłaby.</p>
-    <p>Oskarżasz tylko sprawcę, bez narzędzia.</p>
-    <div class="foot"><button class="btn red" id="tlGo">Do roboty</button></div></div>`;
+  ov.innerHTML = t("ui.game.nowy_typ_sprawy_os_czasu_html");
   document.body.appendChild(ov); AU.sfx("paper");
   ov.querySelector("#tlGo").onclick = () => { ov.remove(); if (S && !S.done) S.t0 += Date.now() - t0; saveSoon(); };
-  track("os-czasu/karta", "Oś czasu: karta wprowadzająca");
+  track("os-czasu/karta", t("ui.game.os_czasu_karta_wprowadzajaca"));
 }
 function load(c, label, meta, saved) {
   abandonCheck(c);
@@ -184,8 +180,8 @@ function load(c, label, meta, saved) {
   $("caseLine").textContent = `${label} · ${c.city_name}, ${c.year}`;
   buildBoard();
   const nh = Math.min(3, c.hints.length);
-  $("hintBtn").disabled = S.done || S.hints >= nh; $("hintBtn").textContent = `Podpowiedź (${nh - S.hints})`;
-  $("accuseBtn").textContent = S.done ? "Wynik" : "Oskarż";
+  $("hintBtn").disabled = S.done || S.hints >= nh; $("hintBtn").textContent = t("ui.game.podpowiedz_v", { v: nh - S.hints });
+  $("accuseBtn").textContent = S.done ? t("ui.game.wynik") : t("ui.game.oskarz");
   $("result").hidden = true; $("accuse").hidden = true; $("newCase").hidden = true;
   $("clock").textContent = fmt((S.tEnd || Date.now()) - S.t0);
   renderLives(); hideToast(); renderTabs(); renderSheet(); paintQuota();
@@ -193,7 +189,7 @@ function load(c, label, meta, saved) {
   saveNow(); paintDaily();
   if (!saved) rememberUsed(c);
   if (c.archetype === "timeline") setTimeout(timelineIntro, 400);
-  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
+  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, t("ui.game.start_v_size", { v: meta.kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum"), size: c.size }));
 }
 
 /* ---------- tablica: układ zależny od liczby węzłów ---------- */
@@ -208,11 +204,11 @@ function buildBoard() {
     const r = Math.round((h01(n.id + "r") * 2 - 1) * 3);
     b.style.setProperty("--r", r + "deg");
     b.innerHTML = `<span class="ph">${sprite(n.sprite)}</span><span class="lb">${n.label}</span>`;
-    b.setAttribute("aria-label", `${n.name}, otwórz akta`);
+    b.setAttribute("aria-label", t("ui.game.name_otworz_akta", { name: n.name }));
     b.addEventListener("click", () => cardTap(n.id));
     board.appendChild(b);
     const p = document.createElement("button");
-    p.className = "pin"; p.dataset.pin = n.id; p.setAttribute("aria-label", `Pinezka: ${n.name}`);
+    p.className = "pin"; p.dataset.pin = n.id; p.setAttribute("aria-label", t("ui.game.pinezka_name", { name: n.name }));
     board.appendChild(p);
     els[n.id] = { card: b, pin: p, r, n };
   });
@@ -290,7 +286,7 @@ function pathD(a, b, m = 1) { const d = Math.hypot(b.x - a.x, b.y - a.y), sag = 
 function drawStrings(fresh) {
   let h = "";
   S.strings.forEach(k => { const [a, b] = k.split("|"); const d = pathD(els[a].pt, els[b].pt, k === fresh && !reduced() ? 0 : 1);
-    h += `<path class="s" data-k="${k}" d="${d}"/><path class="hit" data-k="${k}" d="${d}"><title>Przetnij sznurek</title></path>`; });
+    h += t("ui.game.przetnij_sznurek_html", { k, d, k2: k, d2: d }); });
   svgEl.innerHTML = h + `<path class="tmp" id="tmp" d=""/>`;
   svgEl.querySelectorAll(".hit").forEach(p => p.addEventListener("click", e => { e.stopPropagation(); cut(p.dataset.k); }));
   if (fresh && !reduced()) twang(fresh);
@@ -412,7 +408,7 @@ window.addEventListener("pointercancel", e => endDrag(e, true));
 function setPending(id) {
   if (S.pending && els[S.pending]) els[S.pending].pin.classList.remove("pending");
   S.pending = id; showCompatible(id);
-  if (id) { els[id].pin.classList.add("pending"); toast("Łączenie", `Stuknij pulsującą pinezkę albo zdjęcie, żeby przeciągnąć sznurek od: ${byId[id].name}.`, 0); }
+  if (id) { els[id].pin.classList.add("pending"); toast(t("ui.game.laczenie"), t("ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby", { name: byId[id].name }), 0); }
   else hideToast();
 }
 function cardTap(id) {
@@ -439,29 +435,25 @@ function renderTabs() { $("tab-akta").setAttribute("aria-selected", S.tab === "a
 function travelTable() {
   if (!CASE.travel) return "";
   const nm = id => byId[id] ? byId[id].name : id;
-  return `<div class="lbl tt-h">Czasy dojścia pieszo</div><table class="tt"><tbody>${CASE.travel.map(([a, b, m]) =>
-    `<tr><td>${nm(a)} ↔ ${nm(b)}</td><td>${m} min</td></tr>`).join("")}</tbody></table>${CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : ""}`;
+  return t("ui.game.czasy_dojscia_pieszo_html", { join: CASE.travel.map(([a, b, m]) =>
+    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : "" });
 }
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
   if (S.tab === "notes") {
-    sheet.innerHTML = `<h2>Notatnik detektywa</h2><div class="kind">Ustalenia techników i lekarza</div><ol>${CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join("")}</ol>${travelTable()}`;
+    sheet.innerHTML = t("ui.game.notatnik_detektywa_ustalenia_technikow_i_html", { join: CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join(""), travelTable: travelTable() });
     return;
   }
   if (!S.sel) {
     const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
-    const evTxt = ne ? ` · ${ne} ${ne === 1 ? "dowód rzeczowy" : ne < 5 ? "dowody rzeczowe" : "dowodów rzeczowych"}` : "";
-    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni ? `${ni} ${ni > 4 ? "przedmiotów" : "przedmioty"}` : `${CASE.nodes.filter(n => n.type === "location").length} miejsca`}${evTxt} ·${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
-      <p class="how">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>`;
+    const evTxt = ne ? ` · ${ne} ${ne === 1 ? t("ui.game.dowod_rzeczowy") : ne < 5 ? t("ui.game.dowody_rzeczowe") : t("ui.game.dowodow_rzeczowych")}` : "";
+    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? `${ni} ${ni > 4 ? t("ui.game.przedmiotow") : t("ui.game.przedmioty")}` : t("ui.game.length_miejsca", { length: CASE.nodes.filter(n => n.type === "location").length }), evTxt, length: CASE.rules.length, v2: CASE.rules.length < 5 ? "y" : "", rich: rich(CASE.intro) });
     return;
   }
   const n = byId[S.sel];
   const linked = [...S.strings].filter(k => k.split("|").includes(n.id)).map(k => byId[k.split("|").find(x => x !== n.id)].label);
   const canOut = n.type === "person" || n.type === "item";
-  sheet.innerHTML = `<h2>${n.name}</h2><div class="kind">${n.kind}</div><ul>${n.text.map(f => `<li>${rich(f)}</li>`).join("")}</ul>
-    <div class="row">${canOut ? `<button class="chip ${S.out.has(n.id) ? "on" : ""}" id="outBtn">${S.out.has(n.id) ? "Przywróć" : "Wyklucz"}</button>` : ""}
-    <button class="chip" id="backBtn">Akta sprawy</button></div>
-    ${linked.length ? `<p class="how">Powiązania: ${linked.join(", ")}</p>` : ""}`;
+  sheet.innerHTML = t("ui.game.akta_sprawy_html", { name: n.name, kind: n.kind, join: n.text.map(f => `<li>${rich(f)}</li>`).join(""), v: canOut ? `<button class="chip ${S.out.has(n.id) ? "on" : ""}" id="outBtn">${S.out.has(n.id) ? t("ui.game.przywroc") : t("ui.game.wyklucz")}</button>` : "", v2: linked.length ? t("ui.game.powiazania_html", { join: linked.join(", ") }) : "" });
   const ob = $("outBtn");
   if (ob) ob.onclick = () => {
     S.out.has(n.id) ? S.out.delete(n.id) : S.out.add(n.id);
@@ -481,11 +473,11 @@ toastEl.addEventListener("click", hideToast);
 $("hintBtn").onclick = () => {
   const max = Math.min(3, CASE.hints.length);
   if (S.hints >= max || S.done) return;
-  toast(`Podpowiedź ${S.hints + 1}/${max}`, rich(CASE.hints[S.hints]), 9000);
+  toast(t("ui.game.podpowiedz_v_max", { v: S.hints + 1, max }), rich(CASE.hints[S.hints]), 9000);
   AU.sfx("hint"); haptic(10);
-  S.hints++; $("hintBtn").textContent = `Podpowiedź (${max - S.hints})`; if (S.hints >= max) $("hintBtn").disabled = true;
+  S.hints++; $("hintBtn").textContent = t("ui.game.podpowiedz_v", { v: max - S.hints }); if (S.hints >= max) $("hintBtn").disabled = true;
   saveSoon();
-  track(`podpowiedz/${S.hints}`, `Podpowiedź ${S.hints}`);
+  track(`podpowiedz/${S.hints}`, t("ui.game.podpowiedz_hints", { hints: S.hints }));
 };
 setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent = fmt(Date.now() - S.t0); }, 1000);
 /* zegar stoi, gdy gra jest w tle */
@@ -505,7 +497,7 @@ function buildPicks() {
   const mk = (boxId, type, field) => {
     const box = $(boxId); box.innerHTML = "";
     CASE.nodes.filter(n => n.type === type).forEach(n => {
-      const b = document.createElement("button"); b.className = "pick"; b.textContent = n.name + (S.out.has(n.id) ? " · wykluczony" : "");
+      const b = document.createElement("button"); b.className = "pick"; b.textContent = n.name + (S.out.has(n.id) ? t("ui.game.wykluczony") : "");
       b.onclick = () => { S.pick[field] = n.id; box.querySelectorAll(".pick").forEach(x => x.classList.remove("on")); b.classList.add("on"); goBtn.disabled = !(S.pick.who && (S.pick.what || whoOnly())); msg.textContent = ""; AU.sfx("tick"); haptic(5); };
       box.appendChild(b);
     });
@@ -523,22 +515,22 @@ goBtn.onclick = () => {
   AU.sfx("stamp"); haptic([30, 60, 30]);
   const card = $("accuseCard"); card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
   const left = 3 - S.wrong;
-  msg.textContent = `Prokurator odrzuca akt oskarżenia. Fakty się nie spinają. ${left === 1 ? "Została 1 próba." : `Zostały ${left} próby.`}`;
+  msg.textContent = t("ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie", { v: left === 1 ? t("ui.game.zostala_1_proba") : t("ui.game.zostaly_left_proby", { left }) });
 };
 function renderLives() { document.querySelectorAll("#lives i").forEach((i, ix) => i.classList.toggle("lost", ix >= 3 - S.wrong)); }
 function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
   $("clock").textContent = fmt(S.tEnd - S.t0); // ten sam czas co w wyniku i po powrocie
-  $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
+  $("accuseBtn").textContent = t("ui.game.wynik"); $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
   HIST.record(CASE, { kind: META.kind, win, stars: starsOf(), ms: S.tEnd - S.t0, wrong: S.wrong, hints: S.hints });
   paintDaily();
-  if (win) track(`case_win/${META.kind === "daily" ? "daily" : "archive"}/${CASE.size}/${deviceType()}`, `Wygrana (${deviceType()})`);
-  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
-  if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
+  if (win) track(`case_win/${META.kind === "daily" ? "daily" : "archive"}/${CASE.size}/${deviceType()}`, t("ui.game.wygrana_devicetype", { deviceType: deviceType() }));
+  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? t("ui.game.wygrana") : t("ui.game.przegrana")}: ${META.kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum")}`);
+  if (win) track(`wynik/${starsOf()}-gwiazdki`, t("ui.game.wynik_starsof_z_3_gwiazdek", { starsOf: starsOf() }));
   const cur = META.kind === "daily" ? HIST.summary().daily.cur : 0;
-  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
+  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, t("ui.game.seria_cur_dni", { cur }));
   showResult();
   if (window.SiatkaAch) {
     const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length;
@@ -558,46 +550,28 @@ function showResult() {
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
-  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}` +
-    (sum && sum.cur >= 2 ? `\nSeria: ${sum.cur} 🔥` : "") + `\n${URL_GRY}`;
-  $("resultCard").innerHTML = `
-    <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
-    <h3></h3>
-    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}${wpn ? `, a narzędziem ${(wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1))}` : ""}.</p>`}
-    <p class="epi">${CASE.epilogue}</p>
-    <div class="lbl">Rozumowanie</div>
-    <ul class="why">${CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join("")}</ul>
-    <div class="lbl">Twoja tablica</div>
-    <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label}${wpn ? " → " + wpn.label : ""}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
-    ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
-    <div class="lbl">Sprawy dnia</div>
-    <div class="st-grid mini"><div><b>${sm.daily.cur}</b><span>seria</span></div><div><b>${sm.daily.best}</b><span>rekord</span></div><div><b>${sm.daily.pct}%</b><span>wygrane</span></div><div><b>${sm.daily.played}</b><span>rozegrane</span></div></div>
-    <div class="lbl">Wszystkie sprawy</div>
-    <div class="st-grid mini three"><div><b>${sm.all.played}</b><span>rozegrane</span></div><div><b>${sm.all.pct}%</b><span>wygrane</span></div><div><b>${sm.all.avgMs ? fmt(sm.all.avgMs) : "–"}</b><span>średni czas</span></div></div>
-    <div class="lbl">Wynik do udostępnienia</div>
-    <div class="share" id="shareTxt"></div>
-    <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
-    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>
-    ${win && window.SiatkaSupport ? `<p class="support-line"><a id="supportLink" href="${window.SiatkaSupport.url}" target="_blank" rel="noopener">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>` : ""}`;
+  const share = t("ui.game.siatka_powiazan_label_city_name_year", { label: S.label, city_name: CASE.city_name, year: CASE.year, repeat: "🔴".repeat(S.wrong), v: win ? "🟢" : "", repeat2: "★".repeat(stars), repeat3: "☆".repeat(3 - stars), hints: S.hints, time }) +
+    (sum && sum.cur >= 2 ? t("ui.game.seria_cur", { cur: sum.cur }) : "") + `\n${URL_GRY}`;
+  $("resultCard").innerHTML = t("ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html", { v: win ? "ok" : "", v2: win ? t("ui.game.sprawa_zamknieta") : t("ui.game.sprawa_umorzona"), v3: win ? t("ui.game.z_3_html", { stars, repeat: "★".repeat(stars), repeat2: "☆".repeat(3 - stars) }) : t("ui.game.sprawca_html", { v: cul.g === "f" ? t("ui.game.byla") : t("ui.game.byl"), name: cul.name, v2: wpn ? t("ui.game.a_narzedziem_v", { v: wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1) }) : "" }), epilogue: CASE.epilogue, join: CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join(""), good, bad, label: cul.label, label2: loc.label, v4: wpn ? " → " + wpn.label : "", v5: chainDone ? t("ui.game.domkniety") : t("ui.game.niedomkniety"), v6: win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : "", cur: sm.daily.cur, best: sm.daily.best, pct: sm.daily.pct, played: sm.daily.played, played2: sm.all.played, pct2: sm.all.pct, v7: sm.all.avgMs ? fmt(sm.all.avgMs) : "–", v8: navigator.share ? t("ui.game.udostepnij") : t("ui.game.kopiuj_wynik"), v9: S.label === WARMUP ? t("ui.game.sprawa_dnia_html") : t("ui.game.nowa_sprawa_html"), v10: win && window.SiatkaSupport ? t("ui.game.podoba_ci_sie_postaw_komisarzowi_html", { url: window.SiatkaSupport.url }) : "" });
   $("resultCard").querySelector("h3").textContent = wpn ? `${cul.name} · ${wpn.name}` : cul.name;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
   $("copyBtn").onclick = e => {
     const b = e.currentTarget;
-    const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Zaznaczono, skopiuj"; };
-    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", "Wynik skopiowany"); }, sel); } catch (_) { sel(); } };
+    const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = t("ui.game.zaznaczono_skopiuj"); };
+    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", t("ui.game.wynik_skopiowany")); }, sel); } catch (_) { sel(); } };
     // telefon: systemowe „Udostępnij”; anulowanie nic nie robi, brak wsparcia → kopiowanie
-    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
+    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", t("ui.game.wynik_udostepniony")), err => { if (!err || err.name !== "AbortError") copy(); });
     else copy();
   };
   if ($("againBtn")) $("againBtn").onclick = openNewCase;
   if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
-  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
-  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", "Wsparcie twórcy: wynik");
+  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", t("ui.game.blad_w_sprawie_logice")); };
+  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", t("ui.game.wsparcie_tworcy_wynik"));
   paintQuota();
   /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
      przeglądarka uzna, że to już nie gest gracza */
-  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : "archiwum"}.png`;
+  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : t("ui.game.archiwum")}.png`;
   const img = window.SiatkaShareImg ? SiatkaShareImg.render({
     label: S.label, place: `${CASE.city_name}, ${CASE.year}`, win, stars, time, wrong: S.wrong, hints: S.hints,
     streak: sum && sum.cur ? sum.cur : null, seed: CASE.seed, url: URL_GRY,
@@ -608,12 +582,12 @@ function showResult() {
     const b = e.currentTarget;
     try {
       const blob = await img;
-      if (!blob) throw new Error("brak obrazka");
+      if (!blob) throw new Error(t("ui.game.brak_obrazka"));
       const r = await SiatkaShareImg.deliver(blob, imgName);
       if (r === "cancel") return;
-      b.textContent = r === "shared" ? "Udostępniono" : "Zapisano"; AU.sfx("tick"); haptic(8);
-      track("wynik/obrazek", "Wynik jako obrazek");
-    } catch (_) { b.textContent = "Nie udało się"; }
+      b.textContent = r === "shared" ? t("ui.game.udostepniono") : "Zapisano"; AU.sfx("tick"); haptic(8);
+      track("wynik/obrazek", t("ui.game.wynik_jako_obrazek"));
+    } catch (_) { b.textContent = t("ui.game.nie_udalo_sie"); }
   };
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
@@ -660,20 +634,20 @@ try { localStorage.removeItem("siatka-next-case"); } catch (_) {} // po dawnej b
 /* Przy 0/5 przycisk jest wyszarzony, ale klikalny: pokazuje kartkę „archiwum zamknięte”. */
 function paintQuota() {
   const left = quota.left(), dev = left === Infinity;
-  const label = dev ? "Nowa sprawa" : `Nowa sprawa · ${left}/${DAILY_NEW_CASES}`;
+  const label = dev ? t("ui.game.nowa_sprawa") : t("ui.game.nowa_sprawa_left_daily_new_cases", { left, DAILY_NEW_CASES });
   ["newBtn", "againBtn"].forEach(id => {
     const b = $(id); if (!b) return;
     b.textContent = label; b.disabled = false; b.classList.toggle("spent", !left);
-    b.setAttribute("aria-label", dev ? label : `Nowa sprawa, na dziś ${left === 1 ? "została" : "zostało"} ${left} z ${DAILY_NEW_CASES}`);
+    b.setAttribute("aria-label", dev ? label : t("ui.game.nowa_sprawa_na_dzis_v_left", { v: left === 1 ? t("ui.game.zostala") : t("ui.game.zostalo"), left, DAILY_NEW_CASES }));
   });
 }
 function showLimit() {
   const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const min = Math.max(1, Math.ceil((mid - now) / 60000)), h = Math.floor(min / 60);
-  $("limitWhen").textContent = `Nowe sprawy za ${h ? `${h} h ` : ""}${min % 60} min, o północy.`;
+  $("limitWhen").textContent = t("ui.game.nowe_sprawy_za_v_v2_min", { v: h ? `${h} h ` : "", v2: min % 60 });
   $("limit").hidden = false;
   AU.sfx("stamp"); haptic([20, 50, 20]);
-  track("limit/wyczerpany", "Limit nowych spraw wyczerpany");
+  track("limit/wyczerpany", t("ui.game.limit_nowych_spraw_wyczerpany"));
 }
 $("limitClose").onclick = () => { $("limit").hidden = true; };
 $("limitDaily").onclick = () => { $("limit").hidden = true; $("result").hidden = true; saveNow(); AU.sfx("page"); dailyCase(); };
@@ -689,8 +663,8 @@ function dailyState() {
 }
 function paintDaily() {
   const st = dailyState(), b = $("dailyBtn");
-  b.innerHTML = "Sprawa dnia" + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
-  b.setAttribute("aria-label", st ? `Sprawa dnia, ${st === "win" ? "rozwiązana" : "umorzona"}` : "Sprawa dnia");
+  b.innerHTML = t("ui.game.sprawa_dnia") + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
+  b.setAttribute("aria-label", st ? t("ui.game.sprawa_dnia_v", { v: st === "win" ? t("ui.game.rozwiazana") : "umorzona" }) : t("ui.game.sprawa_dnia"));
 }
 const paintDay = () => { paintQuota(); paintDaily(); };
 /* o północy: nowy licznik i nowa sprawa dnia (timery w tle bywają uśpione, więc też przy powrocie do karty) */
@@ -709,7 +683,7 @@ function rampSize() {
 }
 /* Rozgrzewka: nowy gracz (0 ukończonych gier), który trafia na sprawę dnia L lub XL, dostaje najpierw małą
    sprawę spoza serii. Sprawa dnia zostaje wspólna dla wszystkich i czeka pod przyciskiem. */
-const WARMUP = "Sprawa na rozgrzewkę";
+const WARMUP = t("ui.game.sprawa_na_rozgrzewke");
 function warmupCase() {
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
   if (todaySave()) return false; // sprawa dnia już zaczęta
@@ -726,19 +700,19 @@ function newCase() {
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
-  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), "Sprawa z archiwum", { kind: "random" });
+  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), t("ui.game.sprawa_z_archiwum"), { kind: "random" });
   paintQuota();
 }
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = todaySave();
-  const label = `Sprawa #${String(n).padStart(3, "0")}`;
+  const label = t("ui.game.sprawa_padstart", { padStart: String(n).padStart(3, "0") });
   /* Historia mówi, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
      gry albo zapis był z innej wersji generatora): zamykamy ją z wynikiem z historii. Drugi raz się jej nie rozegra. */
   const st = HIST.dailyResult(n);
   const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
-    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn("Zapis sprawy dnia pominięty", e); }
+    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
   }
   // brak pasującego zapisu: świeża sprawa; rozegrana już (wg statystyk) wraca od razu zamknięta
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" }, closed || undefined);
@@ -746,7 +720,7 @@ function dailyCase() {
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
   if (!saveOk(sv) || sv.done) return false;
-  try { load(sv.case, sv.label || "Sprawa z archiwum", { kind: "random" }, sv); return true; } catch (e) { console.warn("Zapis sprawy z archiwum pominięty", e); return false; }
+  try { load(sv.case, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random" }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
 $("newBtn").onclick = openNewCase;
@@ -771,16 +745,16 @@ if (!(ls.get(SAVE.last) === "random" && resumeRandom()) && !warmupCase()) dailyC
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
 function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
-  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
-  const t = Date.now(); setPending(null);
-  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
+  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? t("ui.game.samouczek_pierwsze_uruchomienie") : t("ui.game.samouczek_przycisk"));
+  const opened = Date.now(); setPending(null);
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - opened; saveSoon(); }, { install: auto === true });
 }
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
 /* opis bieżącej sprawy do zgłoszeń: wystarczy, żeby ją odtworzyć (seed + miasto, rok, wielkość) */
 function caseInfo() {
   if (!CASE || !S) return "";
-  const st = S.done ? (S.win ? "rozwiązana" : "umorzona") : "w trakcie";
-  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · generator ${Siatka.caseVersion(CASE)} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
+  const st = S.done ? (S.win ? t("ui.game.rozwiazana") : "umorzona") : t("ui.game.w_trakcie");
+  return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
 window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
 })();

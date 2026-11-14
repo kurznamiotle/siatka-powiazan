@@ -95,7 +95,7 @@ function draw(d) {
   g.textAlign = "center"; g.textBaseline = "alphabetic";
 
   // nagłówek
-  g.fillStyle = C.fg; g.font = `700 84px ${F.pixel}`; g.fillText("Siatka Powiązań", W / 2, 140);
+  g.fillStyle = C.fg; g.font = `700 84px ${F.pixel}`; g.fillText(t("ui.share.siatka_powiazan"), W / 2, 140);
   g.fillStyle = C.muted; g.font = `40px ${F.type}`; g.fillText(`${d.label} · ${d.place}`, W / 2, 204);
 
   // tablica: rzędy jak w grze, ale kolejność w rzędzie przetasowana
@@ -147,8 +147,8 @@ function draw(d) {
   // gwiazdki
   for (let i = 0; i < 3; i++) star(g, W / 2 - 90 + i * 90, PY + 82, 36, i < d.stars);
   // statystyki
-  const cells = [["czas", d.time], ["pomyłki", String(d.wrong)], ["podpowiedzi", String(d.hints)]];
-  if (d.streak) cells.push(["seria", `${d.streak} ${d.streak === 1 ? "dzień" : "dni"}`]);
+  const cells = [[t("ui.share.czas"), d.time], [t("ui.share.pomylki"), String(d.wrong)], [t("ui.share.podpowiedzi"), String(d.hints)]];
+  if (d.streak) cells.push([t("ui.share.seria"), `${d.streak} ${d.streak === 1 ? t("ui.share.dzien") : t("ui.share.dni")}`]);
   const cw = (PW - 60) / cells.length;
   cells.forEach(([k, v], i) => {
     const cx = PX + 30 + cw * i + cw / 2;
@@ -159,7 +159,7 @@ function draw(d) {
 
   // pieczątka na styku tablicy i kartki
   g.save(); g.translate(W / 2 + 150, PY - 10); g.rotate(-6 * Math.PI / 180);
-  const txt = d.win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA", col = d.win ? C.ok : C.stamp;
+  const txt = d.win ? t("ui.share.sprawa_zamknieta") : t("ui.share.sprawa_umorzona"), col = d.win ? C.ok : C.stamp;
   g.font = `700 58px ${F.pixel}`;
   const tw = g.measureText(txt).width;
   g.globalAlpha = .93;

@@ -10,7 +10,7 @@
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const W = { base: require("../data/base.js"), cities: require("../data/cities.js") };
+const W = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
 const root = path.join(__dirname, "..");
 let fails = 0;
 const check = (ok, msg) => { console.log(`${ok ? "ok  " : "BŁĄD"} ${msg}`); if (!ok) fails++; };

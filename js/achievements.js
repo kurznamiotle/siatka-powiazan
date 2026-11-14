@@ -25,28 +25,28 @@ function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch
 /* ---------- lista ---------- */
 const streak = () => { try { return window.SiatkaHistory ? SiatkaHistory.summary().daily.cur : 0; } catch (_) { return 0; } };
 const ACH = [
-  { id: "pierwsza", name: "Pierwsza sprawa", desc: "Zamknij pierwszą sprawę.", tier: 1, g: "lupa", ok: (i) => i.win },
-  { id: "bez-pudla", name: "Bez pudła", desc: "Zamknij sprawę na trzy gwiazdki.", tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
-  { id: "ostatni-naboj", name: "Ostatni nabój", desc: "Wygraj przy ostatniej próbie.", tier: 1, g: "bullet", ok: (i) => i.win && i.wrong === 2 },
-  { id: "sito", name: "Sito", desc: "Przed oskarżeniem wyklucz wszystkich niewinnych.", tier: 1, g: "x", ok: (i) => i.win && i.allOut },
-  { id: "nocna-zmiana", name: "Nocna zmiana", desc: "Zamknij sprawę między północą a czwartą rano.", tier: 1, g: "moon", ok: (i) => i.win && i.hour < 4 },
-  { id: "seria-3", name: "Stały rytm", desc: "Rozwiąż sprawę dnia trzy dni z rzędu.", tier: 1, g: "flame", need: 3, prog: () => streak() },
-  { id: "bywalec", name: "Stały bywalec", desc: "Zamknij 10 spraw.", tier: 1, g: "tally", need: 10, prog: () => statsSolved() },
+  { id: "pierwsza", name: t("ui.ach.pierwsza_sprawa"), desc: t("ui.ach.zamknij_pierwsza_sprawe"), tier: 1, g: "lupa", ok: (i) => i.win },
+  { id: "bez-pudla", name: t("ui.ach.bez_pudla"), desc: t("ui.ach.zamknij_sprawe_na_trzy_gwiazdki"), tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
+  { id: "ostatni-naboj", name: t("ui.ach.ostatni_naboj"), desc: t("ui.ach.wygraj_przy_ostatniej_probie"), tier: 1, g: "bullet", ok: (i) => i.win && i.wrong === 2 },
+  { id: "sito", name: t("ui.ach.sito"), desc: t("ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn"), tier: 1, g: "x", ok: (i) => i.win && i.allOut },
+  { id: "nocna-zmiana", name: t("ui.ach.nocna_zmiana"), desc: t("ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta"), tier: 1, g: "moon", ok: (i) => i.win && i.hour < 4 },
+  { id: "seria-3", name: t("ui.ach.staly_rytm"), desc: t("ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z"), tier: 1, g: "flame", need: 3, prog: () => streak() },
+  { id: "bywalec", name: t("ui.ach.staly_bywalec"), desc: "Zamknij 10 spraw.", tier: 1, g: "tally", need: 10, prog: () => statsSolved() },
 
-  { id: "blyskawica", name: "Błyskawica", desc: "Zamknij sprawę w mniej niż dwie minuty.", tier: 2, g: "clock", ok: (i) => i.win && i.ms < 120000 },
-  { id: "czysta-robota", name: "Czysta robota", desc: "Wygraj z domkniętym obwodem sprawcy i bez ani jednego sznurka bez pokrycia.", tier: 2, g: "check", ok: (i) => i.win && i.chain && i.bad === 0 },
-  { id: "pajeczyna", name: "Pajęczyna", desc: "Wygraj z co najmniej 10 sznurkami zgodnymi z faktami.", tier: 2, g: "web", ok: (i) => i.win && i.good >= 10 },
-  { id: "grube-akta", name: "Grube akta", desc: "Zamknij sprawę z sześcioma podejrzanymi.", tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
-  { id: "seria-7", name: "Tydzień na służbie", desc: "Rozwiąż sprawę dnia siedem dni z rzędu.", tier: 2, g: "flame", need: 7, prog: () => streak() },
-  { id: "delegacja", name: "Delegacja", desc: "Zamknij sprawę w każdym z siedmiu miast.", tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
-  { id: "wszechstronny", name: "Wszechstronny", desc: "Zamknij sprawę każdego z 11 typów zbrodni.", tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
+  { id: "blyskawica", name: t("ui.ach.blyskawica"), desc: t("ui.ach.zamknij_sprawe_w_mniej_niz_dwie"), tier: 2, g: "clock", ok: (i) => i.win && i.ms < 120000 },
+  { id: "czysta-robota", name: t("ui.ach.czysta_robota"), desc: t("ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i"), tier: 2, g: "check", ok: (i) => i.win && i.chain && i.bad === 0 },
+  { id: "pajeczyna", name: t("ui.ach.pajeczyna"), desc: t("ui.ach.wygraj_z_co_najmniej_10_sznurkami"), tier: 2, g: "web", ok: (i) => i.win && i.good >= 10 },
+  { id: "grube-akta", name: t("ui.ach.grube_akta"), desc: t("ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi"), tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
+  { id: "seria-7", name: t("ui.ach.tydzien_na_sluzbie"), desc: t("ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z"), tier: 2, g: "flame", need: 7, prog: () => streak() },
+  { id: "delegacja", name: t("ui.ach.delegacja"), desc: t("ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu"), tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
+  { id: "wszechstronny", name: t("ui.ach.wszechstronny"), desc: t("ui.ach.zamknij_sprawe_kazdego_z_11_typow"), tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
 
-  { id: "wielka-szostka", name: "Wielka szóstka", desc: "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.", tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
-  { id: "seria-30", name: "Miesiąc na służbie", desc: "Rozwiąż sprawę dnia 30 dni z rzędu.", tier: 3, g: "flame", need: 30, prog: () => streak() },
-  { id: "dekada", name: "Cała dekada", desc: "Zamknij sprawę z każdego roku od 1989 do 1999.", tier: 3, g: "cal", need: YEARS, prog: (st) => st.years.length },
-  { id: "weteran", name: "Weteran", desc: "Zamknij 50 spraw.", tier: 3, g: "tally", need: 50, prog: () => statsSolved() }
+  { id: "wielka-szostka", name: t("ui.ach.wielka_szostka"), desc: t("ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na"), tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
+  { id: "seria-30", name: t("ui.ach.miesiac_na_sluzbie"), desc: t("ui.ach.rozwiaz_sprawe_dnia_30_dni_z"), tier: 3, g: "flame", need: 30, prog: () => streak() },
+  { id: "dekada", name: t("ui.ach.cala_dekada"), desc: t("ui.ach.zamknij_sprawe_z_kazdego_roku_od"), tier: 3, g: "cal", need: YEARS, prog: (st) => st.years.length },
+  { id: "weteran", name: t("ui.ach.weteran"), desc: "Zamknij 50 spraw.", tier: 3, g: "tally", need: 50, prog: () => statsSolved() }
 ];
-const TIER = { 1: ["brąz", "#c07a3c", "#6e3f17", "#e7a56a"], 2: ["srebro", "#c8c8c2", "#6b6b66", "#f2f2ec"], 3: ["złoto", "#e3b347", "#8a5f12", "#fbe08c"] };
+const TIER = { 1: [t("ui.ach.braz"), "#c07a3c", "#6e3f17", "#e7a56a"], 2: ["srebro", "#c8c8c2", "#6b6b66", "#f2f2ec"], 3: [t("ui.ach.zloto"), "#e3b347", "#8a5f12", "#fbe08c"] };
 
 /* ---------- odznaki: piksele ---------- */
 const GLYPH = {
@@ -90,7 +90,7 @@ function onFinish(info) {
     add("cities", info.city); add("years", info.year); add("crimes", info.crime);
   }
   const fresh = ACH.filter(a => !st.got[a.id] && (a.need ? a.prog(st) >= a.need : a.ok(info)));
-  fresh.forEach(a => { st.got[a.id] = Date.now(); track(`osiagniecie/${a.id}`, `Osiągnięcie: ${a.name}`); });
+  fresh.forEach(a => { st.got[a.id] = Date.now(); track(`osiagniecie/${a.id}`, t("ui.ach.osiagniecie_name", { name: a.name })); });
   save(st);
   if (fresh.length) { queue.push(...fresh); setTimeout(showNext, 1300); } // po pieczątce i dzwonku wygranej
 }
@@ -102,13 +102,7 @@ function showNext() {
   const a = queue.shift(); if (!a) return;
   showing = true;
   const left = queue.length, [tierName] = TIER[a.tier];
-  $("achPopCard").innerHTML = `
-    <div class="ach-kicker">Nowe osiągnięcie</div>
-    <div class="ach-stage"><div class="ach-rays"></div>${badge(a, true)}${"<i></i>".repeat(10)}</div>
-    <div class="ach-tier t${a.tier}">${tierName}</div>
-    <h3>${a.name}</h3>
-    <p class="ach-desc">${a.desc}</p>
-    <div class="foot"><button class="btn red" id="achOk">${left ? `Dalej (${left})` : "Do akt"}</button></div>`;
+  $("achPopCard").innerHTML = t("ui.ach.nowe_osiagniecie_html", { badge: badge(a, true), repeat: "<i></i>".repeat(10), tier: a.tier, tierName, name: a.name, desc: a.desc, v: left ? t("ui.ach.dalej_left", { left }) : t("ui.ach.do_akt") });
   $("achPop").hidden = false;
   AU.sfx("medal", a.tier); tap([15, 40, 15, 40, 15, 40, 90]);
   $("achOk").onclick = () => { $("achPop").hidden = true; showing = false; AU.sfx("tick"); if (queue.length) setTimeout(showNext, 180); };
@@ -122,25 +116,21 @@ function open() {
     const on = !!st.got[a.id];
     const prog = !on && a.need ? Math.min(a.need, a.prog(st)) : 0;
     return `<li class="ach-row${on ? "" : " off"}">${badge(a, on)}<div><b>${a.name}</b><span>${a.desc}</span>
-      ${on ? `<small>${TIER[a.tier][0]} · zdobyte ${date(st.got[a.id])}</small>`
-        : a.need ? `<div class="ach-bar"><i style="width:${prog / a.need * 100}%"></i></div><small>${prog} z ${a.need}</small>` : `<small>${TIER[a.tier][0]}</small>`}</div></li>`;
+      ${on ? t("ui.ach.zdobyte_html", { v: TIER[a.tier][0], date: date(st.got[a.id]) })
+        : a.need ? t("ui.ach.z_html", { v: prog / a.need * 100, prog, need: a.need }) : `<small>${TIER[a.tier][0]}</small>`}</div></li>`;
   }).join("");
-  $("achListCard").innerHTML = `<h3>Osiągnięcia</h3><p class="sub">Zdobyte: ${c.got} z ${c.all}. Zapisane w tej przeglądarce.</p>
-    <ul class="ach-list">${rows}</ul>
-    <div class="foot"><button class="btn ghost" id="achClose">Zamknij</button></div>`;
+  $("achListCard").innerHTML = t("ui.ach.osiagniecia_zdobyte_z_zapisane_w_html", { got: c.got, all: c.all, rows });
   $("achList").hidden = false; AU.sfx("paper");
   $("achClose").onclick = () => { $("achList").hidden = true; };
   // #dev: stuknięcie w odznakę pokazuje jej planszę (podgląd, bez zapisu)
   if (location.hash === "#dev") $("achListCard").querySelectorAll(".ach-row").forEach((row, k) => {
     row.style.cursor = "pointer"; row.onclick = () => { queue.push(ACH[k]); showNext(); };
   });
-  track("osiagniecia/otwarte", "Osiągnięcia otwarte");
+  track("osiagniecia/otwarte", t("ui.ach.osiagniecia_otwarte"));
 }
 
 /* ---------- okna i style ---------- */
-document.body.insertAdjacentHTML("beforeend", `
-  <div class="overlay ach-pop" id="achPop" hidden><div class="card" id="achPopCard" role="dialog" aria-modal="true" aria-live="assertive"></div></div>
-  <div class="overlay" id="achList" hidden><div class="card" id="achListCard" role="dialog" aria-modal="true" aria-label="Osiągnięcia"></div></div>`);
+document.body.insertAdjacentHTML("beforeend", t("ui.ach.osiagniecia_html"));
 $("achList").addEventListener("click", e => { if (e.target.id === "achList") e.currentTarget.hidden = true; });
 document.head.insertAdjacentHTML("beforeend", `<style>
 .ach-pop{z-index:12;align-items:center}

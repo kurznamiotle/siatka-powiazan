@@ -265,80 +265,80 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <div class="app" id="app">
   <header class="top">
     <div class="tline">
-      <h1>Siatka Powiązań</h1>
-      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
-        <button class="ic" id="fsBtn" hidden></button><button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
+      <h1 data-i18n="ui.html.title"></h1>
+      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" data-i18n-attr="aria-label:ui.html.lives"><i></i><i></i><i></i></span>
+        <button class="ic" id="fsBtn" hidden></button><button class="ic" id="menuBtn" data-i18n-attr="aria-label:ui.html.settings;title:ui.html.settings"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
     </div>
     <div class="tline">
-      <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
+      <div class="case" id="caseLine" data-i18n="ui.html.loading_case"></div>
+      <div class="modes"><button class="mode" id="dailyBtn" data-i18n="ui.game.sprawa_dnia"></button><button class="mode" id="newBtn" data-i18n="ui.game.nowa_sprawa"></button></div>
     </div>
   </header>
 
-  <main class="board" id="board" aria-label="Tablica korkowa">
+  <main class="board" id="board" data-i18n-attr="aria-label:ui.html.board">
     <svg class="strings" id="strings"></svg>
     <div class="hint-toast" id="toast" hidden></div>
   </main>
 
   <section class="desk">
     <div class="tabs" role="tablist">
-      <button class="tab" id="tab-akta" role="tab" aria-selected="true">Akta</button>
-      <button class="tab" id="tab-notes" role="tab" aria-selected="false">Notatnik</button>
+      <button class="tab" id="tab-akta" role="tab" aria-selected="true" data-i18n="ui.html.tab_files"></button>
+      <button class="tab" id="tab-notes" role="tab" aria-selected="false" data-i18n="ui.html.tab_notes"></button>
     </div>
     <div class="sheet" id="sheet" tabindex="0"></div>
     <div class="actions">
-      <button class="btn ghost" id="hintBtn">Podpowiedź (3)</button>
-      <button class="btn red" id="accuseBtn">Oskarż</button>
+      <button class="btn ghost" id="hintBtn" data-i18n="ui.game.podpowiedz_v" data-i18n-vars='{"v":3}'></button>
+      <button class="btn red" id="accuseBtn" data-i18n="ui.game.oskarz"></button>
     </div>
   </section>
 
   <div class="overlay" id="accuse" hidden>
     <div class="card" id="accuseCard">
-      <h3>Akt oskarżenia</h3>
-      <div class="lbl">Sprawca</div>
+      <h3 data-i18n="ui.html.accuse_title"></h3>
+      <div class="lbl" data-i18n="ui.html.culprit"></div>
       <div class="grid" id="pickWho"></div>
-      <div class="lbl" id="toolLbl">Narzędzie zbrodni</div>
+      <div class="lbl" id="toolLbl" data-i18n="ui.html.tool"></div>
       <div class="grid" id="pickWhat"></div>
       <div class="msg" id="accuseMsg"></div>
       <div class="foot">
-        <button class="btn ghost" id="accuseCancel">Wróć do tablicy</button>
-        <button class="btn red" id="accuseGo" disabled>Wnieś oskarżenie</button>
+        <button class="btn ghost" id="accuseCancel" data-i18n="ui.html.back_to_board"></button>
+        <button class="btn red" id="accuseGo" disabled data-i18n="ui.html.accuse_go"></button>
       </div>
     </div>
   </div>
 
   <div class="overlay" id="newCase" hidden>
     <div class="card">
-      <h3>Nowa sprawa</h3>
-      <p class="sub">Wybierz miasto, rok i wielkość śledztwa. „Losowo” zostawia wybór generatorowi.</p>
-      <div class="lbl">Miasto</div>
+      <h3 data-i18n="ui.game.nowa_sprawa"></h3>
+      <p class="sub" data-i18n="ui.html.newcase_sub"></p>
+      <div class="lbl" data-i18n="ui.html.city"></div>
       <div class="opts" id="optCity"></div>
-      <div class="lbl">Rok</div>
+      <div class="lbl" data-i18n="ui.html.year"></div>
       <div class="opts" id="optYear"></div>
-      <div class="lbl">Wielkość</div>
+      <div class="lbl" data-i18n="ui.html.size"></div>
       <div class="opts" id="optSize"></div>
       <div class="foot">
-        <button class="btn ghost" id="newCancel">Anuluj</button>
-        <button class="btn red" id="newGo">Otwórz sprawę</button>
+        <button class="btn ghost" id="newCancel" data-i18n="ui.html.cancel"></button>
+        <button class="btn red" id="newGo" data-i18n="ui.html.open_case"></button>
       </div>
     </div>
   </div>
 
   <div class="overlay howto" id="howto" hidden>
     <div class="card hw-card" id="hwCard" role="dialog" aria-modal="true" aria-labelledby="hwTitle">
-      <div class="hw-top"><span class="hw-step" id="hwStep"></span><button class="hw-skip" id="hwSkip">Pomiń</button></div>
+      <div class="hw-top"><span class="hw-step" id="hwStep"></span><button class="hw-skip" id="hwSkip" data-i18n="ui.html.skip"></button></div>
       <div class="hw-stage" id="hwStage" role="img"></div>
       <h3 id="hwTitle"></h3>
       <p class="hw-txt" id="hwTxt"></p>
       <p class="hw-tip" id="hwTip"></p>
       <div class="hw-install" id="hwInstall" hidden></div>
       <div class="hw-dots" id="hwDots"></div>
-      <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
+      <div class="foot"><button class="btn ghost" id="hwPrev" data-i18n="ui.html.back"></button><button class="btn red" id="hwNext" data-i18n="ui.tutorial.dalej"></button></div>
     </div>
   </div>
 
   <div class="overlay" id="menu" hidden>
-    <div class="card" id="menuCard" role="dialog" aria-modal="true" aria-label="Ustawienia"></div>
+    <div class="card" id="menuCard" role="dialog" aria-modal="true" data-i18n-attr="aria-label:ui.html.settings"></div>
   </div>
 
   <div class="overlay" id="stats" hidden>
@@ -351,14 +351,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
   <div class="overlay" id="limit" hidden>
     <div class="card limit-card" role="dialog" aria-modal="true" aria-labelledby="limitTitle">
-      <div class="stamp">ARCHIWUM</div>
-      <h3 id="limitTitle">Na dziś archiwum zamknięte.</h3>
-      <p>Wróć jutro po kolejne sprawy albo odblokuj nielimitowane w wersji premium (już wkrótce).</p>
+      <div class="stamp" data-i18n="ui.html.archive_stamp"></div>
+      <h3 id="limitTitle" data-i18n="ui.html.limit_title"></h3>
+      <p data-i18n="ui.html.limit_text"></p>
       <p class="when" id="limitWhen"></p>
-      <div class="foot"><button class="btn ghost" id="limitClose">Wróć do tablicy</button><button class="btn red" id="limitDaily">Sprawa dnia</button></div>
+      <div class="foot"><button class="btn ghost" id="limitClose" data-i18n="ui.html.back_to_board"></button><button class="btn red" id="limitDaily" data-i18n="ui.game.sprawa_dnia"></button></div>
     </div>
   </div>
 </div>
+<script src="data/i18n/i18n.js"></script>
+<script src="data/i18n/pl.js"></script>
 <script src="engine/sprites.js"></script>
 <script src="engine/engine.js"></script>
 <script src="engine/solver.js"></script>
@@ -369,9 +371,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script src="engine/versions/v2_1_1.js"></script>
 <script src="engine/versions/v2_1_2.js"></script>
 <script src="engine/versions/v2_2.js"></script>
-<script src="data/base.js"></script>
-<script src="data/cities.js"></script>
-<script src="data/changelog.js"></script>
+<script src="data/i18n/pl/base.js"></script>
+<script src="data/i18n/pl/cities.js"></script>
+<script src="data/i18n/pl/changelog.js"></script>
 <script src="js/track.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/shareimg.js"></script>

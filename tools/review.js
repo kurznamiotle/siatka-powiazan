@@ -9,7 +9,7 @@
 const fs = require("fs"), path = require("path");
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
+const WORLD = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
 
 const [, , fileArg, ...crimeArgs] = process.argv;
 const MIX = crimeArgs[0] === "mix", V22 = crimeArgs[0] === "v22", V221 = crimeArgs[0] === "v221"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
