@@ -4,6 +4,13 @@
  * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
  */
 (typeof window !== "undefined" ? window : globalThis).SIATKA_CHANGELOG = [
+  { v: "2.2.1", date: "2026-11-17", items: [
+    "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
+    "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",
+    "Godziny zbrodni zależą od sceny: targ, sklep, apteka i poczta wtedy, kiedy są czynne albo zaraz po zamknięciu.",
+    "Czytelniejszy zapis relacji w wyjaśnieniu: „Piotr Kowal i Alicja Baran: szwagrostwo, a nie sąsiedzi z klatki”.",
+    "Komentarze komisarza zależą od pory roku, a realia lat 90. są dokładniejsze (seriale, telefony, pagery, auta, gazety)."
+  ] },
   { v: "2.2", date: "2026-11-15", items: [
     "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
     "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",

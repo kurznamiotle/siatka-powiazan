@@ -12,7 +12,7 @@ const S = require("../engine/engine.js");
 const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
 
 const [, , fileArg, ...crimeArgs] = process.argv;
-const MIX = crimeArgs[0] === "mix", V22 = crimeArgs[0] === "v22"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
+const MIX = crimeArgs[0] === "mix", V22 = crimeArgs[0] === "v22", V221 = crimeArgs[0] === "v221"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
 const CRIMES = MIX ? [] : crimeArgs.length ? crimeArgs : ["szantaz", "falszerstwo", "sabotaz", "napad", "wandalizm", "porwanie_psa", "otrucie_czlowieka"];
 const NO_CONTACT = ["szantaz", "falszerstwo", "sabotaz", "wandalizm"];
 const SIZES = ["M", "L", "XL", "M", "L", "XL", "L"];
@@ -46,6 +46,23 @@ if (V22) {
   for (const c of got) jobs.push({ get: () => c });
   for (let k = 0; k < 8; k++) jobs.push({ get: () => S.generateCase(WORLD, `review22-tl-${k}`, { archetype: "timeline", size: ["M", "L", "XL"][k % 3] }) });
   for (let k = 0; k < 4; k++) jobs.push({ get: () => S.generateCase(WORLD, `review22-xl-${k}`, { size: "XL" }) });
+}
+/* 2.2.1: 15 spraw: 3 sabotaże (różni poszkodowani), 2 z relacją, 7 innych typów (świadkowie, godziny scen, motywy), 3 osie czasu */
+if (V221) {
+  jobs.length = 0;
+  const vts = ["adm", "firm", "priv"], seen = new Set();
+  for (let i = 0; seen.size < 3 && i < 4000; i++) {
+    const c = S.generateCase(WORLD, `review221-sab-${i}`, { archetype: "classic", crime: "sabotaz", size: ["M", "L", "XL"][i % 3] });
+    const sc = WORLD.base.crimes.sabotaz.scenes.find(x => x.title === c.used.scenes[0]), v = vts.find(t => (sc.vt || []).includes(t));
+    if (v && !seen.has(v)) { seen.add(v); jobs.push({ get: () => c }); }
+  }
+  for (let i = 0, n = 0; n < 2 && i < 5000; i++) {
+    const c = S.generateCase(WORLD, `review221-rel-${i}`, { archetype: "classic", size: ["L", "XL"][n % 2] });
+    if (c.rules.some(r => r.type === "relation")) { n++; jobs.push({ get: () => c }); }
+  }
+  for (const [k, crime] of ["otrucie", "podpalenie", "wandalizm", "zabojstwo", "kradziez", "otrucie_czlowieka", "napad"].entries())
+    jobs.push({ get: () => S.generateCase(WORLD, `review221-${crime}`, { archetype: "classic", crime, size: ["M", "L", "XL"][k % 3] }) });
+  for (let k = 0; k < 3; k++) jobs.push({ get: () => S.generateCase(WORLD, `review221-tl-${k}`, { archetype: "timeline", size: ["M", "L", "XL"][k] }) });
 }
 const out = [];
 const line = (s = "") => out.push(s);

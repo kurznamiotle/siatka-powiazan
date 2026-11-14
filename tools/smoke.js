@@ -42,7 +42,7 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
 
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
-  const URL = `http://127.0.0.1:${server.address().port}/index.html`;
+  const URL = process.env.SMOKE_URL || `http://127.0.0.1:${server.address().port}/index.html`; // SMOKE_URL: test produkcji (dopisz #dev, żeby nie wysyłać analityki)
   const PORT = 9400 + Math.floor(Math.random() * 400);
   profile = fs.mkdtempSync(path.join(os.tmpdir(), "siatka-smoke-"));
   proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--mute-audio",

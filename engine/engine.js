@@ -62,6 +62,9 @@
   const plural = (n, one, few, many) => { if (n === 1) return one; const d = n % 10, h = n % 100; return d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? few : many; };
   /* years:[od,do] i opcjonalnie months:[od,do] (1–12, w każdym roku z zakresu); m = indeks miesiąca sprawy 0–11 */
   const inYears = (o, y, m) => !o || ((!o.years || (y >= o.years[0] && y <= o.years[1])) && (!o.months || m === undefined || (m + 1 >= o.months[0] && m + 1 <= o.months[1])));
+  /* 2.2.1: świadkowie i dowody pasują do rodzaju miejsca (pt: street, yard, field, shop, stair, cellar, work); wpis z `at` tylko w miejscach z listy */
+  const fitsAt = (o, pt) => typeof o === "string" || !o.at || (!!pt && o.at.includes(pt));
+  const atTexts = (list, pt) => list.filter(o => fitsAt(o, pt)).map(o => typeof o === "string" ? o : o.t);
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
   const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
   const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
@@ -118,6 +121,8 @@
     if (o.cm && who.cm != null && who.g) { const [lo, hi] = o.cm[who.g] || [0, 999]; if (who.cm < lo || who.cm > hi) return false; } // 2.2: zdania o wzroście
     const role = who.role || {};
     if (o.roles && !o.roles.includes(role.id)) return false;
+    /* 2.2.1: rodzaj poszkodowanego (scena.vt: adm, inst, firm, priv, zwierzę…): zdanie z vt pasuje tylko do sceny z wspólnym tagiem */
+    if (o.vt && !(who.vt && [].concat(who.vt).some(t => o.vt.includes(t)))) return false;
     if (o.k && o.k.some(k => (role.no || []).includes(k))) return false;
     if (o.trait && who.traits && Object.entries(o.trait).some(([t, v]) => who.traits[t] !== v)) return false;
     return true;
@@ -232,13 +237,14 @@
      Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
      w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
      północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
-  const GEN_VERSION = "2.2";
+  const GEN_VERSION = "2.2.1";
   const GENERATOR_VERSIONS = [
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
     { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
     { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
-    { id: "2.2", from: "2026-11-15" }                                      // bieżący kod; wydanie przesunięte z 13.11 (nie wdrożone w czwartek), data = północ po dniu wypchnięcia (14.11)
+    { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
+    { id: "2.2.1", from: "2026-11-17" }                                    // bieżący kod; data = północ po wdrożeniu w poniedziałek 16.11
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
@@ -280,7 +286,7 @@
     return out;
   }
 
-  const util = { hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const util = { fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM };
   root.Siatka = api;

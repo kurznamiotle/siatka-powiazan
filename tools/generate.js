@@ -37,6 +37,51 @@ const inc = (o, k) => { o[k] = (o[k] || 0) + 1; };
 /* Spójność treści: reguła o oknie mówi o czasie, alibi zawodowe pasuje do roli, zdania z `ages` do wieku. */
 const B = WORLD.base;
 const stem = (t, g) => S.tx(t, g).split(/[{]/)[0].trim(); // stały początek zdania, bez wstawek
+/* 2.2.1: kontrole danych (raz) i świadków (każda sprawa): rodzaj poszkodowanego (vt), godziny scen, rodzaje miejsc (pt). */
+const staticErrors = [];
+{
+  const fitsWho = S.util.fitsWho, bad = m => staticErrors.push(m);
+  // 1. zdania z vt: wszystkie sceny takiego typu zbrodni mają vt, a każdy rodzaj poszkodowanego ma dość zdań
+  for (const [k, c] of Object.entries(B.crimes)) {
+    const tagged = ["motives", "suspicion", "noMotive", "letters"].some(l => (c[l] || []).some(o => o && o.vt));
+    if (!tagged) continue;
+    const untagged = c.scenes.filter(s => !s.vt || !s.vt.length);
+    // napad: tylko część scen ma vt (zdania „rent”, „elder” dotyczą dwóch scen), reszta ma pustą listę
+    if (k !== "napad" && untagged.length) bad(`${k}: sceny bez vt: ${untagged.map(s => s.title).join(", ")}`);
+    for (const cb of new Set(c.scenes.map(s => JSON.stringify(s.vt || [])))) {
+      const vt = JSON.parse(cb), n = l => (c[l] || []).filter(o => fitsWho(o, { role: {}, vt })).length;
+      if (n("suspicion") < 6 || n("noMotive") < 6 || n("motives") < 2) bad(`${k} ${cb}: za mało zdań (motywy ${n("motives")}, podejrzenia ${n("suspicion")}, bez motywu ${n("noMotive")})`);
+      if ((c.letters || []).length && !(c.letters || []).some(o => fitsWho(o, { role: {}, vt }))) bad(`${k} ${cb}: brak dowodu z motywem dla tego poszkodowanego`);
+    }
+  }
+  // 2. godziny scen: okno mieści się w wieczorze (teksty mówią „tego wieczoru”) i daje co najmniej jedną godzinę (krok 30 min)
+  for (const [k, c] of Object.entries(B.crimes)) for (const s of c.scenes) if (s.time) {
+    const a = S.util.toMin(s.time[0]), b = S.util.toMin(s.time[1]);
+    if (a < 16 * 60 + 30 || b > 23 * 60 + 30 || b - a < 30) bad(`${k}/${s.title}: godziny sceny ${s.time} poza 16:30–23:30 albo za wąskie`);
+  }
+  // 3. rodzaje miejsc: każde miejsce ma pt, a każdy pt dość szablonów świadków i dowodów
+  const PT = ["street", "yard", "field", "shop", "stair", "cellar", "work"];
+  const locs = [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])];
+  for (const l of locs) if (!PT.includes(l.pt)) bad(`miejsce ${l.id}: brak albo zły rodzaj miejsca pt (${l.pt})`);
+  for (const pt of PT) {
+    const n = (list, f = S.util.fitsAt) => list.filter(o => f(o, pt)).length;
+    if (pt !== "stair" && n(B.presenceTpl) < 5) bad(`świadkowie (presenceTpl) dla ${pt}: ${n(B.presenceTpl)} szablonów`);
+    if (n(B.timeline.obsTpl) < (pt === "stair" ? 2 : 4)) bad(`świadkowie osi czasu dla ${pt}: ${n(B.timeline.obsTpl)} szablonów`);
+    if (n(B.timeline.evidence) < 1) bad(`dowody osi czasu dla ${pt}: brak`);
+    if (pt !== "stair" && n(B.evidence.presence) < 2) bad(`zapiski obecności dla ${pt}: ${n(B.evidence.presence)}`);
+  }
+}
+/* świadek pasuje do miejsca: szablon z `at` nie może trafić do miejsca innego rodzaju */
+const ptOfIn = {}; for (const l of [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])]) ptOfIn[l.in] = l.pt;
+const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
+const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{t\})/).map(p => p === "{in}" ? "(.+?)" : p === "{t}" ? "\\d+:\\d\\d" : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""));
+const witnessTpl = [...B.presenceTpl, ...B.timeline.obsTpl].filter(o => typeof o === "object" && o.at).map(o => ({ o, re: toRe(o.t) }));
+function witnessCheck(c) {
+  for (const n of c.nodes.filter(n => n.type === "person")) for (const { o, re } of witnessTpl) {
+    const m = n.text.join(" ").match(re);
+    if (m && ptOfIn[m[1]] && !o.at.includes(ptOfIn[m[1]])) incoherent.push([c.seed, `świadek nie pasuje do miejsca (${ptOfIn[m[1]]}): ${m[0]}`]);
+  }
+}
 const workAlibi = B.alibiConfirmed.filter(a => a.roles);
 /* Teksty z ograniczeniem (ages, k, roles, trait): zdania cech, nawyki, smaczki, motywy, ramy alibi, mieszkanie.
    Silnik filtruje je przez fitsWho; tu sprawdzamy gotowy tekst, czy żaden nie trafił do niepasującej osoby. */
@@ -46,12 +91,12 @@ const crimeTexts = Object.values(B.crimes).flatMap(cr => [...cr.suspicion, ...cr
 const allRoleDefs = [...B.roles, ...CITIES.flatMap(ct => [...(ct.roles || []), ct.worker])];
 const limited = [...Object.values(B.traits).flatMap(factsOf), ...Object.values(B.habits).flat(), ...B.eraFlavor, ...CITIES.flatMap(ct => ct.flavor || []),
   ...allRoleDefs.flatMap(r => r.flavor || []), ...crimeTexts, ...B.flatTpl, ...B.claimFrame]
-  .filter(o => typeof o === "object" && o.t && (o.ages || o.k || o.roles || o.trait));
+  .filter(o => typeof o === "object" && o.t && (o.ages || o.k || o.roles || o.trait || o.vt));
 const limitedAlibi = B.alibiConfirmed.filter(a => a.k);
 /* siatka bezpieczeństwa: słowa, które nie mogą paść w teczce danej roli, nawet w tekście bez tagu */
 const NOJOB = /zwolni(ł|ła|ć)\b|zwolnion|zwolnienie (z pracy|dyscyplinarne)|wymówieni|\bz pracy\b|\bw pracy\b|\bDo pracy\b|pensj|podwyżk|premi[ęai]\b|razem z pracą/i;
 const ROLE_FORBID = {
-  licealista: new RegExp(NOJOB.source + /|komornik|\bdług(i|ów|ach|u)\b|lombard|weksel|na raty|czynsz|zaleg|Jeździ (Polonezem|Żukiem|Golfem|nowiutkim)|Ma Malucha|swoje(go)? (auto|aucie)|swojego (auta|samochodu)|swoją Syrenkę|Cinquecento|na wyborach/.source, "i"),
+  licealista: new RegExp(NOJOB.source + /|komornik|\bdług(i|ów|ach|u)\b(?! Targ)|lombard|weksel|na raty|czynsz|zaleg|Jeździ (Polonezem|Żukiem|Golfem|nowiutkim)|Ma Malucha|swoje(go)? (auto|aucie)|swojego (auta|samochodu)|swoją Syrenkę|Cinquecento|na wyborach/.source, "i"),
   weterynarz: /alergi\S* na sierść|boi się (psów|od dziecka)|Psów boi|na widok (cudzego )?psa/i,
   student: NOJOB,
   emeryt: NOJOB, kombatant: NOJOB, gospodyni: NOJOB,
@@ -164,7 +209,8 @@ function coherence(c) {
   const roleDef = id => [...B.roles, ...(city.roles || []), city.worker].find(r => r.id === id);
   const traitsOf = id => Object.fromEntries(c.facts.filter(f => f.type === "trait" && f.who === id).map(f => [f.trait, f.value]));
   const persons = c.nodes.filter(n => n.type === "person");
-  const whoOf = (n, k) => ({ age: n.age, role: roleDef(c.used.roles[k]), traits: traitsOf(n.id) });
+  const sceneVt = (B.crimes[c.crime].scenes.find(s => s.title === c.used.scenes[0]) || {}).vt;
+  const whoOf = (n, k) => ({ age: n.age, role: roleDef(c.used.roles[k]), traits: traitsOf(n.id), vt: sceneVt });
   const bad = (what) => incoherent.push([c.seed, what]);
   // dokument „z innego dnia” nie może jednocześnie mówić o „tamtym wieczorze”
   for (const n of c.nodes.filter(n => n.type === "evidence")) { const t = n.text.join(" "); if (/tamt/i.test(t) && B.docOtherDay.some(d => t.includes(d))) bad("dokument z innego dnia o tamtym wieczorze: " + n.name); }
@@ -264,10 +310,12 @@ for (let i = 0; i < N; i++) {
   const leftover = [allText, ...c.nodes.flatMap(n => [n.name, n.label])].join("\n").match(/[\[\]{}]|undefined|null|NaN|object Object|\[object|(?<!\.)\.\.(?!\.)/g); // też podwójna kropka
   if (leftover) bad.push([c.seed, leftover.slice(0, 5)]);
   coherence(c);
+  witnessCheck(c);
   out.push(c);
 }
 console.log(`Niespójności treści (okno bez czasu, cudze alibi zawodowe, zdanie nie na wiek/rolę/cechę, obcy smaczek roli, liczba mnoga, powtórzony szablon dowodu, dokument z innego dnia, osoba w dwóch miejscach naraz albo w trakcie alibi): ${incoherent.length}`);
 if (incoherent.length) console.log(incoherent.slice(0, 5));
+if (staticErrors.length) console.log(`Błędy danych (vt, godziny scen, rodzaje miejsc): ${staticErrors.length}`, staticErrors);
 console.log(`Wygenerowano ${N - fail}/${N} spraw w ${Date.now() - t0} ms. Błędów generatora: ${fail}. Spraw z niewypełnionym tekstem: ${bad.length}`);
 if (bad.length) console.log(bad.slice(0, 5));
 console.log("Miasta:", stats.city);
@@ -338,4 +386,4 @@ if (a2 === "out") {
   out.forEach((c, i) => fs.writeFileSync(path.join(dir, `gen_${String(i + 1).padStart(3, "0")}_${c.city}_${c.year}_${c.size}.json`), JSON.stringify(c, null, 2)));
   console.log("Zapisano do", dir);
 }
-if (badT.length || fail || bad.length || evFail || avoidFail || distFail || incoherent.length || noInnocentEv.length || tplFew.length) process.exit(1);
+if (badT.length || fail || bad.length || evFail || avoidFail || distFail || incoherent.length || staticErrors.length || noInnocentEv.length || tplFew.length) process.exit(1);

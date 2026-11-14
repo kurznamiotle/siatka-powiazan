@@ -28,7 +28,7 @@ engine/solver.js      ogólny solver (hipotezy archetypu × reguły) + bibliotek
                       (alibi, trait, window, key, fate, dump) + kontrola dowodów rzeczowych
 engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły;
                       timeline.js = oś czasu (kto zdążył na miejsce zdarzenia, pytanie: kto)
-engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91), tylko dla spraw dnia
+engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91, v2_2.js = 3838b51), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
@@ -55,6 +55,7 @@ Komendy:
 - `node tools/generate.js verify cases/case_001.json` — weryfikuje ręczną sprawę.
 - `node tools/generate.js 1000 --arch timeline` (albo `--arch classic`) — test jednego archetypu; raport osi czasu: obserwacje sprawcy i niewinnych, pułapki, osoby z trasą.
 - `node tools/review.js review-2.2.txt v22` — 20 spraw do przeglądu 2.2 (8 classic z nowymi regułami, 8 osi czasu, 4 XL).
+- `node tools/review.js review-2.2.1.txt v221` — 15 spraw do przeglądu 2.2.1 (3 sabotaże z różnymi poszkodowanymi, 2 z relacją, 7 innych typów, 3 osie czasu).
 - `npm test` — test dymny w przeglądarce (`tools/smoke.js`) + 4000 spraw classic + 1000 osi czasu + weryfikacja `case_001.json` + test wersji (`tools/test-versions.js`).
 - `node tools/smoke.js` — test dymny w headless Chrome (świeży profil): samouczek sam się otwiera i przechodzi wszystkie kroki do „Oskarżenia”, nowy gracz bez kropki „Co nowego”, Ustawienia → „Jak grać”, sprawa dnia, akta i notatnik, zero błędów w konsoli. **Musi przejść przed każdym pushem** (w 2.1.2 samouczek wywracał się na produkcji, bo nikt go nie uruchomił w przeglądarce). Chrome z `CHROME` albo domyślnej ścieżki.
 - `node tools/freeze-version.js <commit> <wersja>` — zamraża generator z danego commita (patrz „Wersje generatora”).
@@ -185,6 +186,16 @@ Wydanie 2.2 (**obowiązuje od 15.11.2026**, wydanie przesunięte z 13.11; 2.1.2 
 - **Zaległe z 2.1.2:** cennik `B.prices` z rodzajami kwot (`{kwota_parking}`, `{kwota_oc}`… w dowodach, `{money}` i `{ransom}` w scenach; test w `test-realia.js`), `time:[od, do]` w scenie („Okienko na poczcie” 17:30–19:00), 12 motywów epilogu otrucia zwierzęcia, zapasowe motywy epilogu bez tagów.
 - **Poprawki 2.1.2:** samouczek (4 plansze, seed demonstracyjny z 2 miejscami i 2 przedmiotami) i kropka „Co nowego” poszły osobno jako hotfix 2.1.2 (commit 775a63f, cache v14); 2.2 jest na nim oparte. Cache 2.2: `siatka-v15`.
 - **Nieprzejrzane (wszystko z 2.2):** zdania `known`, wzrostu w cm, relacji, zeszytu dozorcy, reguły osi czasu, obserwacje i dowody z godziną, karta wprowadzająca, cennik.
+
+Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `engine/versions/v2_2.js`, commit 3838b51, wzorzec `cases/fixtures/daily-2.2.json` z dniami 15–16.11; 2.2 weszło dopiero 15.11, bo nie wdrożono go w czwartek, więc wzorzec `daily-2.1.2.json` ma dni 11–14.11, a `TIMELINE_DAILY_FROM` = 2026-11-18):
+- **Rodzaj poszkodowanego (`vt`).** Scena ma `vt:[…]` (adm = administracja i budynek, inst = instytucja lub zakład, firm = prywatny interes, priv = osoba prywatna; przy otruciu zwierzęcia dog, cat, bird, outbird, farm, fish, plot; przy innych: bike, rent, elder, work). Zdanie motywu, podejrzenia (`suspicion`), braku motywu (`noMotive`), motyw epilogu i dowód z motywem (`letters`) z `vt` trafiają tylko do sceny ze wspólnym tagiem (`fitsWho`, `vt` w `who(Pp)`, osoba dostaje `vt` sceny). Zdanie z `vt` nigdy nie trafia do sceny bez `vt`. Typy zbrodni ze zdaniami `vt`: zabójstwo, kradzież, otrucie, podpalenie, sabotaż, napad, wandalizm, otrucie człowieka. `generate.js` sprawdza, że wszystkie sceny takiego typu mają `vt` (napad: tylko sceny z `rent`/`elder`) i że każdy rodzaj ma co najmniej 6 zdań podejrzenia i braku motywu oraz 2 motywy. Nowe zdanie o administracji, kierowniku, konkurencji, szczekaniu itp. oznacz `vt`.
+- **Godziny scen.** `time:["od","do"]` na scenie (czas zbrodni to godzina z przedziału co 30 min, `do` wyłączone). Teksty gry mówią „tego wieczoru”, więc okno mieści się w 16:30–23:30: targ i budki 17:00–18:30, sklep, apteka, kiosk, kantor, komis 17:00–19:30, poczta 17:30–19:00, kino po ostatnim seansie 21:30–23:00, monopolowy 20:30–22:30 itd. (ok. 60 scen).
+- **Świadkowie i miejsca (`pt`, `at`).** Każde miejsce (`locations` w base i w paczkach miast) ma `pt`: street (ulica, targ, przystań), yard (podwórko, garaż), field (działki), shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala, zajezdnia). Szablony obecności (`presenceTpl`), `obsTpl` osi czasu i dowody obecności (`evidence.presence`, `timeline.evidence`) mają opcjonalne `at:[…]` i trafiają tylko do miejsc z listy (`fitsAt`, `atTexts` w `engine.js`). W osi czasu rodzaj miejsca zdarzenia wynika z nazwy (`placeType` w `timeline.js`). Szablon bez `at` pasuje wszędzie. Test: `generate.js` sprawdza liczbę szablonów na każdy rodzaj miejsca i w każdej sprawie to, że szablon z `at` nie trafił do innego rodzaju miejsca.
+- **Zapis relacji w wyjaśnieniu**: „Piotr Kowal i Alicja Baran: szwagrostwo, a nie sąsiedzi z klatki”, z pełnymi nazwiskami i bez odmiany nazwisk (odmiana jest ryzykowna).
+- **Komentarze komisarza** mają `months:[od,do]` (po świętach wielkanocnych 3–4, po Bożym Narodzeniu 11–12), a generator losuje tylko pasujące do miesiąca sprawy.
+- **Realia epoki** (`tools/test-realia.js`, pkt 6): „Klan”, Koło Fortuny, pager, telefon komórkowy, Cinquecento, Daewoo Tico, Pegasus, „Dynastia”, bony, „Gazeta Wyborcza”, Polsat i kartki muszą mieć `years`/`months` (własne albo przodka, także przez `roles` ról z `years`) w czasie, kiedy istniały. W danych węższe zakresy niż w teście: Klan 1998–99, Koło Fortuny 1993–98, Pegasus 1993–99, „Gazeta Wyborcza” od czerwca 1989.
+- **Test produkcji**: `SMOKE_URL="https://siatkapowiazan.pl/index.html#dev" node tools/smoke.js` (z `#dev`, żeby nie wysyłać analityki).
+- **Nieprzejrzane (wszystko z 2.2.1)**: nowe zdania motywów i podejrzeń z `vt`, nowe szablony świadków i dowodów (`at`), godziny scen, rodzaje miejsc (`pt`).
 
 ## Najbliższe kroki
 

@@ -1,0 +1,19 @@
+{
+  "note": "Sprawy dnia wygenerowane wdrożonym kodem 3838b51 (wersja 2.2). Nowy kod musi dawać dla tych dni dokładnie to samo.",
+  "version": "2.2",
+  "commit": "3838b51",
+  "days": [
+    {
+      "date": "2026-11-15",
+      "number": 13,
+      "title": "Zegarmistrz z Roosevelta",
+      "sha1": "46664ba98726923a392e3529b3b59a222dbbc91d"
+    },
+    {
+      "date": "2026-11-16",
+      "number": 14,
+      "title": "Zwrotnica przy Kościuszki",
+      "sha1": "bd830863b88e7ef72d389e191a3f73474e54272a"
+    }
+  ]
+}

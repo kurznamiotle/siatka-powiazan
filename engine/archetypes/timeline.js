@@ -8,7 +8,15 @@
  */
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
-  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, prices } = Eng.util;
+  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
+  /* 2.2.1: rodzaj miejsca zdarzenia z nazwy (pt jak w data/base.js): dobiera pasujących świadków i dowody */
+  const placeType = n => /Altana|Działk|działkach|Kurnik/.test(n) ? "field"
+    : /Klatka schodowa/.test(n) ? "stair"
+    : /Zaplecze|Maszynownia|Hydrofornia|Kotłownia|Pracownia|Gabinet|Biuro|Księgowość|Szwalnia|Spółdzielnia pracy|Zakrystia|Ciemnia|Zakład szewski|Warsztat|Piekarnia|Kasa spółdzielni|Dziedziniec mleczarni/.test(n) ? "work"
+    : /Podwórko|Klatki na podwórku|Szopa|Garaż|Budka dozorcy|Wózkownia|Stodoła|Plac budowy|Barak/.test(n) ? "yard"
+    : /Postój|Wiata|Przystanek|Pętla|Park|Staw|Pomnik|Muszla|Scena|Tablica|Wesołe|Zwrotnica|Stragan|Szczęka|Budka|Klatki|Brama|Wejście do|Stacja|Mur|Gablota|Furtka|Ogrodzenie|Boisko|Parking/.test(n) ? "street"
+    : /Mieszkanie|Balkon|Willa|Piwnica|Gołębnik|Dach|Plebania/.test(n) ? "cellar"
+    : /Kantor|Kiosk|Apteka|Cukiernia|Komis|Wypożyczalnia|Antykwariat|Kasa|Sklep|Zakład fryzjerski|Magiel|Poczta|Przychodnia|Poczekalnia|Lecznica|Bar mleczny/.test(n) ? "shop" : "work";
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -19,7 +27,7 @@
   const RULE_TRAITS = ["height", "smoker", "glasses", "dog", "jacket"];
   const ALL_TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive"];
   const MIN_GAP = 15, WIN = 20, STAY = 10; // STAY: najkrótszy pobyt sprawcy na miejscu zdarzenia w oknie
-  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, g: Pp.s.g, cm: Pp.cm });
+  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, g: Pp.s.g, cm: Pp.cm, vt: Pp.vt });
   const ofWho = (list, Pp) => (Array.isArray(list) ? list : [list]).filter(o => fitsWho(o, who(Pp)));
   const txt = o => typeof o === "string" ? o : o.t;
   const lc1 = s => s.charAt(0).toLowerCase() + s.slice(1);
@@ -50,6 +58,7 @@
     // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
     X.name = T((TL.places && TL.places[scene.title]) || scene.title);
     X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
+    X.pt = placeType(X.name);
     if (others.some(o => o.name === X.name)) X.name += " (miejsce zdarzenia)";
     if (others.some(o => o.label === X.label)) X.label = "Miejsce zdarz.";
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
@@ -149,7 +158,7 @@
       const age = R.pick(agesOf(role)), { first, last } = pickName(s.g, age);
       let id = slug(first); while (ids.includes(id) || id === X.id) id += "2"; ids.push(id);
       const hw = (role.headwear && role.headwear[s.g]) || [];
-      return { idx, s, id, first, last, role, age,
+      return { idx, s, id, first, last, role, age, vt: scene.vt,
         sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
           head: (hw.length && R.pick(hw)) || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
           mustache: s.g === "m" && R.chance(.35) } };
@@ -177,12 +186,13 @@
     {
       const want = RE.int(...EV[sizeKey]);
       const cands = RE.shuffle(facts.filter(f => f.type === "presence" && iniN[ini(persons.find(p => p.id === f.who))] === 1));
-      const defs = RE.shuffle(TL.evidence), per = {};
+      const defs = RE.shuffle(TL.evidence), per = {}, usedDefs = new Set();
       // co najmniej jeden dowód dotyczy niewinnego
       const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
       for (const f of order) {
-        if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !defs[evs.length]) continue;
-        per[f.who] = 1; evs.push({ f, def: defs[evs.length], Pp: persons.find(p => p.id === f.who), li: LOCS.findIndex(l => l.id === f.where) });
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt)); // dowód pasuje do rodzaju miejsca
+        if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
+        per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
       }
       evs.forEach((c, k) => { c.id = "ev" + (k + 1); c.f.src = c.id; });
       if (evs.length) persons.forEach(Pp => facts.push({ type: "mark", who: Pp.id, kind: "initials", value: ini(Pp) }));
@@ -209,7 +219,7 @@
       const s = Pp.s, g = s.g, text = [];
       for (const o of s.obs) {
         if (evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) continue;
-        text.push(T(pickU(TL.obsTpl).replace("{in}", LOCS[o.w].in).replace("{t}", toHM(o.t)), g));
+        text.push(T(pickU(atTexts(TL.obsTpl, LOCS[o.w].pt)).replace("{in}", LOCS[o.w].in).replace("{t}", toHM(o.t)), g));
       }
       for (const r of tRules) {
         const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
@@ -279,7 +289,7 @@
       solution: { culprit: C0.id },
       eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
       red_herrings: [], supported_connections: supported, culprit_chain: chain,
-      hints: hints.slice(0, 3), why, epilogue, quip: T(R.pick([...B.quips, ...(city.quips || [])])),
+      hints: hints.slice(0, 3), why, epilogue, quip: T(R.pick(A([...B.quips, ...(city.quips || [])]))),
       detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),

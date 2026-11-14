@@ -7,7 +7,7 @@
  */
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
-  const { tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -22,7 +22,7 @@
   const lc1 = s => s.charAt(0).toLowerCase() + s.slice(1);
   /* teksty tylko dla pasującej postaci: `ages` (emeryci bez firmowego Żuka), `k` kontra role.no
      (licealista bez długów i zwolnień), `roles` (smaczki zawodu), `trait` (zdanie o własnym aucie tylko z autem) */
-  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, cm: Pp.cm, g: Pp.s.g });
+  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, cm: Pp.cm, g: Pp.s.g, vt: Pp.vt });
   const ofWho = (list, Pp) => (Array.isArray(list) ? list : [list]).filter(o => fitsWho(o, who(Pp)));
   const txt = o => typeof o === "string" ? o : o.t;
   /* rola pasuje do cech postaci: licealista bez auta, taksówkarz z autem */
@@ -287,7 +287,7 @@
       let id = slug(first); while (ids.includes(id)) id += "2"; ids.push(id);
       const hw = (role.headwear && role.headwear[s.g]) || [];
       const head = hw.length ? R.pick(hw) : "";
-      return { idx, s, id, first, last, role, age,
+      return { idx, s, id, first, last, role, age, vt: scene.vt,
         sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
           head: head || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
           mustache: s.g === "m" && R.chance(.35) } };
@@ -389,7 +389,7 @@
         const Pp = byPid[f.who]; if (!Pp) continue;
         const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
         if (f.type === "presence" && iniOk(Pp))
-          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence),
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt))),
             ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
@@ -495,7 +495,7 @@
         if (hasK && s.keys.has(li) && !evOf(Pp, "keys", f => f.where === loc.id))
           parts.push(pickU(accessOf(Pp.role).includes(loc.id) ? forP(B.keyTpl, Pp) : B.spareKeyTpl).replace(/\{gen\}/g, loc.gen));
         for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))))
-          parts.push(pickU(noJanitor(B.presenceTpl)).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
+          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
@@ -593,15 +593,16 @@
       : "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
     if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.");
     hints = hints.slice(0, 3);
-    // orzeczenie w mianowniku, liczba mnoga, bez odmiany nazwiska; neg = w zdaniu przeczącym po „a nie”
-    const relPair = (t, g1, g2, neg) => t === "workmate" ? (neg ? "współpracownicy z jednego zakładu" : "pracują w jednym zakładzie")
-      : t === "stairwell" ? (neg ? "sąsiedzi z klatki" : "mieszkają na jednej klatce")
-      : (g1 === "m" && g2 === "m" ? (neg ? "szwagrowie" : "to szwagrowie") : g1 === "f" && g2 === "f" ? (neg ? "szwagierki" : "to szwagierki") : (neg ? "szwagrostwo" : "są szwagrostwem"));
+    // 2.2.1: para zapisana rzeczownikami w mianowniku, po dwukropku, z pełnymi nazwiskami obu osób („Piotr Kowal i Alicja Baran: szwagrostwo”),
+    // bo „Piotr i Alicja Baran to szwagrostwo” czyta się jak dwie osoby o tym samym nazwisku; bez odmiany nazwisk (zbyt ryzykowna)
+    const relNoun = (t, g1, g2, neg) => t === "workmate" ? "współpracownicy z jednego zakładu"
+      : t === "stairwell" ? (neg ? "sąsiedzi z klatki" : "sąsiedzi z jednej klatki")
+      : (g1 === "m" && g2 === "m" ? "szwagrowie" : g1 === "f" && g2 === "f" ? "szwagierki" : "szwagrostwo");
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
       if (e.rule.type === "cmp") return [Pp.first, `ma ${Pp.cm} cm, a sprawca jest ${e.rule.dir === "up" ? "wyższy" : "niższy"} niż ${e.rule.refName} (${e.rule.refCm} cm) (reguła ${n}).`];
-      if (e.rule.type === "relation") return [Pp.first, Pp.rel ? `i ${e.rule.refName} ${relPair(Pp.rel, g, e.rule.refG)}, a nie ${relPair(e.rule.rel, g, e.rule.refG, true)} (reguła ${n}).`
-        : `i ${e.rule.refName}: w teczce nie ma nic, co ich łączy (reguła ${n}).`];
+      if (e.rule.type === "relation") return [`${Pp.first} ${Pp.last} i ${e.rule.refName}:`, Pp.rel ? `${relNoun(Pp.rel, g, e.rule.refG)}, a nie ${relNoun(e.rule.rel, g, e.rule.refG, true)} (reguła ${n}).`
+        : `w teczce nie ma nic, co ich łączy (reguła ${n}).`];
       if (e.rule.type === "absent") return [Pp.first, T(`jest w zeszycie dozorcy: o ${toHM(Pp.s.yard)} [szedł|szła] przez podwórko (reguła ${n}).`, g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
     });
@@ -624,12 +625,12 @@
     const heirTaken = evs.some(c => c.kind === "trait:motive" && c.def.heir && c.Pp.idx !== cIdx);
     const mList = heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives;
     // gdy nic nie pasuje do osoby, zapasowo tylko motywy bez tagów (nigdy dorosłe sprawy u licealisty)
-    const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
+    const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait || o.vt)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
     const epilogue = T(`${C0.first} ${R.pick(motives.length ? motives : avail(mList, year, monthIdx))}. ${tTake ? "O " + toHM(tTake.t) : "Tego wieczoru"} [zabrał|zabrała] ${I[wIdx].acc} ${wLoc.from} ${crime.epilogueEnd}`, C0.s.g, { to: sceneTo });
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
-    const quips = [...B.quips, ...(city.quips || [])];
+    const quips = A([...B.quips, ...(city.quips || [])]); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
 
     return {
       case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
