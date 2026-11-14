@@ -1659,7 +1659,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
-    const quips = A([...B.quips, ...(city.quips || [])]); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
+    let quipRaw; const avQ = avoidOf("quips"), quips = prefer(A([...B.quips, ...(city.quips || [])]), x => avQ.has(x)); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
 
     return {
       case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
@@ -1671,12 +1671,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       eliminations: Object.fromEntries(innocents.map(sIdx => [persons[sIdx].id, elim[sIdx].rule.id])),
       red_herrings: herrings.map(h => I[h].id),
       supported_connections: supported, culprit_chain: chain,
-      hints, why, epilogue, quip: T(R.pick(quips)),
+      hints, why, epilogue, quip: T(quipRaw = R.pick(quips)),
       detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: I[wIdx].name,
       // co ta sprawa zużyła z pul treści: gra zapamiętuje to i podaje kolejnym sprawom z archiwum jako opts.avoid
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
-        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines], alibi: usedAlibi }
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: usedAlibi }
     };
   }
 
@@ -1992,6 +1992,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     });
 
     /* 10. Węzły */
+    let quipRaw;
     const nodes = [], usedLines = new Set();
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx);
     const flavorPool = R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx)));
@@ -2069,11 +2070,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       solution: { culprit: C0.id },
       eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
       red_herrings: [], supported_connections: supported, culprit_chain: chain,
-      hints: hints.slice(0, 3), why, epilogue, quip: T(R.pick(A([...B.quips, ...(city.quips || [])]))),
+      hints: hints.slice(0, 3), why, epilogue, quip: T(quipRaw = R.pick(prefer(A([...B.quips, ...(city.quips || [])]), x => avoidOf("quips").has(x)))),
       detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
-        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines], alibi: [] }
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: [] }
     };
   }
 
@@ -17881,11 +17882,22 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* Komentarze komisarza na koniec sprawy */
     quips: [
       "Dobra robota. Tu nic się nie dzieje bez świadka.",
-      {t:"Myślałem, że tę sprawę zamkniemy dopiero po świętach wielkanocnych.", months:[3,4]},
-      {t:"Myślałem, że tę sprawę zamkniemy dopiero po Bożym Narodzeniu.", months:[11,12]},
       "Kawa się zagotowała, a sprawa rozwiązana. Dobry dzień.",
       "{district_na_cap} znowu będzie o czym plotkować.",
-      "Zapiszę to w raporcie jako wzorcową robotę śledczą."
+      "Zapiszę to w raporcie jako wzorcową robotę śledczą.",
+      "Papierologia gorsza niż samo śledztwo, ale sprawca jest nasz.",
+      "Nikt nie lubi się mylić. Tym razem nie było okazji.",
+      "Do protokołu: sprawa zamknięta. Do kawy: jeszcze sucharek.",
+      "Mój poprzednik wisiał nad tym trzy tygodnie. Tu wystarczyło jedno popołudnie.",
+      "Sprawca wyjaśni to jeszcze w areszcie. My możemy iść do domu.",
+      "Prasie lepiej nie mówić, że to było tak proste.",
+      "Gdyby wszyscy tak czytali akta, komenda świeciłaby pustkami.",
+      "Telefon w gabinecie milczy, a to najlepszy znak.",
+      "Z braku dowodów jeszcze nikogo nie skazano, ale tu ich nie brakło.",
+      "Sprawa zamknięta. Teraz tylko trzy kopie w czterech egzemplarzach.",
+      "Raport pójdzie do przełożonych. Ucieszą się, chociaż tego nie okażą.",
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po świętach wielkanocnych.", months:[3,4]},
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po Bożym Narodzeniu.", months:[11,12]}
     ],
 
     /* ------------------------------------------------------------------ */
@@ -18435,7 +18447,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { title:"Szlaban na parkingu", vt:["firm"], vg:"m", to:"na strzeżony parking", where:"przy szlabanie", years:[1991,1999],
             intro:"Na strzeżonym parkingu przy {street} ktoś uszkodził kable od szlabanu i alarmu. Właściciel parkingu {victim} zgłosił to {police_dat}." },
           { title:"Taksówka z postoju", vt:["firm"], vg:"m", to:"na postój taksówek", where:"przy taksówce",
-            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i uszkodził klemy." },
+            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i zerwał klemy akumulatora." },
           { title:"Piec w piekarni przy {street}", vt:["inst"], vg:"m", to:"do piekarni", where:"przy piecu", exclude:["piekarnia"],
             intro:"W piekarni przy {street} wygasł piec w środku nocnej zmiany. Majster {victim} znalazł uszkodzony przewód od palnika." },
           { title:"Antena zbiorcza", vt:["priv"], vg:"f", to:"na dach kamienicy", where:"przy antenie", years:[1990,1999],
@@ -18808,7 +18820,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Twierdzi, że najlepsze flaki są w barze przy Targowej.","Przez Most Śląsko-Dąbrowski chodzi pieszo, bo boi się tramwajów.",
               "Na Pałac Kultury mówi „pekin” i nie zamierza przestać.","Ma kuzyna na Woli i spotyka się z nim tylko na pogrzebach.","Kupuje „Express Wieczorny” co dzień o tej samej porze.",
               {t:"Chodzi oglądać, jak budują nowe wieżowce w centrum.", years:[1995,1999]}],
-      quips:["Na Pradze nic się nie dzieje bez świadka."]
+      quips:["Na Pradze nic się nie dzieje bez świadka.",
+        "Warszawa duża, ale plotka obiegnie ją szybciej niż tramwaj.",
+        "Złapany, zanim zdążył kupić bilet na Dworzec Centralny.",
+        "Stolica stolicą, a sprawa jak z podwórka na Pradze.",
+        "Wisła płynie dalej, a my mamy to z głowy.",
+        "W Warszawie wszystko załatwia się w kolejce, ta sprawa też się doczekała."]
     },
 
     poznan: {
@@ -18853,7 +18870,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Na Świętego Marcina zawsze kupuje rogala, choćby ostatniego.","W niedzielę jeździ nad Maltę.","Do ziemniaków zawsze robi gzik.",
               "Jest kibicem {team} i na mecze chodzi z całą klatką.","Na paczkę znajomych mówi „wiara”.","Na wycieczki jeździ tylko do Kórnika i Rogalina.",
               "Mówi, że w Poznaniu nikt niczego nie marnuje."],
-      quips:["Tej, kolejna sprawa z głowy."]
+      quips:["Tej, kolejna sprawa z głowy.",
+        "W Poznaniu porządek musi być, nawet w śledztwie.",
+        "Zdążyliśmy przed obiadem, a w Poznaniu to rzecz święta.",
+        "Pyra z gzikiem zjedzona, sprawa zamknięta.",
+        "Koziołki na ratuszu jeszcze nie trykały, a my już po robocie.",
+        "Poznań lubi ordnung. Ta sprawa też go ma."]
     },
 
     krakow: {
@@ -18898,7 +18920,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Pamięta Kazimierz z czasów, kiedy połowa kamienic stała pusta.","Mówi, że w Krakowie nawet gołębie są starsze niż gdzie indziej.","Jest kibicem {team} od dziecka i nie wymawia nazwy drugiego klubu.",
               "Na Wawel chodzi tylko z gośćmi z innych miast.","Mówi „sznycel” na kotlet mielony.","Na każde święta kupuje szopkę krakowską od tego samego twórcy.",
               "Twierdzi, że prawdziwy obwarzanek jest tylko z wózka, a nie z piekarni.",{t:"Chodzi do kina na filmy o Kazimierzu, odkąd kręcili tu „Listę Schindlera”.", years:[1994,1999]}],
-      quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta."]
+      quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta.",
+        "Smok na Wawelu nie zionął, a sprawa się wyjaśniła sama.",
+        "W Krakowie wszyscy się znają, więc długo by się nie ukrył.",
+        "Na Plantach już o tym szeptają.",
+        "Kawa w Sukiennicach wystygła, ale sprawa jest zamknięta.",
+        "Rynek widział już gorsze historie, ta była wyjątkowo szybka."]
     },
 
     lodz: {
@@ -18944,7 +18971,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Mówi, że w Łodzi każda kamienica ma swojego fabrykanta i swoją legendę.","Pamięta, jak na Bałutach woda była tylko w podwórkowej studni.","Jest kibicem {team} i nie rozmawia z sąsiadem, który kibicuje drugiej drużynie.",
               "Do fabryki Poznańskiego ma dwa przystanki, a całe życie przepracował tam ktoś z rodziny.","W niedzielę chodzi do kina „{cinema}” na poranek.",
               {t:"Martwi się, że zamykają kolejne fabryki.", years:[1990,1999]},"Mówi „szaber” na wszystko, co wynosi się z zakładu.","Zna każdy pasaż między Piotrkowską a Kościuszki."],
-      quips:["W Łodzi każdy każdego zna, więc i tak by się wydało."]
+      quips:["W Łodzi każdy każdego zna, więc i tak by się wydało.",
+        "Piotrkowska jeszcze nie zasnęła, a sprawa jest już rozwiązana.",
+        "Fabryka gwiżdże, sprawa zamknięta, można iść do domu.",
+        "Łódź nie lubi tajemnic, szczególnie na Bałutach.",
+        "Włókniarze mówili, że to się źle skończy. Mieli rację.",
+        "Wszystko się plecie, ale ta nitka się rozplątała."]
     },
 
     gdansk: {
@@ -18988,7 +19020,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Mówi, że prawdziwy Gdańsk zaczyna się dopiero za Bramą Wyżynną.","W niedzielę jedzie do Oliwy na koncert organowy.","Kupuje wędzone ryby tylko w jednej budce w Brzeźnie.",
               "Jest kibicem {team} i chodzi na mecze w deszczu.","Ma w domu barometr i codziennie rano go sprawdza.","Mówi „bulwa” na ziemniaka, jak babcia z Kaszub.",
               "Wspomina, jak w dzieciństwie [kąpał|kąpała] się w morzu, zanim zamknęli plażę przez sinice.",{t:"Chodzi na Jarmark Dominikański co roku w sierpniu.", years:[1989,1999]},"Po samych kominach wie, które statki stoją na redzie."],
-      quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie."]
+      quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie.",
+        "Stocznia gwiżdże na zmianę, a my kończymy sprawę.",
+        "Mewy krzyczą, sprawa zamknięta.",
+        "Na Długim Targu już o tym gadają.",
+        "Morze się uspokoiło i ta sprawa też.",
+        "W Gdańsku fale zmywają ślady, ale nie wszystkie."]
     },
 
     katowice: {
@@ -19033,7 +19070,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Na Barbórkę zawsze idzie na karczmę piwną.","W niedzielę jeździ do Parku Śląskiego na Elkę.","Mówi „ancug” na garnitur.",
               "Na każdy dom z czerwonej cegły mówi „familok”, nawet jeśli to szkoła.","Jest kibicem {team} i pamięta każdy mecz z Ruchem.","W kuchni ma kredens, który przeżył trzy pokolenia.",
               {t:"Martwi się, że kopalnie zaczynają zamykać.", years:[1993,1999]},"Mówi „gryfnie” na wszystko, co [mu|jej] się podoba."],
-      quips:["Szczęść Boże. Sprawa zamknięta przed szychtą."]
+      quips:["Szczęść Boże. Sprawa zamknięta przed szychtą.",
+        "Sprawa wyjaśniona, można zjechać na dół spokojnie.",
+        "Na Śląsku porządek musi być, nawet w kryminałach.",
+        "Wszyscy wiedzieli, tylko nikt nie mówił.",
+        "Kopalnia nie czeka, my też nie będziemy.",
+        "Na Śląsku nie lubią kłamstw. Ten też się nie wywinął."]
     },
 
     wroclaw: {
@@ -19078,7 +19120,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "W piwnicy [znalazł|znalazła] kiedyś niemieckie gazety sprzed wojny.","Jest kibicem {team} od czasów mistrzostwa.","Mówi, że w Hali Ludowej [był|była] na wszystkich koncertach.",
               "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko.","W domu ma kredens poniemiecki, który przyjechał z kamienicą.","Na Rynku zawsze zagląda do Piwnicy Świdnickiej, choćby na chwilę.",
               "Zna wszystkie mosty na Odrze, a jest ich ponad sto.",{t:"Po powodzi trzyma na strychu worki z piaskiem.", years:[1997,1999]},"Mówi „mieszkanie po Niemcach” i nikt się nie dziwi."],
-      quips:["Odra płynie spokojnie, a sprawa rozwiązana."]
+      quips:["Odra płynie spokojnie, a sprawa rozwiązana.",
+        "Krasnale na Rynku już wiedziały, kto to zrobił.",
+        "Wrocław przeżył gorsze rzeczy niż jedna taka sprawa.",
+        "Mosty stoją, sprawa zamknięta.",
+        "Ostrów Tumski spokojny, jak po dobrej spowiedzi.",
+        "Tyle mostów, a ten nie miał którędy uciec."]
     }
   };
 

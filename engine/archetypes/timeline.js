@@ -212,6 +212,7 @@
     });
 
     /* 10. Węzły */
+    let quipRaw;
     const nodes = [], usedLines = new Set();
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx);
     const flavorPool = R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx)));
@@ -289,11 +290,11 @@
       solution: { culprit: C0.id },
       eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
       red_herrings: [], supported_connections: supported, culprit_chain: chain,
-      hints: hints.slice(0, 3), why, epilogue, quip: T(R.pick(A([...B.quips, ...(city.quips || [])]))),
+      hints: hints.slice(0, 3), why, epilogue, quip: T(quipRaw = R.pick(prefer(A([...B.quips, ...(city.quips || [])]), x => avoidOf("quips").has(x)))),
       detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
-        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines], alibi: [] }
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: [] }
     };
   }
 

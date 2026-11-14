@@ -53,7 +53,12 @@
               "Twierdzi, że najlepsze flaki są w barze przy Targowej.","Przez Most Śląsko-Dąbrowski chodzi pieszo, bo boi się tramwajów.",
               "Na Pałac Kultury mówi „pekin” i nie zamierza przestać.","Ma kuzyna na Woli i spotyka się z nim tylko na pogrzebach.","Kupuje „Express Wieczorny” co dzień o tej samej porze.",
               {t:"Chodzi oglądać, jak budują nowe wieżowce w centrum.", years:[1995,1999]}],
-      quips:["Na Pradze nic się nie dzieje bez świadka."]
+      quips:["Na Pradze nic się nie dzieje bez świadka.",
+        "Warszawa duża, ale plotka obiegnie ją szybciej niż tramwaj.",
+        "Złapany, zanim zdążył kupić bilet na Dworzec Centralny.",
+        "Stolica stolicą, a sprawa jak z podwórka na Pradze.",
+        "Wisła płynie dalej, a my mamy to z głowy.",
+        "W Warszawie wszystko załatwia się w kolejce, ta sprawa też się doczekała."]
     },
 
     poznan: {
@@ -98,7 +103,12 @@
               "Na Świętego Marcina zawsze kupuje rogala, choćby ostatniego.","W niedzielę jeździ nad Maltę.","Do ziemniaków zawsze robi gzik.",
               "Jest kibicem {team} i na mecze chodzi z całą klatką.","Na paczkę znajomych mówi „wiara”.","Na wycieczki jeździ tylko do Kórnika i Rogalina.",
               "Mówi, że w Poznaniu nikt niczego nie marnuje."],
-      quips:["Tej, kolejna sprawa z głowy."]
+      quips:["Tej, kolejna sprawa z głowy.",
+        "W Poznaniu porządek musi być, nawet w śledztwie.",
+        "Zdążyliśmy przed obiadem, a w Poznaniu to rzecz święta.",
+        "Pyra z gzikiem zjedzona, sprawa zamknięta.",
+        "Koziołki na ratuszu jeszcze nie trykały, a my już po robocie.",
+        "Poznań lubi ordnung. Ta sprawa też go ma."]
     },
 
     krakow: {
@@ -143,7 +153,12 @@
               "Pamięta Kazimierz z czasów, kiedy połowa kamienic stała pusta.","Mówi, że w Krakowie nawet gołębie są starsze niż gdzie indziej.","Jest kibicem {team} od dziecka i nie wymawia nazwy drugiego klubu.",
               "Na Wawel chodzi tylko z gośćmi z innych miast.","Mówi „sznycel” na kotlet mielony.","Na każde święta kupuje szopkę krakowską od tego samego twórcy.",
               "Twierdzi, że prawdziwy obwarzanek jest tylko z wózka, a nie z piekarni.",{t:"Chodzi do kina na filmy o Kazimierzu, odkąd kręcili tu „Listę Schindlera”.", years:[1994,1999]}],
-      quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta."]
+      quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta.",
+        "Smok na Wawelu nie zionął, a sprawa się wyjaśniła sama.",
+        "W Krakowie wszyscy się znają, więc długo by się nie ukrył.",
+        "Na Plantach już o tym szeptają.",
+        "Kawa w Sukiennicach wystygła, ale sprawa jest zamknięta.",
+        "Rynek widział już gorsze historie, ta była wyjątkowo szybka."]
     },
 
     lodz: {
@@ -189,7 +204,12 @@
               "Mówi, że w Łodzi każda kamienica ma swojego fabrykanta i swoją legendę.","Pamięta, jak na Bałutach woda była tylko w podwórkowej studni.","Jest kibicem {team} i nie rozmawia z sąsiadem, który kibicuje drugiej drużynie.",
               "Do fabryki Poznańskiego ma dwa przystanki, a całe życie przepracował tam ktoś z rodziny.","W niedzielę chodzi do kina „{cinema}” na poranek.",
               {t:"Martwi się, że zamykają kolejne fabryki.", years:[1990,1999]},"Mówi „szaber” na wszystko, co wynosi się z zakładu.","Zna każdy pasaż między Piotrkowską a Kościuszki."],
-      quips:["W Łodzi każdy każdego zna, więc i tak by się wydało."]
+      quips:["W Łodzi każdy każdego zna, więc i tak by się wydało.",
+        "Piotrkowska jeszcze nie zasnęła, a sprawa jest już rozwiązana.",
+        "Fabryka gwiżdże, sprawa zamknięta, można iść do domu.",
+        "Łódź nie lubi tajemnic, szczególnie na Bałutach.",
+        "Włókniarze mówili, że to się źle skończy. Mieli rację.",
+        "Wszystko się plecie, ale ta nitka się rozplątała."]
     },
 
     gdansk: {
@@ -233,7 +253,12 @@
               "Mówi, że prawdziwy Gdańsk zaczyna się dopiero za Bramą Wyżynną.","W niedzielę jedzie do Oliwy na koncert organowy.","Kupuje wędzone ryby tylko w jednej budce w Brzeźnie.",
               "Jest kibicem {team} i chodzi na mecze w deszczu.","Ma w domu barometr i codziennie rano go sprawdza.","Mówi „bulwa” na ziemniaka, jak babcia z Kaszub.",
               "Wspomina, jak w dzieciństwie [kąpał|kąpała] się w morzu, zanim zamknęli plażę przez sinice.",{t:"Chodzi na Jarmark Dominikański co roku w sierpniu.", years:[1989,1999]},"Po samych kominach wie, które statki stoją na redzie."],
-      quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie."]
+      quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie.",
+        "Stocznia gwiżdże na zmianę, a my kończymy sprawę.",
+        "Mewy krzyczą, sprawa zamknięta.",
+        "Na Długim Targu już o tym gadają.",
+        "Morze się uspokoiło i ta sprawa też.",
+        "W Gdańsku fale zmywają ślady, ale nie wszystkie."]
     },
 
     katowice: {
@@ -278,7 +303,12 @@
               "Na Barbórkę zawsze idzie na karczmę piwną.","W niedzielę jeździ do Parku Śląskiego na Elkę.","Mówi „ancug” na garnitur.",
               "Na każdy dom z czerwonej cegły mówi „familok”, nawet jeśli to szkoła.","Jest kibicem {team} i pamięta każdy mecz z Ruchem.","W kuchni ma kredens, który przeżył trzy pokolenia.",
               {t:"Martwi się, że kopalnie zaczynają zamykać.", years:[1993,1999]},"Mówi „gryfnie” na wszystko, co [mu|jej] się podoba."],
-      quips:["Szczęść Boże. Sprawa zamknięta przed szychtą."]
+      quips:["Szczęść Boże. Sprawa zamknięta przed szychtą.",
+        "Sprawa wyjaśniona, można zjechać na dół spokojnie.",
+        "Na Śląsku porządek musi być, nawet w kryminałach.",
+        "Wszyscy wiedzieli, tylko nikt nie mówił.",
+        "Kopalnia nie czeka, my też nie będziemy.",
+        "Na Śląsku nie lubią kłamstw. Ten też się nie wywinął."]
     },
 
     wroclaw: {
@@ -323,7 +353,12 @@
               "W piwnicy [znalazł|znalazła] kiedyś niemieckie gazety sprzed wojny.","Jest kibicem {team} od czasów mistrzostwa.","Mówi, że w Hali Ludowej [był|była] na wszystkich koncertach.",
               "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko.","W domu ma kredens poniemiecki, który przyjechał z kamienicą.","Na Rynku zawsze zagląda do Piwnicy Świdnickiej, choćby na chwilę.",
               "Zna wszystkie mosty na Odrze, a jest ich ponad sto.",{t:"Po powodzi trzyma na strychu worki z piaskiem.", years:[1997,1999]},"Mówi „mieszkanie po Niemcach” i nikt się nie dziwi."],
-      quips:["Odra płynie spokojnie, a sprawa rozwiązana."]
+      quips:["Odra płynie spokojnie, a sprawa rozwiązana.",
+        "Krasnale na Rynku już wiedziały, kto to zrobił.",
+        "Wrocław przeżył gorsze rzeczy niż jedna taka sprawa.",
+        "Mosty stoją, sprawa zamknięta.",
+        "Ostrów Tumski spokojny, jak po dobrej spowiedzi.",
+        "Tyle mostów, a ten nie miał którędy uciec."]
     }
   };
 

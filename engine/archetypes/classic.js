@@ -630,7 +630,7 @@
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
-    const quips = A([...B.quips, ...(city.quips || [])]); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
+    let quipRaw; const avQ = avoidOf("quips"), quips = prefer(A([...B.quips, ...(city.quips || [])]), x => avQ.has(x)); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
 
     return {
       case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
@@ -642,12 +642,12 @@
       eliminations: Object.fromEntries(innocents.map(sIdx => [persons[sIdx].id, elim[sIdx].rule.id])),
       red_herrings: herrings.map(h => I[h].id),
       supported_connections: supported, culprit_chain: chain,
-      hints, why, epilogue, quip: T(R.pick(quips)),
+      hints, why, epilogue, quip: T(quipRaw = R.pick(quips)),
       detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: I[wIdx].name,
       // co ta sprawa zużyła z pul treści: gra zapamiętuje to i podaje kolejnym sprawom z archiwum jako opts.avoid
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
-        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], flavor: [...usedLines], alibi: usedAlibi }
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: usedAlibi }
     };
   }
 

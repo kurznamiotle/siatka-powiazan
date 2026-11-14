@@ -1453,11 +1453,22 @@
     /* Komentarze komisarza na koniec sprawy */
     quips: [
       "Dobra robota. Tu nic się nie dzieje bez świadka.",
-      {t:"Myślałem, że tę sprawę zamkniemy dopiero po świętach wielkanocnych.", months:[3,4]},
-      {t:"Myślałem, że tę sprawę zamkniemy dopiero po Bożym Narodzeniu.", months:[11,12]},
       "Kawa się zagotowała, a sprawa rozwiązana. Dobry dzień.",
       "{district_na_cap} znowu będzie o czym plotkować.",
-      "Zapiszę to w raporcie jako wzorcową robotę śledczą."
+      "Zapiszę to w raporcie jako wzorcową robotę śledczą.",
+      "Papierologia gorsza niż samo śledztwo, ale sprawca jest nasz.",
+      "Nikt nie lubi się mylić. Tym razem nie było okazji.",
+      "Do protokołu: sprawa zamknięta. Do kawy: jeszcze sucharek.",
+      "Mój poprzednik wisiał nad tym trzy tygodnie. Tu wystarczyło jedno popołudnie.",
+      "Sprawca wyjaśni to jeszcze w areszcie. My możemy iść do domu.",
+      "Prasie lepiej nie mówić, że to było tak proste.",
+      "Gdyby wszyscy tak czytali akta, komenda świeciłaby pustkami.",
+      "Telefon w gabinecie milczy, a to najlepszy znak.",
+      "Z braku dowodów jeszcze nikogo nie skazano, ale tu ich nie brakło.",
+      "Sprawa zamknięta. Teraz tylko trzy kopie w czterech egzemplarzach.",
+      "Raport pójdzie do przełożonych. Ucieszą się, chociaż tego nie okażą.",
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po świętach wielkanocnych.", months:[3,4]},
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po Bożym Narodzeniu.", months:[11,12]}
     ],
 
     /* ------------------------------------------------------------------ */
@@ -2007,7 +2018,7 @@
           { title:"Szlaban na parkingu", vt:["firm"], vg:"m", to:"na strzeżony parking", where:"przy szlabanie", years:[1991,1999],
             intro:"Na strzeżonym parkingu przy {street} ktoś uszkodził kable od szlabanu i alarmu. Właściciel parkingu {victim} zgłosił to {police_dat}." },
           { title:"Taksówka z postoju", vt:["firm"], vg:"m", to:"na postój taksówek", where:"przy taksówce",
-            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i uszkodził klemy." },
+            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i zerwał klemy akumulatora." },
           { title:"Piec w piekarni przy {street}", vt:["inst"], vg:"m", to:"do piekarni", where:"przy piecu", exclude:["piekarnia"],
             intro:"W piekarni przy {street} wygasł piec w środku nocnej zmiany. Majster {victim} znalazł uszkodzony przewód od palnika." },
           { title:"Antena zbiorcza", vt:["priv"], vg:"f", to:"na dach kamienicy", where:"przy antenie", years:[1990,1999],
