@@ -17,7 +17,7 @@
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
   function indexFacts(c, skip) {
-    const ix = { key: new Set(), pres: [], alibi: {}, trait: {}, origin: {}, moved: {}, fate: {}, debunked: new Set(), marks: [], evidence: {} };
+    const ix = { key: new Set(), pres: [], alibi: {}, trait: {}, origin: {}, moved: {}, fate: {}, debunked: new Set(), marks: [], evidence: {}, rel: new Set(), roster: new Set(), travel: {} };
     for (const f of c.facts) {
       if (skip && skip(f)) continue;
       if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
@@ -30,8 +30,27 @@
       else if (f.type === "alibi_debunked") ix.debunked.add(f.who);
       else if (f.type === "mark") ix.marks.push(f);
       else if (f.type === "evidence") ix.evidence[f.id] = f;
+      else if (f.type === "relation") ix.rel.add(f.a + "|" + f.b + "|" + f.rel);
+      else if (f.type === "roster_entry") ix.roster.add(f.who);
+      else if (f.type === "travel") { ix.travel[f.a + "|" + f.b] = f.min; ix.travel[f.b + "|" + f.a] = f.min; }
     }
     return ix;
+  }
+
+  /* 2.2 (oś czasu): czy osoba z obserwacjami obs = [{w, t}] (posortowanymi) mogła spędzić w X co najmniej
+     stay minut w oknie [A, B]. d(a, b) = czas dojścia (Infinity, gdy nieznany). Przed pierwszą i po ostatniej
+     obserwacji czas jest wolny. */
+  function reachable(obs, X, A, B, d, stay = 0) {
+    if (!obs.length) return B - A >= stay;
+    if (obs.some(o => o.w === X && o.t >= A && o.t <= B)) return true;
+    const first = obs[0], last = obs[obs.length - 1];
+    if (Math.min(first.t - d(X, first.w), B) - A >= stay) return true;
+    if (B - Math.max(last.t + d(last.w, X), A) >= stay) return true;
+    for (let i = 0; i + 1 < obs.length; i++) {
+      const e = obs[i].t + d(obs[i].w, X), l = obs[i + 1].t - d(X, obs[i + 1].w);
+      if (Math.min(l, B) - Math.max(e, A) >= stay) return true;
+    }
+    return false;
   }
 
   /* ---------- biblioteka predykatów: s = {who, item} ---------- */
@@ -44,6 +63,15 @@
     trait: (rule, s, ix) => !!ix.trait[s.who] && String(ix.trait[s.who][rule.trait]) === String(rule.value),
     key: (rule, s, ix) => ix.key.has(s.who + "|" + ix.origin[s.item]),
     fate: (rule, s, ix) => ix.fate[s.item] === rule.value,
+    /* 2.2: porównanie wzrostu z miarą w regule (refCm, dir = up/down), relacja z osobą spoza podejrzanych, zeszyt dozorcy (zamknięta lista) */
+    cmp: (rule, s, ix) => { const h = ix.trait[s.who] && ix.trait[s.who].height_cm; return h != null && (rule.dir === "down" ? h < rule.refCm : h > rule.refCm); },
+    relation: (rule, s, ix) => ix.rel.has(s.who + "|" + rule.refName + "|" + rule.rel),
+    absent: (rule, s, ix) => !ix.roster.has(s.who),
+    reach(rule, s, ix) {
+      const obs = ix.pres.filter(p => p.who === s.who && p.at).map(p => ({ w: p.where, t: toMin(p.at) })).sort((a, b) => a.t - b.t);
+      const d = (a, b) => a === b ? 0 : (ix.travel[a + "|" + b] ?? Infinity);
+      return reachable(obs, rule.where, toMin(rule.from), toMin(rule.to), d, rule.stay || 0);
+    },
     dump: (rule, s, ix) => !!ix.trait[s.who] && ix.trait[s.who].habit === ix.fate[s.item],
     window(rule, s, ix) {
       const mv = ix.moved[s.item], loc = ix.origin[s.item]; if (!mv) return false;
@@ -84,7 +112,36 @@
       ok: unique && matches !== false && Object.values(necessary).every(Boolean) && !errors.length };
   }
 
-  const api = { indexFacts, PRED, pred, solve, checkEvidence };
+  /* 2.2: metryka głębokości na poziomie faktów.
+     - strongRule: najwięcej niewinnych, których odcina jedna reguła sama,
+     - strongFact: najwięcej niewinnych, którzy „wracają” po usunięciu jednego faktu (fakt, od którego zależy ich eliminacja),
+     - minFacts: ile faktów zostaje po zachłannym usuwaniu tych, bez których rozwiązanie dalej jest jedno (głębokość),
+     - reject: jedna reguła albo jeden fakt eliminuje wszystkich niewinnych (przy co najmniej 2 niewinnych). */
+  function depth(c, A) {
+    const hyps = A.hypotheses(c), subj = A.subject || (h => h.culprit), culprit = c.solution.culprit;
+    const innocents = [...new Set(hyps.map(subj))].filter(p => p !== culprit);
+    const alive = (rules, ix) => new Set(hyps.filter(h => rules.every(r => A.holds(r, h, ix, c))).map(subj));
+    const ix0 = indexFacts(c);
+    let strongRule = 0;
+    for (const r of c.rules) { const al = alive([r], ix0); strongRule = Math.max(strongRule, innocents.filter(p => !al.has(p)).length); }
+    let strongFact = 0;
+    for (const f of c.facts) {
+      const al = alive(c.rules, indexFacts(c, x => x === f));
+      strongFact = Math.max(strongFact, innocents.filter(p => al.has(p)).length);
+    }
+    // zachłannie: fakty w stałej kolejności, usuwamy te, bez których zostaje jedna hipoteza
+    const removed = new Set();
+    for (const f of c.facts) {
+      removed.add(f);
+      const ix = indexFacts(c, x => removed.has(x));
+      if (hyps.filter(h => c.rules.every(r => A.holds(r, h, ix, c))).length !== 1) removed.delete(f);
+    }
+    const n = innocents.length;
+    return { strongRule, strongFact, minFacts: c.facts.length - removed.size, innocents: n,
+      reject: n >= 2 && (strongRule >= n || strongFact >= n) };
+  }
+
+  const api = { indexFacts, PRED, pred, solve, checkEvidence, depth, reachable };
   root.SiatkaSolver = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

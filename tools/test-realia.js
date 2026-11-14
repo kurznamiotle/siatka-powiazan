@@ -54,5 +54,14 @@ const G = S.util.moneyGen;
 check(G("2 tysiące złotych") === "2 tysięcy złotych" && G("3 miliony złotych") === "3 milionów złotych" &&
       G("700 tysięcy złotych") === "700 tysięcy złotych" && G("12 milionów złotych") === "12 milionów złotych", "moneyGen");
 
+// 5. (2.2) kwoty z cennika po denominacji: parking kilka złotych, OC kilkaset, okup kilkaset do 2 tysięcy
+{
+  const R = S.makeRng("ceny"), zl = s => { const m = s.match(/^([\d,]+) (tysiąc|tysiące|tysięcy|milion|miliony|milionów|miliona)?/); const n = parseFloat(m[1].replace(",", ".")); return m[2] ? n * (m[2][0] === "t" ? 1e3 : 1e6) : n; };
+  const range = { parking: [1, 10], oc: [200, 900], ransom: [300, 2000], fine: [10, 150], money: [500, 8000] };
+  for (let y = 1995; y <= 1999; y++) for (const [k, [lo, hi]] of Object.entries(range)) for (let i = 0; i < 40; i++) {
+    const v = zl(S.util.price(B, R, y, k)); check(v >= lo && v <= hi, `${k} ${y}: ${v} zł poza ${lo}–${hi}`);
+  }
+  for (const y of [1989, 1992]) check(/tysięcy|tysiące|milion/.test(S.util.price(B, R, y, "oc")), `OC w ${y} w starych złotych`);
+}
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);

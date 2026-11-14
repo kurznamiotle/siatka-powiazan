@@ -14,6 +14,18 @@
       "number": 10,
       "title": "Bokser z warsztatu",
       "sha1": "10a112f772736e48c334b7735805c82635ca49d4"
+    },
+    {
+      "date": "2026-11-13",
+      "number": 11,
+      "title": "Budka z warzywami",
+      "sha1": "f2ca028c59ef1408ecd7cc4db64fa7f2fefe0390"
+    },
+    {
+      "date": "2026-11-14",
+      "number": 12,
+      "title": "Krosno w spółdzielni pracy",
+      "sha1": "6f2d0dea952800be5858bb011b3057df854776e1"
     }
   ]
 }

@@ -12,7 +12,7 @@ const S = require("../engine/engine.js");
 const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
 
 const [, , fileArg, ...crimeArgs] = process.argv;
-const MIX = crimeArgs[0] === "mix"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
+const MIX = crimeArgs[0] === "mix", V22 = crimeArgs[0] === "v22"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
 const CRIMES = MIX ? [] : crimeArgs.length ? crimeArgs : ["szantaz", "falszerstwo", "sabotaz", "napad", "wandalizm", "porwanie_psa", "otrucie_czlowieka"];
 const NO_CONTACT = ["szantaz", "falszerstwo", "sabotaz", "wandalizm"];
 const SIZES = ["M", "L", "XL", "M", "L", "XL", "L"];
@@ -33,6 +33,20 @@ const jobs = MIX ? [
   { crime: "(zgłoszenie gracza)", get: () => S.generateCase(WORLD, "losowa-mw6tvpcc-2", { size: "XL", city: "warszawa", year: 1995 }) },
   ...[...Array(4).keys()].map(k => ({ crime: ids[(k * 3 + 1) % ids.length], get: () => S.generateCase(WORLD, `review-xl-${k}`, { size: "XL", crime: ids[(k * 3 + 1) % ids.length] }) }))
 ] : CRIMES.map((crime, k) => ({ crime, get: () => pick(crime, k) }));
+/* 2.2: 8 classic z nowymi regułami (każdy typ co najmniej raz), 8 osi czasu (M, L, XL), 4 XL mieszane */
+if (V22) {
+  jobs.length = 0;
+  const want = ["cmp", "relation", "absent", "known", "cmp", "relation", "absent", "known"], got = [];
+  const kind = c => c.rules.filter(r => ["cmp", "relation", "absent"].includes(r.type) || r.trait === "known").map(r => r.trait === "known" ? "known" : r.type);
+  for (let i = 0; got.length < want.length && i < 5000; i++) {
+    const c = S.generateCase(WORLD, `review22-${i}`, { archetype: "classic", size: ["M", "L", "XL"][i % 3] });
+    const k = want[got.length];
+    if (kind(c).includes(k)) got.push(c);
+  }
+  for (const c of got) jobs.push({ get: () => c });
+  for (let k = 0; k < 8; k++) jobs.push({ get: () => S.generateCase(WORLD, `review22-tl-${k}`, { archetype: "timeline", size: ["M", "L", "XL"][k % 3] }) });
+  for (let k = 0; k < 4; k++) jobs.push({ get: () => S.generateCase(WORLD, `review22-xl-${k}`, { size: "XL" }) });
+}
 const out = [];
 const line = (s = "") => out.push(s);
 jobs.forEach((job, k) => {
@@ -40,12 +54,19 @@ jobs.forEach((job, k) => {
   const name = id => (c.nodes.find(n => n.id === id) || {}).name || id;
   line("=".repeat(78));
   line(`${k + 1}. ${WORLD.base.crimes[crime].name.toUpperCase()}: „${c.title}”`);
+  if (c.verify && c.verify.depth) line(`głębokość: ${c.verify.depth.minFacts} faktów · najsilniejsza reguła odcina ${c.verify.depth.strongRule}, najsilniejszy fakt ${c.verify.depth.strongFact}`);
   line(`${c.city_name}, ${c.month} ${c.year} · wielkość ${c.size} · seed ${c.seed} · ${c.detective}`);
   line("=".repeat(78));
   line(c.intro);
   line();
+  line(`ARCHETYP: ${c.archetype}${c.question === "culprit" ? " (pytanie: kto)" : ""}`);
   line("NOTATNIK (reguły):");
-  for (const r of c.rules) line(`  ${r.id.slice(1)}. ${r.text}   [${r.type}${r.trait ? ":" + r.trait : ""}]`);
+  for (const r of c.rules) line(`  ${r.id.slice(1)}. ${r.text}   [${r.type}${r.trait ? ":" + r.trait : ""}${r.rel ? ":" + r.rel : ""}]`);
+  if (c.travel) { line("  CZASY DOJŚCIA:"); for (const [a, b, m] of c.travel) line(`    ${name(a)} ↔ ${name(b)}: ${m} min`); line("  " + c.travel_note); }
+  if (c.archetype === "timeline") {
+    line(); line("TRASY (obserwacje, do przeglądu):");
+    for (const p of N("person")) line(`  ${p.name}${p.id === c.solution.culprit ? " [SPRAWCA]" : ""}: ${c.facts.filter(f => f.type === "presence" && f.who === p.id).sort((a, b) => a.at.localeCompare(b.at)).map(f => `${f.at} ${name(f.where)}${f.src ? " (dowód)" : ""}`).join(" → ")}`);
+  }
   for (const [title, type] of [["OSOBY", "person"], ["MIEJSCA", "location"], ["PRZEDMIOTY", "item"], ["DOWODY RZECZOWE", "evidence"]]) {
     if (!N(type).length) continue;
     line(); line(title + ":");
@@ -55,11 +76,11 @@ jobs.forEach((job, k) => {
     }
   }
   line(); line("PODPOWIEDZI:"); for (const h of c.hints) line(`  - ${h}`);
-  line(); line(`ROZWIĄZANIE: ${c.culprit_name}, ${c.weapon_name.charAt(0).toLowerCase() + c.weapon_name.slice(1)}.`);
+  line(); line(`ROZWIĄZANIE: ${c.culprit_name}${c.weapon_name ? ", " + c.weapon_name.charAt(0).toLowerCase() + c.weapon_name.slice(1) : ""}.`);
   for (const [who, why] of c.why) line(`  ${who} ${why}`);
   line(); line("EPILOG: " + c.epilogue);
   line("KOMISARZ: " + c.quip);
-  line(); line(`(odpada z reguły: ${Object.entries(c.eliminations).map(([p, r]) => `${name(p)} → ${r.slice(1)}`).join(", ")}; fałszywe tropy: ${c.red_herrings.map(name).join(", ")})`);
+  line(); line(`(odpada z reguły: ${Object.entries(c.eliminations).map(([p, r]) => `${name(p)} → ${r.slice(1)}`).join(", ")}; fałszywe tropy: ${c.red_herrings.map(name).join(", ") || "brak"})`);
   line();
 });
 const dir = path.join(__dirname, "..", "cases", "generated");

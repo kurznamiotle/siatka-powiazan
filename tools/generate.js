@@ -19,9 +19,11 @@ if (a1 === "verify") {
   process.exit(r.ok ? 0 : 1);
 }
 const N = +a1 || 2000;
-const opts = { city: city || undefined, year: year ? +year : undefined, size: size || undefined };
+// archetyp: node tools/generate.js 1000 --arch timeline (bez tego: losowanie z wag)
+const archArg = process.argv.indexOf("--arch") > 0 ? process.argv[process.argv.indexOf("--arch") + 1] : undefined;
+const opts = { city: city && city !== "--arch" ? city : undefined, year: year && +year ? +year : undefined, size: size || undefined, archetype: archArg };
 let fail = 0; const bad = [], out = [];
-const stats = { crime: {}, scene: {}, city: {}, size: {}, rules: {}, nodes: {}, archetype: {}, evKind: {}, alibiDoc: {}, evTpl: {} };
+const stats = { crime: {}, scene: {}, city: {}, size: {}, rules: {}, nodes: {}, archetype: {}, evKind: {}, alibiDoc: {}, evTpl: {}, unusual: {}, depth: {}, tries: 0, depthRej: 0 };
 const noInnocentEv = []; // sprawy, w których wszystkie dowody dotyczą sprawcy
 const ev = {}; // wielkość → {n, sum, min, need}
 /* czy rozwiązanie wymaga faktu z dowodu: bez faktów z dowodów sprawa traci jedno, właściwe rozwiązanie */
@@ -53,6 +55,9 @@ const ROLE_FORBID = {
   weterynarz: /alergi\S* na sierść|boi się (psów|od dziecka)|Psów boi|na widok (cudzego )?psa/i,
   student: NOJOB,
   emeryt: NOJOB, kombatant: NOJOB, gospodyni: NOJOB,
+  // 2.2: role, które jeżdżą zawodowo, nie mogą nie mieć auta ani nie umieć jeździć; opiekun w zoo bez lęku przed psami
+  ...Object.fromEntries(["mechanik", "taksowkarz", "kierowca", "cpn"].map(r => [r, /prawa jazdy|nie umie jeździć|nauczył\S* się prowadzić|boi się samochodów|[Ss]amochodu nie ma|[Aa]uta nie ma|samochodu nigdy nie|żadnego nie ma|z pojazdów ma tylko rower/])),
+  zoo: /alergi\S* na sierść|boi się (psów|od dziecka)|Psów boi|na widok (cudzego )?psa/i,
   bezrobotny: /Ma (stałą|dobrą) pracę|pensj|podwyżk|Zarabia w markach|\bDo pracy\b|\bw pracy\b/i
 };
 /* smaczki ról: zdanie z flavor jednej roli nie może trafić do teczki innej roli */
@@ -65,18 +70,91 @@ const incoherent = [];
 const tm = h => { const [a, b] = h.split(":").map(Number); return a * 60 + b; };
 function noDoubleBooking(c) {
   const crimeFrom = tm(c.time.crime.from);
-  for (const id of new Set(c.facts.filter(f => f.type === "presence").map(f => f.who))) {
-    const ps = c.facts.filter(f => f.type === "presence" && f.who === id), al = c.facts.find(f => f.type === "alibi" && f.who === id);
+  for (const id of new Set(c.facts.filter(f => f.type === "presence" || f.type === "roster_entry").map(f => f.who))) {
+    const ps = c.facts.filter(f => (f.type === "presence" || f.type === "roster_entry") && f.who === id), al = c.facts.find(f => f.type === "alibi" && f.who === id);
     for (let i = 0; i < ps.length; i++) {
       const t = tm(ps[i].at);
-      if (t >= crimeFrom - 10) incoherent.push([c.seed, `${id}: obecność ${ps[i].at} w trakcie alibi`]);
+      if (al && t >= crimeFrom - 10) incoherent.push([c.seed, `${id}: obecność ${ps[i].at} w trakcie alibi`]);
       else if (al && al.confirmed && t >= tm(al.from) && t <= tm(al.to)) incoherent.push([c.seed, `${id}: obecność ${ps[i].at} w trakcie alibi ${al.from}–${al.to}`]);
       for (let j = i + 1; j < ps.length; j++) if (ps[i].where !== ps[j].where && Math.abs(t - tm(ps[j].at)) < 15) incoherent.push([c.seed, `${id}: w dwóch miejscach naraz (${ps[i].where}@${ps[i].at}, ${ps[j].where}@${ps[j].at})`]);
     }
   }
 }
+const hStats = {}, cmpStats = { n: 0, sum: 0, up: 0 };
+function coherence2(c) {
+  const bad = what => incoherent.push([c.seed, what]);
+  const persons = c.nodes.filter(n => n.type === "person"), tr = (id, t) => (c.facts.find(f => f.type === "trait" && f.who === id && f.trait === t) || {}).value;
+  // wzrost: w realnym zakresie dla płci, a opis (wysoki/niski/średni) wynika z liczby
+  for (const p of persons) {
+    const cm = tr(p.id, "height_cm"), h = tr(p.id, "height"), H = S.util.HEIGHT[p.g];
+    if (cm == null || cm < H.lo || cm > H.hi || S.util.heightClass(p.g, cm) !== h) bad(`${p.id}: wzrost ${cm} cm nie pasuje do „${h}” (${p.g})`);
+    if (cm != null) (hStats[p.g] = hStats[p.g] || []).push(cm);
+    const m = p.text.join(" ").match(/(\d{3}) cm/); if (m && +m[1] !== cm) bad(`${p.id}: w teczce ${m[1]} cm, w faktach ${cm}`);
+  }
+  for (const r of c.rules) {
+    if (r.type === "cmp") {
+      if (persons.some(p => p.name === r.refName)) bad("porównanie: miarą jest podejrzany");
+      const cms = persons.map(p => tr(p.id, "height_cm"));
+      if (cms.some(v => Math.abs(v - r.refCm) <= 3)) bad(`porównanie: ktoś z podejrzanych w promieniu 3 cm od miary ${r.refCm}`);
+      const pass = v => r.dir === "down" ? v < r.refCm : v > r.refCm;
+      if (!pass(tr(c.solution.culprit, "height_cm"))) bad("porównanie: sprawca nie spełnia reguły");
+      const nf = persons.filter(p => !pass(tr(p.id, "height_cm"))).length;
+      if (nf < (c.size === "L" || c.size === "XL" ? 2 : 1)) bad(`porównanie odcina tylko ${nf} podejrzanych`);
+      cmpStats.n++; cmpStats.sum += nf; cmpStats.up += r.dir === "up" ? 1 : 0;
+      if (/samego siebie/.test(c.why.map(w => w.join(" ")).join(" "))) bad("porównanie: „nikt nie jest wyższy od samego siebie”");
+    }
+    if (r.type === "relation") {
+      if (persons.some(p => p.name === r.refName)) bad("relacja: osoba-odniesienie jest podejrzanym");
+      const rel = c.facts.filter(f => f.type === "relation" && f.b === r.refName);
+      if (rel.length < (c.size === "L" || c.size === "XL" ? 3 : 2)) bad(`relacja: nazwisko ${r.refName} tylko w ${rel.length} teczkach`);
+      if (new Set(rel.map(f => f.rel)).size < 2) bad("relacja: wszyscy mają tę samą relację");
+      if (rel.every(f => f.a === c.solution.culprit || f.rel !== r.rel)) bad("relacja: relacja z reguły tylko u sprawcy");
+    }
+    if (r.type === "absent") {
+      const on = c.facts.filter(f => f.type === "roster_entry").length;
+      if (on > Math.max(1, Math.floor((persons.length - 1) / 2))) bad(`zeszyt dozorcy eliminuje ${on} z ${persons.length - 1} niewinnych`);
+      // jedynym źródłem wiedzy dozorcy jest zeszyt z reguły: bez dowodu „Zeszyt dozorcy” i bez świadków-dozorców w teczkach
+      // obecność z godziną od dozorcy (np. dowód „Zeszyt dozorcy”); książka wydań kluczy sprzed miesiąca nie koliduje
+      const presEv = new Set(c.facts.filter(f => f.type === "evidence" && f.kind === "presence").map(f => f.id));
+      if (c.nodes.some(n => presEv.has(n.id) && /dozorc/i.test(n.name + " " + n.text.join(" ")))) bad("zeszyt dozorcy: dowód obecności od dozorcy w sprawie z listą");
+      for (const p of persons) {
+        const own = c.facts.filter(f => f.type === "roster_entry" && f.who === p.id).map(f => f.at);
+        for (const line of p.text) if (/dozorc/i.test(line) && /\d:\d\d/.test(line) && !own.some(t => line.includes(t))) bad(`zeszyt dozorcy: świadek-dozorca w teczce ${p.id}: ${line}`);
+      }
+    }
+  }
+}
+/* 2.2: oś czasu. Liczba obserwacji nie zależy od winy, a co najmniej 1 (L–XL: 2) niewinnych bez trasy
+   ma „prawie lukę” (brakuje im najwyżej 5 min). Statystyki w tl. */
+const tl = { n: 0, obsC: 0, obsI: 0, nI: 0, traps: {}, open: {}, stay: 0, stayHist: {} };
+function timelineCheck(c) {
+  if (c.archetype !== "timeline") return;
+  const bad = what => incoherent.push([c.seed, what]);
+  const r = c.rules.find(r => r.type === "reach"), A = tm(r.from), B = tm(r.to), X = r.where;
+  const tr = {}; for (const f of c.facts.filter(f => f.type === "travel")) { tr[f.a + "|" + f.b] = f.min; tr[f.b + "|" + f.a] = f.min; }
+  const d = (a, b) => a === b ? 0 : tr[a + "|" + b];
+  let traps = 0, open = 0;
+  for (const p of c.nodes.filter(n => n.type === "person")) {
+    const obs = c.facts.filter(f => f.type === "presence" && f.who === p.id).map(f => ({ w: f.where, t: tm(f.at) })).sort((a, b) => a.t - b.t);
+    if (p.id === c.solution.culprit) tl.obsC += obs.length; else { tl.obsI += obs.length; tl.nI++; }
+    if (obs.some(o => o.w === X)) bad(p.id + ": obserwacja na miejscu zdarzenia");
+    // najmniejszy brak czasu w luce wokół okna (ujemny = zapas)
+    // najdłuższy możliwy pobyt na miejscu w oknie; brak = wymagany pobyt − ten czas (ujemny = zapas)
+    let len = Math.max(Math.min(obs[0].t - d(X, obs[0].w), B) - A, B - Math.max(obs[obs.length - 1].t + d(obs[obs.length - 1].w, X), A));
+    for (let i = 0; i + 1 < obs.length; i++) len = Math.max(len, Math.min(obs[i + 1].t - d(X, obs[i + 1].w), B) - Math.max(obs[i].t + d(obs[i].w, X), A));
+    const def = (r.stay || 0) - len;
+    if (p.id === c.solution.culprit) { tl.stay += len; inc(tl.stayHist, len); if (len < (r.stay || 0)) bad("oś czasu: sprawca nie ma wymaganego pobytu"); }
+    if (def <= 0) open++;
+    else if (def <= 5) traps++;
+  }
+  tl.n++; inc(tl.traps, traps); inc(tl.open, open);
+  if (traps < (c.size === "M" ? 1 : 2)) bad(`oś czasu: tylko ${traps} pułapek (brak ≤ 5 min)`);
+  if (open < 2) bad("oś czasu: trasę ma tylko sprawca");
+  if (!r.stay || !/co najmniej \d+ minut/.test(r.text)) bad("oś czasu: reguła bez minimalnego pobytu");
+  if (/od (\d+:\d\d) do \1/.test(c.why.map(w => w.join(" ")).join(" "))) bad("oś czasu: zerowy pobyt w wyjaśnieniu");
+}
 function coherence(c) {
-  noDoubleBooking(c);
+  noDoubleBooking(c); coherence2(c); timelineCheck(c);
   // testament na kogoś innego niż sprawca nie idzie w parze z epilogiem o spadku albo mieszkaniu po ofierze
   for (const e of c.facts.filter(f => f.type === "evidence" && f.kind === "trait:motive" && f.owner !== c.solution.culprit)) {
     const n = c.nodes.find(x => x.id === e.id);
@@ -118,6 +196,18 @@ function coherence(c) {
   }
   const ck = persons.findIndex(n => n.id === c.solution.culprit), CW = whoOf(persons[ck], ck);
   for (const o of crime.motives) { const t = typeof o === "string" ? o : o.t; if (typeof o === "object" && c.epilogue.includes(stem(t, persons[ck].g)) && !S.util.fitsWho(o, CW)) bad(`${c.used.roles[ck]}: motyw w epilogu: ${t}`); }
+  // opis sprawy (intro) i reguły nie mogą nazywać narzędzia, którego nie ma wśród kandydatów w sprawie (np. „sznurem” przy przedłużaczu)
+  {
+    const TOOLWORDS = [ // [rdzeń w tekście, nazwa przedmiotu, który pasuje do tego słowa]
+      [/sznur|powróz/i, /sznur|lin[ak]|szpagat/i], [/n[oó]ż|nożem|nożyk/i, /nóż|nożyk/i], [/młot/i, /młot/i], [/łom/i, /łom/i], [/siekier|topor/i, /siekier/i],
+      [/brzytw/i, /brzytw/i], [/widł/i, /widł/i], [/obcęg|przecinak/i, /obcęg|przecinak/i], [/śrubokręt/i, /śrubokręt/i], [/nożyc|nożyczk/i, /nożyc|nożyczk/i],
+      [/benzyn/i, /benzyn/i], [/nafty|naftą/i, /naft/i], [/farb/i, /farb|pędzel|spray/i], [/pędzel|pędzlem/i, /pędzel/i],
+      [/przeci[ąę]|przecięt/i, /przecinak|nożyc|nożyk|nóż|obcęg|piłk|sekator|brzytw|żyletk|dłuto|widł|bosak|hak|siekier/i], [/rozkr[ęe]c|odkr[ęe]c/i, /klucz|śrubokręt|obcęg/i],
+    ];
+    const cands = c.nodes.filter(n => n.type === "item").map(n => n.name);
+    const texts = [c.intro, ...(c.rules || []).map(r => r.text)].filter(Boolean).join(" ");
+    for (const [re, ok] of TOOLWORDS) if (re.test(texts)) for (const nm of cands) if (!ok.test(nm)) bad(`opis nazywa narzędzie (${re}), a kandydatem jest „${nm}”`);
+  }
   // przedmioty w liczbie mnogiej: „zniknęły”, „znalezione”, „odniesione”, „je”
   for (const n of c.nodes.filter(n => n.type === "item")) {
     const t = n.text.join(" ");
@@ -134,15 +224,33 @@ const tplKinds = { presence: B.evidence.presence, keys: B.evidence.keys, alibi: 
   ...Object.fromEntries(Object.entries(B.traits).filter(([, t]) => t.evidence).map(([k, t]) => ["trait:" + k, t.evidence])),
   ...Object.fromEntries(Object.entries(B.crimes).map(([k, cr]) => ["trait:motive/" + k, cr.letters])) };
 const tplFew = Object.entries(tplKinds).filter(([, l]) => new Set(l.map(d => d.name)).size < 3).map(([k, l]) => `${k} (${l.length})`);
+/* 2.2: w danych każde pole `t` jest napisem (zagnieżdżone {t:{t:…}} dawało w teczce „object Object”) */
+const badT = [];
+(function walk(o, p) {
+  if (!o || typeof o !== "object") return;
+  if (!Array.isArray(o) && "t" in o && typeof o.t !== "string") badT.push(p);
+  for (const [k, v] of Object.entries(o)) walk(v, p + "." + k);
+})({ base: WORLD.base, cities: WORLD.cities }, "");
+if (badT.length) console.log("BŁĄD: pole t nie jest napisem:", badT.slice(0, 5));
 const t0 = Date.now();
 for (let i = 0; i < N; i++) {
   let c;
-  try { c = S.generateCase(WORLD, "test-" + i, opts); } catch (e) { fail++; if (fail < 4) console.log(e.message); continue; }
+  try { c = S.generateCase(WORLD, "test-" + i, archArg === "timeline" && !opts.size ? Object.assign({}, opts, { size: ["M", "L", "XL"][i % 3] }) : opts); } catch (e) { fail++; if (fail < 4) console.log(e.message); continue; }
   inc(stats.crime, c.crime); inc(stats.scene, c.crime + ": " + c.used.scenes[0]); inc(stats.city, c.city); inc(stats.size, c.size); inc(stats.rules, c.rules.length + " reguł");
   inc(stats.nodes, `${c.nodes.filter(n => n.type === "person").length} os. / ${c.nodes.filter(n => n.type === "item").length} przedm.`);
   inc(stats.archetype, c.archetype);
+  // 2.2: reguły nietypowe i głębokość
+  const unu = c.rules.filter(r => ["cmp", "relation", "absent"].includes(r.type) || r.trait === "known").map(r => r.trait === "known" ? "known" : r.type);
+  inc(stats.unusual, unu.length + " nietyp."); for (const u of unu) inc(stats.unusual, u);
+  const uMax = c.size === "S" || c.size === "M" ? 1 : 2;
+  if (unu.length > uMax) incoherent.push([c.seed, `${unu.length} reguł nietypowych w ${c.size}`]);
+  if (c.verify && c.verify.depth) {
+    const d = stats.depth[c.archetype + " " + c.size] = stats.depth[c.archetype + " " + c.size] || { n: 0, sum: 0, hist: {}, sr: {}, sf: {} };
+    d.n++; d.sum += c.verify.depth.minFacts; inc(d.hist, c.verify.depth.minFacts); inc(d.sr, c.verify.depth.strongRule); inc(d.sf, c.verify.depth.strongFact);
+    stats.tries += c.verify.tries; stats.depthRej += c.verify.depthRejects;
+  }
   const nEv = c.nodes.filter(n => n.type === "evidence").length, e = ev[c.size] = ev[c.size] || { n: 0, sum: 0, min: 99, need: 0 };
-  e.n++; e.sum += nEv; e.min = Math.min(e.min, nEv); if (needsEvidence(c)) e.need++;
+  if (c.archetype === "classic") { e.n++; e.sum += nEv; e.min = Math.min(e.min, nEv); if (needsEvidence(c)) e.need++; } // progi etapu 1 tylko dla classic
   for (const x of c.facts.filter(x => x.type === "evidence")) {
     inc(stats.evKind, x.kind); if (x.kind === "alibi") inc(stats.alibiDoc, x.lie ? "obala (" + x.lie + ")" : "potwierdza");
     const tk = x.kind === "trait:motive" ? "trait:motive/" + c.crime : x.kind;
@@ -152,7 +260,8 @@ for (let i = 0; i < N; i++) {
   if (evF.length && evF.every(x => x.owner === c.solution.culprit)) noInnocentEv.push(c.seed);
   const allText = [c.title, c.intro, c.epilogue, c.quip, c.detective, ...c.rules.map(r => r.text), ...c.hints, ...c.why.map(w => w.join(" ")),
     ...c.nodes.flatMap(n => [n.kind, ...n.text])].join("\n");
-  const leftover = allText.match(/[\[\]{}]|undefined|null|NaN|(?<!\.)\.\.(?!\.)/g); // też podwójna kropka
+  // 2.2: też „object Object” (obiekt zamiast napisu: nawiasy „[object Object]” zjada odmiana [m|f]) i nazwy węzłów
+  const leftover = [allText, ...c.nodes.flatMap(n => [n.name, n.label])].join("\n").match(/[\[\]{}]|undefined|null|NaN|object Object|\[object|(?<!\.)\.\.(?!\.)/g); // też podwójna kropka
   if (leftover) bad.push([c.seed, leftover.slice(0, 5)]);
   coherence(c);
   out.push(c);
@@ -167,7 +276,7 @@ console.log("Obsada:", stats.nodes);
 console.log("Reguły:", stats.rules);
 /* rozkład typów zbrodni i scen (etap 11): typy po równo (±3 p.p. od równego udziału), żadna scena powyżej 2% */
 const nOk = N - fail, pct = v => 100 * v / Math.max(1, nOk);
-const crimeIds = Object.keys(WORLD.base.crimes), fair = 100 / crimeIds.length;
+const crimeIds = archArg === "timeline" ? ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"] : Object.keys(WORLD.base.crimes), fair = 100 / crimeIds.length;
 console.log("Zbrodnie (%):", Object.fromEntries(crimeIds.map(k => [k, +pct(stats.crime[k] || 0).toFixed(1)])), `· równy udział ${fair.toFixed(1)}%`);
 const crimeOff = crimeIds.filter(k => Math.abs(pct(stats.crime[k] || 0) - fair) > 3);
 const scenes = Object.entries(stats.scene).sort((a, b) => b[1] - a[1]);
@@ -177,6 +286,15 @@ const sceneOver = scenes.filter(([, v]) => pct(v) > 2);
 const distFail = nOk >= 1000 && (crimeOff.length > 0 || sceneOver.length > 0);
 if (distFail) console.log("BŁĄD: rozkład zbrodni albo scen", { crimeOff, sceneOver: sceneOver.slice(0, 5) });
 console.log("Archetypy:", stats.archetype);
+console.log("Reguły nietypowe:", stats.unusual);
+for (const g of Object.keys(hStats)) { const a = hStats[g].slice().sort((x, y) => x - y), q = p => a[Math.floor(p * (a.length - 1))];
+  console.log(`Wzrost (${g}): ${a.length} osób, min ${a[0]}, 10% ${q(.1)}, mediana ${q(.5)}, 90% ${q(.9)}, max ${a[a.length - 1]}, średnio ${(a.reduce((s, v) => s + v, 0) / a.length).toFixed(1)} cm`); }
+if (cmpStats.n) console.log(`Porównanie wzrostu: ${cmpStats.n} spraw, odcina średnio ${(cmpStats.sum / cmpStats.n).toFixed(2)} podejrzanych, „wyższy” w ${Math.round(100 * cmpStats.up / cmpStats.n)}%`);
+if (tl.n) console.log(`Oś czasu: ${tl.n} spraw, obserwacji na osobę: sprawca ${(tl.obsC / tl.n).toFixed(2)}, niewinni ${(tl.obsI / Math.max(1, tl.nI)).toFixed(2)}; pułapki na sprawę ${JSON.stringify(tl.traps)}; osób z trasą ${JSON.stringify(tl.open)}; pobyt sprawcy średnio ${(tl.stay / tl.n).toFixed(1)} min, rozkład ${JSON.stringify(tl.stayHist)}`);
+console.log(`Odrzucone próby generatora: ${(100 * (1 - nOk / Math.max(1, stats.tries))).toFixed(1)}%, w tym przez głębokość: ${(100 * stats.depthRej / Math.max(1, stats.tries)).toFixed(1)}%`);
+console.log("Głębokość (min. liczba faktów do rozwiązania; najsilniejsza reguła / fakt = ilu niewinnych odcina sama):");
+for (const k of Object.keys(stats.depth).sort()) { const d = stats.depth[k];
+  console.log(`  ${k}: śr. ${(d.sum / d.n).toFixed(1)}, rozkład ${JSON.stringify(d.hist)}, reguła ${JSON.stringify(d.sr)}, fakt ${JSON.stringify(d.sf)}`); }
 console.log("Rodzaje dowodów:", stats.evKind);
 const ad = stats.alibiDoc, adAll = Object.values(ad).reduce((a, b) => a + b, 0), adLie = adAll - (ad.potwierdza || 0);
 console.log(`Dokumenty alibi: ${JSON.stringify(ad)}, obalają ${(100 * adLie / Math.max(1, adAll)).toFixed(1)}%`);
@@ -194,7 +312,8 @@ console.log("Dowody rzeczowe:", Object.fromEntries(Object.entries(ev).map(([k, e
 const evAvg = all.sum / Math.max(1, all.n), needPct = 100 * all.need / Math.max(1, all.n);
 console.log(`Dowody razem: średnio ${evAvg.toFixed(2)} na sprawę, rozwiązanie wymaga dowodu w ${needPct.toFixed(1)}% spraw`);
 // progi z etapu 1: średnio min. 1 dowód, w XL min. 3, w co najmniej 60% spraw dowód jest potrzebny
-const evFail = all.n >= 200 && (evAvg < 1 || needPct < 60 || (ev.XL && ev.XL.min < 3));
+// progi etapu 1 dotyczą spraw classic (oś czasu ma mniej dowodów: obserwacje z godziną)
+const evFail = archArg !== "timeline" && all.n >= 200 && (evAvg < 1 || needPct < 60 || (ev.XL && ev.XL.min < 3));
 if (evFail) console.log("BŁĄD: dowody rzeczowe poniżej progów etapu 1");
 console.log("Unikalnych obsad:", new Set(out.map(c => c.nodes.filter(n => n.type === "person").map(n => n.name).sort().join())).size);
 /* opts.avoid: seria spraw z archiwum jak u gracza (okno ostatnich S.RECENT spraw).
@@ -203,7 +322,7 @@ function repeats(useAvoid, n = 300) {
   const recent = [], hit = { names: [0, 0], roles: [0, 0], scenes: [0, 0] };
   for (let i = 0; i < n; i++) {
     const avoid = S.avoidFrom(recent);
-    const c = S.generateCase(WORLD, "seria-" + i, Object.assign({}, opts, useAvoid ? { avoid } : {}));
+    const c = S.generateCase(WORLD, "seria-" + i, Object.assign({}, opts, archArg === "timeline" && !opts.size ? { size: ["M", "L", "XL"][i % 3] } : {}, useAvoid ? { avoid } : {}));
     for (const k in hit) { const seen = new Set(avoid[k] || []); hit[k][0] += c.used[k].filter(x => seen.has(x)).length; hit[k][1] += c.used[k].length; }
     recent.push(c.used); if (recent.length > S.RECENT) recent.shift();
   }
@@ -219,4 +338,4 @@ if (a2 === "out") {
   out.forEach((c, i) => fs.writeFileSync(path.join(dir, `gen_${String(i + 1).padStart(3, "0")}_${c.city}_${c.year}_${c.size}.json`), JSON.stringify(c, null, 2)));
   console.log("Zapisano do", dir);
 }
-if (fail || bad.length || evFail || avoidFail || distFail || incoherent.length || noInnocentEv.length || tplFew.length) process.exit(1);
+if (badT.length || fail || bad.length || evFail || avoidFail || distFail || incoherent.length || noInnocentEv.length || tplFew.length) process.exit(1);

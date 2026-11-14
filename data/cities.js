@@ -310,7 +310,7 @@
           flavor:["Oprowadza Niemców, którzy przyjeżdżają szukać swoich dawnych domów.","Zna historię każdej kamienicy na Nadodrzu."] },
         { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
           flavor:["Trenuje na Odrze codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
-        { id:"zoo", age:["young","mid"], m:"Opiekun w zoo", f:"Opiekunka w zoo", access:[], outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:[""]},
+        { id:"zoo", age:["young","mid"], no:["dogfear"], m:"Opiekun w zoo", f:"Opiekunka w zoo", access:[], outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:[""]},
           flavor:["Karmi słonie w zoo i pachnie sianem.","Mówi, że zwierzęta są uczciwsze od ludzi."] },
         { id:"kaletnik", age:["mid","old"], m:"Kaletnik z Nadodrza", f:"Kaletniczka z Nadodrza", access:[], outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet"],f:[""]},
           flavor:["Szyje teczki i paski w warsztacie na parterze kamienicy.","Skórę wybiera, wąchając ją jak wino."] },

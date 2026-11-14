@@ -143,6 +143,13 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .sheet .kind{font-family:var(--f-body);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
 .sheet ul,.sheet ol{margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .sheet p{margin:6px 0 0}
+.sheet .tt-h{margin-top:12px}
+.tt{width:100%;border-collapse:collapse;font-family:var(--f-type);font-size:13px;margin-top:4px}
+.tt td{padding:5px 4px;border-bottom:1px dashed var(--paper-shade);vertical-align:top}
+.tt td:last-child{text-align:right;white-space:nowrap;width:4.5em;font-weight:700}
+.tt-note{font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
+.tl-card .tt{margin:8px 0}
+.tl-card .ex{font-family:var(--f-body);font-size:13px;background:rgba(0,0,0,.05);padding:8px;border-left:3px solid var(--stamp)}
 .sheet .how{font-family:var(--f-body);font-size:12.5px;color:var(--ink-soft);border-top:1px dashed var(--paper-shade);margin-top:10px;padding-top:8px}
 .sheet .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .chip{border:2px solid var(--ink);background:transparent;color:var(--ink);padding:4px 10px;font-family:var(--f-pixel);font-size:13px}
@@ -356,9 +363,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <script src="engine/engine.js"></script>
 <script src="engine/solver.js"></script>
 <script src="engine/archetypes/classic.js"></script>
+<script src="engine/archetypes/timeline.js"></script>
 <script src="engine/versions/v2_0.js"></script>
 <script src="engine/versions/v2_1.js"></script>
 <script src="engine/versions/v2_1_1.js"></script>
+<script src="engine/versions/v2_1_2.js"></script>
 <script src="data/base.js"></script>
 <script src="data/cities.js"></script>
 <script src="data/changelog.js"></script>
