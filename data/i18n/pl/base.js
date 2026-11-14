@@ -738,6 +738,17 @@
         "Pies z plebanii":"Furtka plebanii"
       },
       scene:{ id:"miejsce", name:"Miejsce zdarzenia", label:"Miejsce zdarzenia", gen:"miejsca zdarzenia", in:"na miejscu zdarzenia", from:"z miejsca zdarzenia", icon:"house" },
+      /* rodzaj miejsca zdarzenia z jego nazwy (pt: patrz presenceTpl): pierwszy pasujący wpis wygrywa, reszta to `work` */
+      placeTypes:[
+        ["field", /Altana|Działk|działkach|Kurnik/],
+        ["stair", /Klatka schodowa/],
+        ["work", /Zaplecze|Maszynownia|Hydrofornia|Kotłownia|Pracownia|Gabinet|Biuro|Księgowość|Szwalnia|Spółdzielnia pracy|Zakrystia|Ciemnia|Zakład szewski|Warsztat|Piekarnia|Kasa spółdzielni|Dziedziniec mleczarni/],
+        ["yard", /Podwórko|Klatki na podwórku|Szopa|Garaż|Budka dozorcy|Wózkownia|Stodoła|Plac budowy|Barak/],
+        ["street", /Postój|Wiata|Przystanek|Pętla|Park|Staw|Pomnik|Muszla|Scena|Tablica|Wesołe|Zwrotnica|Stragan|Szczęka|Budka|Klatki|Brama|Wejście do|Stacja|Mur|Gablota|Furtka|Ogrodzenie|Boisko|Parking/],
+        ["cellar", /Mieszkanie|Balkon|Willa|Piwnica|Gołębnik|Dach|Plebania/],
+        ["shop", /Kantor|Kiosk|Apteka|Cukiernia|Komis|Wypożyczalnia|Antykwariat|Kasa|Sklep|Zakład fryzjerski|Magiel|Poczta|Przychodnia|Poczekalnia|Lecznica|Bar mleczny/]
+      ],
+      placeTypeDefault:"work",
       reachRule:["Sprawca spędził na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Czasy w tabeli to najkrótsza droga, szybciej się nie da.",
                  "Lekarz i technicy zgodnie ustalili: sprawca był na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Tabela podaje najkrótsze czasy dojścia, szybciej nie przejdzie nikt.",
                  "Sąsiedzi słyszeli hałas między {a} a {b}. Sprawca spędził wtedy na miejscu zdarzenia co najmniej {stay} minut. Szybciej, niż podaje tabela, nie da się przejść."],
@@ -2331,5 +2342,8 @@
   };
 
   root.SIATKA_BASE = BASE;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { base: BASE } });
   if (typeof module !== "undefined" && module.exports) module.exports = BASE;
 })(typeof window !== "undefined" ? window : globalThis);

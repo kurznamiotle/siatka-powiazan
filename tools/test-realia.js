@@ -11,7 +11,7 @@
  */
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const W = { base: require("../data/base.js"), cities: require("../data/cities.js") };
+const W = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
 const B = W.base;
 let fails = 0;
 const check = (ok, msg) => { if (!ok) { console.log("BŁĄD " + msg); fails++; } };

@@ -14,6 +14,7 @@
  * żeby znak pasował do dokładnie jednej osoby i żeby była to osoba z faktu.
  */
 (function (root) {
+  const t = (key, vars) => root.SiatkaI18n.t(key, vars);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
   function indexFacts(c, skip) {
@@ -22,7 +23,7 @@
       if (skip && skip(f)) continue;
       if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
       else if (f.type === "presence") ix.pres.push(f);
-      else if (f.type === "alibi") (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
+      else if (f.type === t("gen.solver.alibi")) (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
       else if (f.type === "trait") (ix.trait[f.who] = ix.trait[f.who] || {})[f.trait] = f.value;
       else if (f.type === "item_origin") ix.origin[f.what] = f.where;
       else if (f.type === "item_moved") ix.moved[f.what] = f;
@@ -89,9 +90,9 @@
       const ev = ix.evidence[id];
       if (!ev.mark) continue; // dowód bez właściciela (np. książka wydań kluczy z miejsca)
       const who = ix.marks.filter(m => m.kind === ev.mark.kind && m.value === ev.mark.value).map(m => m.who);
-      if (who.length !== 1) errors.push(`${id}: znak ${ev.mark.kind}=${ev.mark.value} pasuje do ${who.length} osób`);
-      else if (who[0] !== ev.owner) errors.push(`${id}: znak wskazuje ${who[0]}, a dowód należy do ${ev.owner}`);
-      for (const f of c.facts) if (f.src === id && f.who && f.who !== ev.owner) errors.push(`${id}: fakt ${f.type} dotyczy ${f.who}, nie właściciela`);
+      if (who.length !== 1) errors.push(t("gen.solver.id_znak_kind_value_pasuje_do", { id, kind: ev.mark.kind, value: ev.mark.value, length: who.length }));
+      else if (who[0] !== ev.owner) errors.push(t("gen.solver.id_znak_wskazuje_v_a_dowod", { id, v: who[0], owner: ev.owner }));
+      for (const f of c.facts) if (f.src === id && f.who && f.who !== ev.owner) errors.push(t("gen.solver.id_fakt_type_dotyczy_who_nie", { id, type: f.type, who: f.who }));
     }
     return errors;
   }

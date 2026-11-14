@@ -7,7 +7,7 @@
  */
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const WORLD = { base: require("../data/base.js"), cities: require("../data/cities.js") };
+const WORLD = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
 const B = WORLD.base;
 const errors = [];
 const SINGULAR = /\b(Znaleziony|Znaleziona|Wyłowiony|Wyłowiona|Odniesiony|Odniesiona|odnaleziony|odnaleziona|Zniknął|Zniknęła|Zniknęło)\b|Kto (go|ją) /;
@@ -38,5 +38,10 @@ for (const [city, crime] of tries) for (let i = 0; i < 150; i++) {
 }
 for (const it of plItems) if (!seen[it.id]) errors.push(`przedmiot ${it.name} nie pojawił się w żadnej sprawie testowej`);
 console.log("Przedmioty w liczbie mnogiej w sprawach testowych:", seen);
+// 3) (i18n) znacznik Kartoteki {g:hasło} zostaje samym tekstem, a odmiana i podstawianie działają jak dotąd
+if (S.tx("To {g:dozorca} z {street}.", "m", { street: "Ząbkowskiej" }) !== "To dozorca z Ząbkowskiej.") errors.push("{g:hasło} bez tekstu");
+if (S.tx("[Był|Była] {g:dozorca|dozorcą}.", "f") !== "Była dozorcą.") errors.push("{g:hasło|tekst} razem z [a|b]");
+if (S.t("gen.size.XL") !== "Ogromna" || S.t("nie.ma.takiego.klucza") !== "nie.ma.takiego.klucza") errors.push("t(): klucz z paczki albo sam klucz");
+if (S.t("gen.timeline.name_d_min", { name: "Kiosk", d: 10 }) !== "Kiosk: 10 min") errors.push("t(): wstawki {zmienne}");
 if (errors.length) { console.log("BŁĄD liczby mnogiej:", errors.slice(0, 10)); process.exit(1); }
 console.log("Liczba mnoga: OK");

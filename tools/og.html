@@ -41,10 +41,12 @@ svg.str path{fill:none;stroke:var(--string);stroke-width:6;stroke-linecap:round;
   <div class="url">siatkapowiazan.pl</div>
   <div class="stamp">SPRAWA DNIA</div>
 </div>
+<script src="../data/i18n/i18n.js"></script>
+<script src="../data/i18n/pl.js"></script>
 <script src="../engine/sprites.js"></script>
 <script src="../engine/engine.js"></script>
-<script src="../data/base.js"></script>
-<script src="../data/cities.js"></script>
+<script src="../data/i18n/pl/base.js"></script>
+<script src="../data/i18n/pl/cities.js"></script>
 <script>
 const c = Siatka.generateCase({ base: SIATKA_BASE, cities: SIATKA_CITIES }, "samouczek", { size: "S", city: "warszawa", year: 1994 });
 const of = t => c.nodes.filter(n => n.type === t), sprite = SiatkaSprites.svg;

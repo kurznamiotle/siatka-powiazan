@@ -16,7 +16,7 @@ function demo() {
   // plansze potrzebują 3 osób, 2 miejsc i 2 przedmiotów; kolejne seedy, aż układ pasuje (zmiana generatora zmienia sprawę)
   let c;
   for (let k = 0; k < 40; k++) {
-    c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
+    c = Siatka.generateCase(SiatkaI18n.world(), k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
     const n = t => c.nodes.filter(x => x.type === t).length;
     if (n("person") >= 3 && n("location") >= 2 && n("item") >= 2) break;
   }
@@ -37,29 +37,24 @@ function pol(n, x, y, o = {}) {
     (o.pin === false ? "" : `<i class="hw-pin" style="left:${x + w / 2}px;top:${y + 3}px"></i>`);
 }
 const F = `<i class="hw-f"></i>`;
-const t = s => `<b class="fx fx-t">${s}</b>`, l = s => `<b class="fx fx-l">${s}</b>`, k = s => `<b class="fx fx-k">${s}</b>`;
+const fxT = s => `<b class="fx fx-t">${s}</b>`, l = s => `<b class="fx fx-l">${s}</b>`, k = s => `<b class="fx fx-k">${s}</b>`;
 
 const SLIDES = [
   {
     s: 2,
-    title: "Tablica i akta",
-    text: "Codziennie nowa sprawa z lat 90. Stuknij zdjęcie, żeby otworzyć akta.",
-    tip: "Na tablicy wiszą podejrzani, miejsca i przedmioty. Czerwona kropka na zdjęciu znaczy, że akt jeszcze nie czytałeś.",
+    title: t("ui.tutorial.tablica_i_akta"),
+    text: t("ui.tutorial.codziennie_nowa_sprawa_z_lat_90"),
+    tip: t("ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i"),
     scene() {
       const { P, L } = demo(), p = P[0], f = p.g === "f";
-      return `<div class="hw-desk"></div>${pol(p, 20, 50, { w: 66, r: -2, cls: "pick" })}
-        <div class="hw-sheet"><b class="h">${p.name}</b><ul>
-          <li>Widziano ${f ? "ją" : "go"} ${l(form(L[0], 1, "na miejscu"))} o ${t("19:40")}.</li>
-          <li>Ma ${k("klucz")} do ${l(form(L[1], 0, "piwnicy"))}.</li>
-          <li>Od ${t("19:00")} ${f ? "spała" : "spał"}. ${k("Świadków")} brak.</li></ul></div>
-        <i class="hw-f" style="--x:53px;--y:86px"></i>`;
+      return t("ui.tutorial.widziano_o_ma_do_od_html", { pol: pol(p, 20, 50, { w: 66, r: -2, cls: "pick" }), name: p.name, v: f ? t("ui.tutorial.ja") : "go", l: l(form(L[0], 1, t("ui.tutorial.na_miejscu"))), fxT: fxT("19:40"), k: k(t("ui.tutorial.klucz")), l2: l(form(L[1], 0, t("ui.tutorial.piwnicy"))), fxT2: fxT("19:00"), v2: f ? t("ui.tutorial.spala") : t("ui.tutorial.spal"), k2: k(t("ui.tutorial.swiadkow")) });
     }
   },
   {
     s: 4,
-    title: "Sznurek",
-    text: "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
-    tip: "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
+    title: t("ui.tutorial.sznurek"),
+    text: t("ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki"),
+    tip: t("ui.tutorial.sznurki_to_twoje_notatki_gra_nie"),
     scene() {
       const { P, L, I } = demo();
       return `<div class="hw-cork"></div>${pol(P[0], 21, 18, { r: -2 })}${pol(L[0], 177, 62, { r: 2 })}${pol(I[0], 97, 116, { r: -1 })}
@@ -69,32 +64,23 @@ const SLIDES = [
   },
   {
     s: 3,
-    title: "Notatnik i wykluczanie",
-    text: "Sprawca spełnia wszystkie reguły z notatnika. Każdy niewinny łamie co najmniej jedną – wtedy stuknij w jego aktach „Wyklucz”.",
-    tip: "Ten, kto nie łamie żadnej reguły, jest sprawcą. Pomyłka? „Przywróć” cofa wykluczenie.",
+    title: t("ui.tutorial.notatnik_i_wykluczanie"),
+    text: t("ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika"),
+    tip: t("ui.tutorial.ten_kto_nie_lamie_zadnej_reguly"),
     scene() {
       const { P, L } = demo();
       const tag = (txt, y, cls) => `<span class="hw-tag2 ${cls}" style="top:${y}px">${txt}</span>`;
-      return `<div class="hw-desk"></div>
-        <div class="hw-note"><b class="h">Notatnik</b><ol>
-          <li class="q1">Sprawca ma ${k("klucz")} do ${l(form(L[0], 0, "garażu"))}.</li>
-          <li class="q2">Nie ma ${k("alibi")} między ${t("19:00")} a ${t("19:30")}.</li>
-          <li class="q3">Sprawca nosi okulary.</li></ol></div>
-        ${P.map((n, i) => pol(n, 178, 12 + i * 62, { w: 36, pin: false, nolabel: true, cls: i === 2 ? "win" : "" })).join("")}
-        ${tag("łamie<br>1", 22, "a1")}${tag("łamie<br>3", 84, "a2")}${tag("spełnia<br>wszystkie", 146, "a3 ok")}`;
+      return t("ui.tutorial.notatnik_sprawca_ma_do_nie_html", { k: k(t("ui.tutorial.klucz")), l: l(form(L[0], 0, t("ui.tutorial.garazu"))), k2: k(t("ui.tutorial.alibi")), fxT: fxT("19:00"), fxT2: fxT("19:30"), join: P.map((n, i) => pol(n, 178, 12 + i * 62, { w: 36, pin: false, nolabel: true, cls: i === 2 ? "win" : "" })).join(""), tag: tag(t("ui.tutorial.lamie_br_1"), 22, "a1"), tag2: tag(t("ui.tutorial.lamie_br_3"), 84, "a2"), tag3: tag(t("ui.tutorial.spelnia_br_wszystkie"), 146, "a3 ok") });
     }
   },
   {
     s: 6,
-    title: "Oskarżenie",
-    text: "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
-    tip: "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    title: t("ui.tutorial.oskarzenie"),
+    text: t("ui.tutorial.gdy_wiesz_kto_i_czym_stuknij"),
+    tip: t("ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r"),
     scene() {
       const { P, I } = demo();
-      return `<div class="hw-desk"></div><span class="hw-lives"><i></i><i></i><i></i></span>
-        <span class="hw-btn">Oskarż</span>
-        <div class="hw-acc"><b class="h">Akt oskarżenia</b><span>Sprawca: <b>${P[2].name}</b></span><span>Narzędzie: <b>${I[1].name.toLowerCase()}</b></span>
-          <span class="hw-stamp">SPRAWA ZAMKNIĘTA</span><span class="hw-stars">★★★</span></div>${F}`;
+      return t("ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html", { name: P[2].name, toLowerCase: I[1].name.toLowerCase(), F });
     }
   }
 ];
@@ -198,20 +184,20 @@ function render() {
   const s = SLIDES[i], stage = $("hwStage");
   stage.className = "hw-stage hw-s" + s.s; // s = numer sceny (CSS animacji)
   stage.innerHTML = s.scene();
-  stage.setAttribute("aria-label", `Ilustracja: ${s.title}`);
+  stage.setAttribute("aria-label", t("ui.tutorial.ilustracja_title", { title: s.title }));
   $("hwTitle").textContent = s.title; $("hwTxt").textContent = s.text; $("hwTip").textContent = s.tip;
-  $("hwStep").textContent = `Krok ${i + 1} z ${SLIDES.length}`;
+  $("hwStep").textContent = t("ui.tutorial.krok_v_z_length", { v: i + 1, length: SLIDES.length });
   $("hwPrev").disabled = i === 0;
-  $("hwNext").textContent = i === SLIDES.length - 1 ? "Do roboty!" : "Dalej";
+  $("hwNext").textContent = i === SLIDES.length - 1 ? t("ui.tutorial.do_roboty") : t("ui.tutorial.dalej");
   // ostatnia plansza przy pierwszym uruchomieniu: zaproszenie do instalacji (jeśli możliwa)
   const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
   box.hidden = !(withInstall && last && I && I.available());
   if (!box.hidden) {
-    box.innerHTML = !I.canPrompt() ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
-      : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
+    box.innerHTML = !I.canPrompt() ? t("ui.tutorial.graj_jak_w_aplikacji_html", { hintHtml: I.hintHtml() })
+      : t("ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html");
     const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
   }
-  $("hwDots").innerHTML = SLIDES.map((x, j) => `<button data-j="${j}" aria-label="Krok ${j + 1}: ${x.title}"${j === i ? ' aria-current="step"' : ""}></button>`).join("");
+  $("hwDots").innerHTML = SLIDES.map((x, j) => t("ui.tutorial.krok_html", { j, v: j + 1, title: x.title, v2: j === i ? ' aria-current="step"' : "" })).join("");
 }
 function go(d) {
   const j = i + d;
@@ -232,14 +218,14 @@ const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
 function close(done) {
   if ($("howto").hidden) return;
   $("howto").hidden = true;
-  track(done === true ? "samouczek/ukonczony" : `tutorial_skip/krok-${i + 1}/${dev()}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
+  track(done === true ? "samouczek/ukonczony" : `tutorial_skip/krok-${i + 1}/${dev()}`, done === true ? t("ui.tutorial.samouczek_ukonczony") : t("ui.tutorial.samouczek_pominiety_na_kroku_v", { v: i + 1 }));
   try { localStorage.setItem(KEY, "1"); } catch (_) {}
   const cb = after; after = null; if (cb) cb();
 }
 /* wyjście z gry w trakcie samouczka (pagehide, schowanie karty): raz na otwarcie, z numerem kroku */
 function quitting() {
   if ($("howto").hidden || quitSent) return;
-  quitSent = true; track(`tutorial_quit/krok-${i + 1}/${dev()}`, `Samouczek: wyjście z gry na kroku ${i + 1}`);
+  quitSent = true; track(`tutorial_quit/krok-${i + 1}/${dev()}`, t("ui.tutorial.samouczek_wyjscie_z_gry_na_kroku", { v: i + 1 }));
 }
 window.addEventListener("pagehide", quitting);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") quitting(); });

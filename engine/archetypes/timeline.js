@@ -8,15 +8,10 @@
  */
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
+  const t = Eng.t;
   const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
   /* 2.2.1: rodzaj miejsca zdarzenia z nazwy (pt jak w data/base.js): dobiera pasujących świadków i dowody */
-  const placeType = n => /Altana|Działk|działkach|Kurnik/.test(n) ? "field"
-    : /Klatka schodowa/.test(n) ? "stair"
-    : /Zaplecze|Maszynownia|Hydrofornia|Kotłownia|Pracownia|Gabinet|Biuro|Księgowość|Szwalnia|Spółdzielnia pracy|Zakrystia|Ciemnia|Zakład szewski|Warsztat|Piekarnia|Kasa spółdzielni|Dziedziniec mleczarni/.test(n) ? "work"
-    : /Podwórko|Klatki na podwórku|Szopa|Garaż|Budka dozorcy|Wózkownia|Stodoła|Plac budowy|Barak/.test(n) ? "yard"
-    : /Postój|Wiata|Przystanek|Pętla|Park|Staw|Pomnik|Muszla|Scena|Tablica|Wesołe|Zwrotnica|Stragan|Szczęka|Budka|Klatki|Brama|Wejście do|Stacja|Mur|Gablota|Furtka|Ogrodzenie|Boisko|Parking/.test(n) ? "street"
-    : /Mieszkanie|Balkon|Willa|Piwnica|Gołębnik|Dach|Plebania/.test(n) ? "cellar"
-    : /Kantor|Kiosk|Apteka|Cukiernia|Komis|Wypożyczalnia|Antykwariat|Kasa|Sklep|Zakład fryzjerski|Magiel|Poczta|Przychodnia|Poczekalnia|Lecznica|Bar mleczny/.test(n) ? "shop" : "work";
+  const placeType = (n, TL) => { const hit = TL.placeTypes.find(([, re]) => re.test(n)); return hit ? hit[0] : TL.placeTypeDefault; };
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -54,13 +49,13 @@
     const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
     const pool = [...B.locations, ...cityLocs];
     const others = R.sample(pool, NLOC[sizeKey] - 1);
-    const X = Object.assign({ desc: [scene.where ? `Tu to się stało, ${scene.where}.` : "Tu to się stało."] }, TL.scene);
+    const X = Object.assign({ desc: [scene.where ? t("gen.timeline.tu_to_sie_stalo_where", { where: scene.where }) : t("gen.timeline.tu_to_sie_stalo")] }, TL.scene);
     // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
     X.name = T((TL.places && TL.places[scene.title]) || scene.title);
     X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
-    X.pt = placeType(X.name);
-    if (others.some(o => o.name === X.name)) X.name += " (miejsce zdarzenia)";
-    if (others.some(o => o.label === X.label)) X.label = "Miejsce zdarz.";
+    X.pt = placeType(X.name, TL);
+    if (others.some(o => o.name === X.name)) X.name += t("gen.timeline.miejsce_zdarzenia_2");
+    if (others.some(o => o.label === X.label)) X.label = t("gen.timeline.miejsce_zdarz");
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
     const L = LOCS.length;
     const pt = LOCS.map((_, i) => i === 0 ? [0, 0] : (a => { const r = R.int(8, 30); return [r * Math.cos(a), r * Math.sin(a)]; })(R.next() * 2 * Math.PI));
@@ -232,14 +227,14 @@
       nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
     });
     LOCS.forEach((loc, li) => {
-      const near = LOCS.map((o, j) => j !== li ? `${o.name}: ${d(li, j)} min` : null).filter(Boolean);
-      const text = [T(R.pick(loc.desc)), `Stąd pieszo: ${near.join(", ")}.`];
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? "Miejsce zdarzenia" : "Miejsce",
+      const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
+      const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
         sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
     });
     for (const c of evs) {
       const loc = LOCS[c.li];
-      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: "Dowód rzeczowy", sprite: { kind: "ev", icon: c.def.icon },
+      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.timeline.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
         text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: loc.in }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
     }
 
@@ -253,31 +248,31 @@
     /* 12. Podpowiedzi, rozumowanie, epilog */
     const ruleNo = r => r.id.slice(1), reach = rules[0];
     const hints = R.shuffle([TL.hint.replace("{n}", ruleNo(reach)).replace("{a}", reach.from).replace("{b}", reach.to).replace("{stay}", reach.stay),
-      ...tRules.map(r => `Reguła ${ruleNo(r)}: ${lc1(B.traits[r.trait].hint)}`)]);
-    if (evs.length) hints.splice(RE.int(0, 1), 0, "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
+      ...tRules.map(r => t("gen.timeline.regula_ruleno_lc1", { ruleNo: ruleNo(r), lc1: lc1(B.traits[r.trait].hint) }))]);
+    if (evs.length) hints.splice(RE.int(0, 1), 0, t("gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
     const route = Pp => { const b = Pp.s.bracket, p = LOCS[b.p], q = LOCS[b.q];
       return { p, q, tb: toHM(b.tb), ta: toHM(b.ta), dp: d(b.p, 0), dq: d(0, b.q), gap: b.ta - b.tb }; };
     const why = innocents.map(i => {
       const Pp = persons[i], g = Pp.s.g, r = assign[i];
       if (r.type === "reach") {
         const x = route(Pp), b = Pp.s.bracket, E = Math.max(b.tb + x.dp, A0), Lx = Math.min(b.ta - x.dq, B0), len = Lx - E;
-        const where = len > 0 ? `[mógłby|mogłaby] tam być najwyżej od ${toHM(E)} do ${toHM(Lx)}, czyli ${len} min` : "nie [zdążyłby|zdążyłaby] tam być w czasie zdarzenia ani chwili";
-        return [Pp.first, T(`o ${x.tb} [był|była] ${x.p.in}, a o ${x.ta} ${x.q === x.p ? "nadal tam" : x.q.in}. Z drogą na miejsce zdarzenia (${x.dp} min) i z powrotem (${x.dq} min) ${where}, a sprawca spędził tam co najmniej ${reach.stay} min (reguła ${ruleNo(r)}).`, g)];
+        const where = len > 0 ? t("gen.timeline.moglby_moglaby_tam_byc_najwyzej_od", { toHM: toHM(E), toHM2: toHM(Lx), len }) : t("gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w");
+        return [Pp.first, T(t("gen.timeline.o_tb_byl_byla_in_a", { tb: x.tb, in: x.p.in, ta: x.ta, v: x.q === x.p ? t("gen.timeline.nadal_tam") : x.q.in, dp: x.dp, dq: x.dq, where, stay: reach.stay, ruleNo: ruleNo(r) }), g)];
       }
       const def = B.traits[r.trait], wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
-      return [Pp.first, T(`[mógł|mogła] zdążyć na miejsce zdarzenia, ale ${wf} (reguła ${ruleNo(r)}).`, g, { v: Pp.s.traits[r.trait] })];
+      return [Pp.first, T(t("gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia", { wf, ruleNo: ruleNo(r) }), g, { v: Pp.s.traits[r.trait] })];
     });
     {
       const x = route(C0), b = C0.s.bracket, arr = toHM(Math.max(b.tb + x.dp, A0)), back = toHM(Math.min(b.ta - x.dq, B0));
       const tw = tRules.map(r => { const w = B.traits[r.trait].why; return typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]; });
-      why.push([C0.first, T(`zdążył[|a]: o ${x.tb} ${x.p.in}, ${x.dp} min drogi, na miejscu zdarzenia [mógł|mogła] być od ${arr} do ${back}, czyli ${b.len} min w czasie zdarzenia (${reach.from}–${reach.to}); potem ${x.dq} min drogi i o ${x.ta} ${x.q.in}${tw.length ? ". Do tego " + tw.join(", ") : ""}.`, C0.s.g)]);
+      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? ". Do tego " + tw.join(", ") : "" }), C0.s.g)]);
     }
-    if (evs.length) why.push([evs.length > 1 ? "Dowody rzeczowe:" : "Dowód rzeczowy:", evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
+    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
     const motives = (m => m.length ? m : avail(crime.motives.filter(o => typeof o === "string"), year, monthIdx))(avail(ofWho(crime.motives, C0), year, monthIdx));
     const bq = C0.s.bracket;
-    const epilogue = T(`${C0.first} ${R.pick(motives)}. O ${toHM(bq.tb)} [był|była] jeszcze ${LOCS[bq.p].in}, o ${toHM(bq.tb + d(bq.p, 0))} już na miejscu zdarzenia, a o ${toHM(bq.ta)} [pokazał|pokazała] się ${LOCS[bq.q].in}, jakby nic się nie stało.`, C0.s.g);
+    const epilogue = T(t("gen.timeline.first_pick_o_tohm_byl_byla", { first: C0.first, pick: R.pick(motives), toHM: toHM(bq.tb), in: LOCS[bq.p].in, toHM2: toHM(bq.tb + d(bq.p, 0)), toHM3: toHM(bq.ta), in2: LOCS[bq.q].in }), C0.s.g);
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, scene.vg || "m", { victim }), T(crime.cause[sub], scene.vg || "m"),
-      "Nikt nie jest w dwóch miejscach naraz. Kto zdążył?"].join(" ");
+      t("gen.timeline.nikt_nie_jest_w_dwoch_miejscach")].join(" ");
 
     return {
       case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
@@ -291,7 +286,7 @@
       eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
       red_herrings: [], supported_connections: supported, culprit_chain: chain,
       hints: hints.slice(0, 3), why, epilogue, quip: T(quipRaw = R.pick(prefer(A([...B.quips, ...(city.quips || [])]), x => avoidOf("quips").has(x)))),
-      detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
+      detective: milicja ? t("gen.timeline.porucznik_detective_z_mo", { detective: B.detective }) : t("gen.timeline.komisarz_detective", { detective: B.detective }),
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
         roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: [] }
@@ -300,7 +295,7 @@
 
   const timeline = {
     id: "timeline",
-    name: "Oś czasu",
+    name: t("gen.timeline.os_czasu"),
     minSize: "M",
     weight: size => size === "S" ? 0 : 1, // ok. 25% spraw M–XL (classic ma wagę 3)
     question: "culprit",
