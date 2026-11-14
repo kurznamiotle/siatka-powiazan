@@ -30,12 +30,19 @@ engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada
                       timeline.js = oś czasu (kto zdążył na miejsce zdarzenia, pytanie: kto)
 engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91, v2_2.js = 3838b51), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
-data/base.js          warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
+data/i18n/            warstwa językowa (i18n): i18n.js (t, get, apply, world), pl.js (gramatyka + wszystkie teksty
+                      jako klucze), pl/base.js, pl/cities.js, pl/changelog.js (treści generatora po polsku),
+                      en.js (szkielet: te same klucze, null)
+data/i18n/pl/base.js  (dawniej data/base.js) warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
-data/changelog.js      dziennik zmian („Co nowego” w Ustawieniach, kropka przy zębatce po nowej wersji;
+data/i18n/pl/changelog.js  dziennik zmian („Co nowego” w Ustawieniach, kropka przy zębatce po nowej wersji;
                       nowe wydanie = nowy wpis na górze)
-data/cities.js        paczki miast: Warszawa, Poznań, Kraków, Łódź, Gdańsk,
+data/i18n/pl/cities.js  (dawniej data/cities.js) paczki miast: Warszawa, Poznań, Kraków, Łódź, Gdańsk,
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
+tools/i18n-check.js   kontrola kluczy (każdy t("klucz") istnieje w pl.js, w kodzie brak polskich liter), raport en.js
+tools/i18n-skeleton.js tworzy/uzupełnia data/i18n/en.js (klucze z pl.js, null)
+tools/snapshot.js     zrzut sha1 tekstów spraw (dni 3–30.11, 4000 losowych, 1000 osi czasu, 300 z avoid) do porównania przed/po refaktorze
+tools/ui-snapshot.js  zrzut HTML 23 stanów interfejsu w headless Chrome (stała data) do porównania przed/po
 tools/generate.js     test generatora i zapis spraw do cases/generated/
 tools/bundle.js       skleja grę w jeden plik dist/siatka.html
 tools/freeze-version.js  zamraża generator z commita do engine/versions/
@@ -62,17 +69,25 @@ Komendy:
 - `node tools/icons.js` — rysuje ikony PWA do `icons/`.
 - `node tools/og.js` — robi grafikę podglądu linku `icons/og.jpg` (1200×630) z `tools/og.html` (wymaga Chrome).
 
-## Biblioteka treści (data/*.js)
+## Języki (i18n)
+
+- **Kod nie ma polskich tekstów.** Gra i silnik wołają `t("klucz", { zmienne })` (przeglądarka: globalne `t`, silnik i archetypy: `Siatka.t` / `const t = Eng.t`). Klucze: `ui.*` (interfejs: `ui.game`, `ui.settings`, `ui.tutorial`, `ui.stats`, `ui.ach`, `ui.share`, `ui.track`, `ui.html`) i `gen.*` (teksty zbudowane w kodzie generatora: `gen.classic`, `gen.timeline`, `gen.solver`, `gen.size`, `gen.police_dat`). Wstawki `{nazwa}` (jeden przebieg, nieznane `{x}` zostają, więc zostają też wstawki szablonów generatora `{in}`, `{to}`). Statyczny HTML: `data-i18n="klucz"`, `data-i18n-vars`, `data-i18n-attr="atrybut:klucz"` (SiatkaI18n.apply). W `<head>` (title, meta, og) polski tekst zostaje.
+- **Paczka języka** (`SiatkaI18n.register(język, { messages, grammar, content })`): `data/i18n/pl.js` (teksty + gramatyka: `tx` czyli odmiana [m|f] i „ze”, `plural`, `list`, `slug`, `amount`, `moneyGen`), `pl/base.js` i `pl/cities.js` (treści generatora: role, cechy, alibi, sceny, dowody, reguły, podpowiedzi, epilogi, komentarze), `pl/changelog.js` (klucz `ui.changelog`). Silnik bierze gramatykę z `SiatkaI18n.grammar()` (`engine.js`: `tx`, `plural`, `plList`, `slug`, kwoty). Brak tłumaczenia (null) → tekst polski. Nowy język: `node tools/i18n-skeleton.js en`, potem tłumaczenia, gramatyka i treści generatora; `node tools/i18n-check.js` pokazuje braki. Nowy tekst w kodzie = nowy klucz w `pl.js` (nie dopisuj polskich liter do kodu: `i18n-check` w `npm test` to wyłapie).
+- **Kartoteka** (słownik haseł, jeszcze nie ma): szablony przyjmą znacznik `{g:hasło}` albo `{g:hasło|tekst}`; `tx` zamienia go na `SiatkaI18n.glossary(hasło, tekst)`, a to na razie zwraca sam tekst. Żadnych znaczników w treściach jeszcze nie ma.
+- **Zamrożone wersje generatora** (`engine/versions/*`) są samowystarczalne i zostają bez i18n. Nowe zamrożenie (`freeze-version.js`) bierze też pliki `data/i18n/*` (każdy ma `(typeof window … globalThis)`, a `window.t` ustawia tylko wtedy, gdy go nie ma).
+- **Refaktor bez zmiany zachowania:** `node tools/snapshot.js zrzut.json` przed i po musi dać identyczne pliki, a `node tools/ui-snapshot.js <katalog> zrzut.json` (np. `git worktree` ze starym kodem) identyczne stany interfejsu. Zrzutów nie trzymamy w repozytorium.
+
+## Biblioteka treści (data/i18n/pl/*.js)
 
 - Tekst: `[męska|żeńska]` albo `[m|f|n]` dla przedmiotów, `{klucz}` dla wstawek z miasta i roku (`{street}`, `{market_on}`, `{team}`, `{church_at}`, `{money}`, `{police_dat}`…). Pełna lista: obiekt `V` w `build()` w silniku.
 - Realia lat: wpis `{t:"…", years:[od,do]}` w dowolnej liście tekstów, a `years` na roli, scenie lub przedmiocie ogranicza je do tych lat. Przykłady: Pewex do 1990, denominacja 1995–96, komórki od 1996, „Klan” od 1997, milicja do kwietnia 1990 (potem policja i komisarz).
 - Realia miesięcy: `months:[od,do]` (1–12) obok `years` ogranicza wpis do tych miesięcy w każdym roku z zakresu (filtr `inYears(o, rok, indeksMiesiąca)`). Kartki na mięso zniesiono 31 lipca 1989, więc wszystko z kartkami (na mięso, cukier, buty) ma `years:[1989,1989], months:[1,7]`. Pilnuje tego `tools/test-realia.js`.
 - Kwoty (`{money}`) liczą się wg roku: przed 1995 tysiące i miliony starych złotych, od 1995 nowe złote. Po „z żądaniem”, „zażądał”, „chce”, „nie dostanie” używaj `{money_gen}` (dopełniacz: „2 tysięcy złotych”); generator sprawdza to w kontroli spójności.
 - Szablony obecności (`presenceTpl`) dostają `{in}` w miejscowniku („w kiosku”, „na zapleczu”), więc tylko z czasownikami miejsca („był”, „widział go”), nigdy z „zajrzał” (kontrola w generatorze).
-- Miejsca typowe dla miasta: `locations` w paczce miasta (np. lampownia i gołębnik w Katowicach, stajnia dorożkarska w Krakowie). `roles` w miejscu mówi, które role mają tam klucz. Przedmioty z takich miejsc są w `data/base.js` z `origins` wskazującym id miejsca. W miastach bez tego miejsca nigdy się nie pojawią. W ok. 60% spraw jedno z miejsc jest lokalne (jeśli pasuje do zbrodni).
+- Miejsca typowe dla miasta: `locations` w paczce miasta (np. lampownia i gołębnik w Katowicach, stajnia dorożkarska w Krakowie). `roles` w miejscu mówi, które role mają tam klucz. Przedmioty z takich miejsc są w `data/i18n/pl/base.js` z `origins` wskazującym id miejsca. W miastach bez tego miejsca nigdy się nie pojawią. W ok. 60% spraw jedno z miejsc jest lokalne (jeśli pasuje do zbrodni).
 - Różnorodność tekstu: w jednej sprawie to samo zdanie nie trafia do dwóch osób (`pickU` w silniku), dopóki starcza wariantów. Każda wartość cechy ma 12 wariantów zdań. Dopisując nowe, pilnuj, żeby było ich co najmniej 6, bo sprawa XL ma 6 osób.
 - Miejsce ma `open`: zdania o tym, jak łatwo tam wejść, używane, gdy sprawa nie ma reguły o kluczach. Opisy w `desc` nie mogą wspominać o kłódkach i zamkach, bo kłóciłyby się z `open`.
-- Nowe miasto = nowy wpis w `data/cities.js` (formy gramatyczne dzielnicy, ulice w dopełniaczu, targ w trzech formach, zakład pracy jako „robotnik”, własne role i smaczki).
+- Nowe miasto = nowy wpis w `data/i18n/pl/cities.js` (formy gramatyczne dzielnicy, ulice w dopełniaczu, targ w trzech formach, zakład pracy jako „robotnik”, własne role i smaczki).
 - Imiona są w trzech pokoleniach (`names.m|f.old|mid|young`, ok. 80 na płeć). Rola ma `age` (jedno albo lista), z którego bierze się pula imion i kolor włosów (siwi starsi). Scena może mieć `vage` (wiek ofiary). Nowa rola bez `age` dostaje imię z dowolnego pokolenia.
 - Tekst z `ages:[…]` (np. w zdaniach cech i w `habits`) trafia tylko do postaci w tym wieku, np. emeryci bez firmowego Żuka i bez dorabiania na budowie.
 - Teksty dla osoby (zdania cech, motywy `suspicion`/`noMotive`/`motives`, listy z motywem, smaczki, nawyki, `flatTpl`, `claimFrame`, alibi) mogą mieć: `k:[…]` tagi (`job` praca i przełożony, `fired` zwolnienie, `debt` długi, komornik, raty, `adult` sprawy dorosłych, `dogfear` lęk i alergia na psy), `roles:[…]` (tylko te role, np. „konkurencja zabrała klientów” tylko dla prywaciarzy) i `trait:{car:"yes"}` (zdanie o własnym aucie tylko z autem). Rola ma `no:[…]` (tagi, których nie dostaje: licealista `job fired debt adult`, student `job fired`, emeryt `job fired`, weterynarz `dogfear`) i `need:{…}` (licealista bez auta, taksówkarz z autem). Filtr: `fitsWho` w silniku. Zdanie cechy musi jednoznacznie wskazywać wartość („Na działkę dojeżdża rowerem, bo samochodu nigdy nie miał”, a nie samo „dojeżdża rowerem”), a zdanie motywu nie może być deklaracją („Mówi, że…”), tylko faktem. Zdania o motywie nie mogą przesądzać innych cech (bez „mam psa ze schroniska” w `noMotive`).
