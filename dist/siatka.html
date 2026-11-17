@@ -265,80 +265,80 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 <div class="app" id="app">
   <header class="top">
     <div class="tline">
-      <h1>Siatka Powiązań</h1>
-      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" aria-label="Pozostałe oskarżenia"><i></i><i></i><i></i></span>
-        <button class="ic" id="fsBtn" hidden></button><button class="ic" id="menuBtn" aria-label="Ustawienia" title="Ustawienia"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
+      <h1 data-i18n="ui.html.title"></h1>
+      <div class="meta"><span id="clock">0:00</span><span class="lives" id="lives" data-i18n-attr="aria-label:ui.html.lives"><i></i><i></i><i></i></span>
+        <button class="ic" id="fsBtn" hidden></button><button class="ic" id="menuBtn" data-i18n-attr="aria-label:ui.html.settings;title:ui.html.settings"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 0h4v1H6zM6 1h4v1H6zM2 2h2v1H2zM5 2h6v1H5zM12 2h2v1H12zM2 3h12v1H2zM3 4h10v1H3zM3 5h3v1H3zM10 5h3v1H10zM0 6h6v1H0zM10 6h6v1H10zM0 7h5v1H0zM11 7h5v1H11zM0 8h5v1H0zM11 8h5v1H11zM0 9h6v1H0zM10 9h6v1H10zM3 10h3v1H3zM10 10h3v1H10zM3 11h10v1H3zM2 12h12v1H2zM2 13h2v1H2zM5 13h6v1H5zM12 13h2v1H12zM6 14h4v1H6zM6 15h4v1H6z"/></svg></button></div>
     </div>
     <div class="tline">
-      <div class="case" id="caseLine">Ładowanie sprawy…</div>
-      <div class="modes"><button class="mode" id="dailyBtn">Sprawa dnia</button><button class="mode" id="newBtn">Nowa sprawa</button></div>
+      <div class="case" id="caseLine" data-i18n="ui.html.loading_case"></div>
+      <div class="modes"><button class="mode" id="dailyBtn" data-i18n="ui.game.sprawa_dnia"></button><button class="mode" id="newBtn" data-i18n="ui.game.nowa_sprawa"></button></div>
     </div>
   </header>
 
-  <main class="board" id="board" aria-label="Tablica korkowa">
+  <main class="board" id="board" data-i18n-attr="aria-label:ui.html.board">
     <svg class="strings" id="strings"></svg>
     <div class="hint-toast" id="toast" hidden></div>
   </main>
 
   <section class="desk">
     <div class="tabs" role="tablist">
-      <button class="tab" id="tab-akta" role="tab" aria-selected="true">Akta</button>
-      <button class="tab" id="tab-notes" role="tab" aria-selected="false">Notatnik</button>
+      <button class="tab" id="tab-akta" role="tab" aria-selected="true" data-i18n="ui.html.tab_files"></button>
+      <button class="tab" id="tab-notes" role="tab" aria-selected="false" data-i18n="ui.html.tab_notes"></button>
     </div>
     <div class="sheet" id="sheet" tabindex="0"></div>
     <div class="actions">
-      <button class="btn ghost" id="hintBtn">Podpowiedź (3)</button>
-      <button class="btn red" id="accuseBtn">Oskarż</button>
+      <button class="btn ghost" id="hintBtn" data-i18n="ui.game.podpowiedz_v" data-i18n-vars='{"v":3}'></button>
+      <button class="btn red" id="accuseBtn" data-i18n="ui.game.oskarz"></button>
     </div>
   </section>
 
   <div class="overlay" id="accuse" hidden>
     <div class="card" id="accuseCard">
-      <h3>Akt oskarżenia</h3>
-      <div class="lbl">Sprawca</div>
+      <h3 data-i18n="ui.html.accuse_title"></h3>
+      <div class="lbl" data-i18n="ui.html.culprit"></div>
       <div class="grid" id="pickWho"></div>
-      <div class="lbl" id="toolLbl">Narzędzie zbrodni</div>
+      <div class="lbl" id="toolLbl" data-i18n="ui.html.tool"></div>
       <div class="grid" id="pickWhat"></div>
       <div class="msg" id="accuseMsg"></div>
       <div class="foot">
-        <button class="btn ghost" id="accuseCancel">Wróć do tablicy</button>
-        <button class="btn red" id="accuseGo" disabled>Wnieś oskarżenie</button>
+        <button class="btn ghost" id="accuseCancel" data-i18n="ui.html.back_to_board"></button>
+        <button class="btn red" id="accuseGo" disabled data-i18n="ui.html.accuse_go"></button>
       </div>
     </div>
   </div>
 
   <div class="overlay" id="newCase" hidden>
     <div class="card">
-      <h3>Nowa sprawa</h3>
-      <p class="sub">Wybierz miasto, rok i wielkość śledztwa. „Losowo” zostawia wybór generatorowi.</p>
-      <div class="lbl">Miasto</div>
+      <h3 data-i18n="ui.game.nowa_sprawa"></h3>
+      <p class="sub" data-i18n="ui.html.newcase_sub"></p>
+      <div class="lbl" data-i18n="ui.html.city"></div>
       <div class="opts" id="optCity"></div>
-      <div class="lbl">Rok</div>
+      <div class="lbl" data-i18n="ui.html.year"></div>
       <div class="opts" id="optYear"></div>
-      <div class="lbl">Wielkość</div>
+      <div class="lbl" data-i18n="ui.html.size"></div>
       <div class="opts" id="optSize"></div>
       <div class="foot">
-        <button class="btn ghost" id="newCancel">Anuluj</button>
-        <button class="btn red" id="newGo">Otwórz sprawę</button>
+        <button class="btn ghost" id="newCancel" data-i18n="ui.html.cancel"></button>
+        <button class="btn red" id="newGo" data-i18n="ui.html.open_case"></button>
       </div>
     </div>
   </div>
 
   <div class="overlay howto" id="howto" hidden>
     <div class="card hw-card" id="hwCard" role="dialog" aria-modal="true" aria-labelledby="hwTitle">
-      <div class="hw-top"><span class="hw-step" id="hwStep"></span><button class="hw-skip" id="hwSkip">Pomiń</button></div>
+      <div class="hw-top"><span class="hw-step" id="hwStep"></span><button class="hw-skip" id="hwSkip" data-i18n="ui.html.skip"></button></div>
       <div class="hw-stage" id="hwStage" role="img"></div>
       <h3 id="hwTitle"></h3>
       <p class="hw-txt" id="hwTxt"></p>
       <p class="hw-tip" id="hwTip"></p>
       <div class="hw-install" id="hwInstall" hidden></div>
       <div class="hw-dots" id="hwDots"></div>
-      <div class="foot"><button class="btn ghost" id="hwPrev">Wstecz</button><button class="btn red" id="hwNext">Dalej</button></div>
+      <div class="foot"><button class="btn ghost" id="hwPrev" data-i18n="ui.html.back"></button><button class="btn red" id="hwNext" data-i18n="ui.tutorial.dalej"></button></div>
     </div>
   </div>
 
   <div class="overlay" id="menu" hidden>
-    <div class="card" id="menuCard" role="dialog" aria-modal="true" aria-label="Ustawienia"></div>
+    <div class="card" id="menuCard" role="dialog" aria-modal="true" data-i18n-attr="aria-label:ui.html.settings"></div>
   </div>
 
   <div class="overlay" id="stats" hidden>
@@ -351,14 +351,503 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
   <div class="overlay" id="limit" hidden>
     <div class="card limit-card" role="dialog" aria-modal="true" aria-labelledby="limitTitle">
-      <div class="stamp">ARCHIWUM</div>
-      <h3 id="limitTitle">Na dziś archiwum zamknięte.</h3>
-      <p>Wróć jutro po kolejne sprawy albo odblokuj nielimitowane w wersji premium (już wkrótce).</p>
+      <div class="stamp" data-i18n="ui.html.archive_stamp"></div>
+      <h3 id="limitTitle" data-i18n="ui.html.limit_title"></h3>
+      <p data-i18n="ui.html.limit_text"></p>
       <p class="when" id="limitWhen"></p>
-      <div class="foot"><button class="btn ghost" id="limitClose">Wróć do tablicy</button><button class="btn red" id="limitDaily">Sprawa dnia</button></div>
+      <div class="foot"><button class="btn ghost" id="limitClose" data-i18n="ui.html.back_to_board"></button><button class="btn red" id="limitDaily" data-i18n="ui.game.sprawa_dnia"></button></div>
     </div>
   </div>
 </div>
+<script>
+/*
+ * Siatka Powiązań — warstwa językowa (i18n).
+ *
+ * Paczka języka (data/i18n/<język>.js) rejestruje się przez SiatkaI18n.register(język, { messages, grammar }),
+ * a jego treści generatora (data/i18n/<język>/base.js, cities.js) przez register(język, { content: { base } }).
+ *   messages : płaska mapa klucz → tekst z wstawkami {nazwa} (albo lista/obiekt dla danych, np. „Co nowego”)
+ *   grammar  : gramatyka języka dla silnika szablonów: tx (odmiana [a|b] wg rodzaju), plural, list, slug,
+ *              amount (kwota słownie), moneyGen (kwota w dopełniaczu)
+ *   content  : base (role, cechy, alibi, sceny…) i cities (paczki miast) dla generatora
+ * Brakujący klucz w języku bieżącym bierze tekst z polskiego (pl), a gdy go nie ma, zwraca sam klucz.
+ *
+ * Kod gry i silnik nie zawierają polskich tekstów: wołają t("klucz", { zmienne }).
+ */
+(function (root) {
+  "use strict";
+  const I = {
+    lang: "pl",
+    packs: {},
+    register(lang, pack) {
+      const p = this.packs[lang] || (this.packs[lang] = { messages: {} });
+      if (pack.messages) Object.assign(p.messages, pack.messages);
+      if (pack.grammar) p.grammar = pack.grammar;
+      if (pack.content) p.content = Object.assign(p.content || {}, pack.content);
+    },
+    use(lang) { if (!this.packs[lang]) throw new Error("Unknown language: " + lang); this.lang = lang; },
+    /* wartość klucza (tekst, funkcja, lista albo obiekt) z bieżącego języka, a gdy brak (null) z polskiego */
+    get(key) {
+      const cur = this.packs[this.lang], pl = this.packs.pl;
+      let v = cur && cur.messages[key];
+      if (v == null && pl) v = pl.messages[key];
+      return v;
+    },
+    has(key) { return this.get(key) != null; },
+    /* tekst z wstawkami {nazwa}: jeden przebieg, więc wstawiona wartość nie jest ponownie przetwarzana; nieznane {x} zostają */
+    t(key, vars) {
+      const v = this.get(key);
+      if (v == null) return key;
+      if (typeof v === "function") return v(vars || {});
+      if (typeof v !== "string" || !vars) return v;
+      return v.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+    },
+    /* tekst statycznego HTML: data-i18n="klucz" (textContent), data-i18n-vars='{"v":3}', data-i18n-attr="atrybut:klucz;…" */
+    apply(doc) {
+      doc = doc || document;
+      doc.querySelectorAll("[data-i18n]").forEach(el => {
+        const vars = el.getAttribute("data-i18n-vars");
+        el.textContent = this.t(el.getAttribute("data-i18n"), vars ? JSON.parse(vars) : undefined);
+      });
+      doc.querySelectorAll("[data-i18n-attr]").forEach(el => el.getAttribute("data-i18n-attr").split(";").forEach(pair => {
+        const i = pair.indexOf(":"); el.setAttribute(pair.slice(0, i), this.t(pair.slice(i + 1)));
+      }));
+    },
+    /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
+    glossary(id, label) { return label != null ? label : id; },
+    grammar() { const p = this.packs[this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    /* treści generatora bieżącego języka: { base, cities } */
+    world(lang) {
+      const p = this.packs[lang || this.lang], pl = this.packs.pl;
+      const c = (p && p.content && p.content.base && p.content) || (pl && pl.content);
+      return { base: c.base, cities: c.cities };
+    }
+  };
+  root.SiatkaI18n = I;
+  // skrót t(klucz, zmienne) dla kodu interfejsu (przeglądarka); silnik i narzędzia biorą go z SiatkaI18n / Siatka.t
+  if (typeof window !== "undefined" && !window.t) window.t = (key, vars) => I.t(key, vars);
+  if (typeof module !== "undefined" && module.exports) module.exports = I;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
+ * Siatka Powiązań — język polski: gramatyka dla silnika szablonów i wszystkie teksty (klucze → tekst).
+ *
+ * Gramatyka (SiatkaI18n.grammar()):
+ *   tx(tekst, rodzaj, zmienne)  {k} → zmienne[k], potem [a|b|c] → wariant wg rodzaju (m, f, n, pl)
+ *                               i „z Słowiańskiej” → „ze Słowiańskiej”
+ *                               znacznik Kartoteki {g:hasło} / {g:hasło|tekst} → SiatkaI18n.glossary(hasło, tekst)
+ *   plural(n, jeden, kilka, wiele), list(["a","b","c"]) → „a, b i c”, slug(tekst) → id bez polskich znaków,
+ *   amount(n, jednostka) kwota słownie (thousand, million, millionFrac, zloty), moneyGen(kwota) → dopełniacz.
+ * Teksty: messages. Klucze zaczynają się od „ui.” (gra) albo „gen.” (generator); wstawki {nazwa}.
+ * Blok między znacznikami BEGIN/END MESSAGES jest generowany narzędziem do wyciągania tekstów.
+ */
+(function (root) {
+  "use strict";
+  const GIDX = { m: 0, f: 1, n: 2, pl: 3 }; // pl = liczba mnoga przedmiotu (widły, nożyce); bez 4. wariantu bierze 3.
+  /* najpierw {k} → vars[k], potem [a|b|c] → wariant wg rodzaju */
+  function tx(str, g, vars) {
+    let s = String(str);
+    if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
+    s = s.replace(/\[([^\[\]]*)\]/g, (_, body) => { const parts = body.split("|"); return parts[Math.min(GIDX[g] || 0, parts.length - 1)]; });
+    // znacznik Kartoteki {g:hasło} albo {g:hasło|tekst}: na razie zostaje samym tekstem (SiatkaI18n.glossary), nic go jeszcze nie zawiera
+    s = s.replace(/\{g:([\w-]+)(?:\|([^{}]*))?\}/g, (m, id, label) => (root.SiatkaI18n ? root.SiatkaI18n.glossary(id, label) : (label != null ? label : id)));
+    // „z Słowiańskiej” → „ze Słowiańskiej”: przed nazwą zaczynającą się zbitką s/z/ś/ź/ż + spółgłoska
+    return s.replace(/(^|[\s„(])([zZ]) (?=(?:Sz|Rz)[^aeiouyąęó\s]|[SZŚŹŻ](?![zh])[^aeiouyąęóz\s])/g, "$1$2e ");
+  }
+  const list = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " i " + a[a.length - 1];
+  const plural = (n, one, few, many) => { if (n === 1) return one; const d = n % 10, h = n % 100; return d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? few : many; };
+  const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  /* kwota słownie: liczba cyframi, rzeczownik wg liczby („2 tysiące złotych”, „5 milionów złotych”, „2,5 miliona złotych”) */
+  function amount(n, unit) {
+    if (unit === "thousand") return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`;
+    if (unit === "million") return `${n} ${plural(n, "milion", "miliony", "milionów")} złotych`;
+    if (unit === "millionFrac") return `${String(n).replace(".", ",")} miliona złotych`;
+    if (unit === "zloty") return `${n} ${plural(n, "złoty", "złote", "złotych")}`;
+    throw new Error("Unknown amount unit: " + unit);
+  }
+  /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
+  const moneyGen = s => s.replace(/ (tysiące|tysiąc|miliony|milion)(?= )/, (_, w) => w[0] === "t" ? " tysięcy" : " milionów");
+  const grammar = { tx, plural, list, slug, amount, moneyGen };
+
+  /* BEGIN MESSAGES */
+  const messages = {
+    "gen.size.S": "Mała",
+    "gen.size.M": "Średnia",
+    "gen.size.L": "Duża",
+    "gen.size.XL": "Ogromna",
+    "gen.police_dat.militia": "milicji",
+    "gen.police_dat.police": "policji",
+    "ui.html.title": "Siatka Powiązań",
+    "ui.html.loading_case": "Ładowanie sprawy…",
+    "ui.html.tab_files": "Akta",
+    "ui.html.tab_notes": "Notatnik",
+    "ui.html.accuse_title": "Akt oskarżenia",
+    "ui.html.culprit": "Sprawca",
+    "ui.html.tool": "Narzędzie zbrodni",
+    "ui.html.back_to_board": "Wróć do tablicy",
+    "ui.html.accuse_go": "Wnieś oskarżenie",
+    "ui.html.newcase_sub": "Wybierz miasto, rok i wielkość śledztwa. „Losowo” zostawia wybór generatorowi.",
+    "ui.html.city": "Miasto",
+    "ui.html.year": "Rok",
+    "ui.html.size": "Wielkość",
+    "ui.html.cancel": "Anuluj",
+    "ui.html.open_case": "Otwórz sprawę",
+    "ui.html.skip": "Pomiń",
+    "ui.html.back": "Wstecz",
+    "ui.html.archive_stamp": "ARCHIWUM",
+    "ui.html.limit_title": "Na dziś archiwum zamknięte.",
+    "ui.html.limit_text": "Wróć jutro po kolejne sprawy albo odblokuj nielimitowane w wersji premium (już wkrótce).",
+    "ui.html.lives": "Pozostałe oskarżenia",
+    "ui.html.settings": "Ustawienia",
+    "ui.html.board": "Tablica korkowa",
+    "gen.classic.it_m": "go",
+    "gen.classic.it_f": "ją",
+    "gen.classic.it_n": "je",
+    "gen.classic.it_pl": "je",
+    "gen.classic.klasyczna_sprawa": "Klasyczna sprawa",
+    "gen.classic.brak_modulu_sprites": "Brak modułu sprites",
+    "gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa": "a narzędzie znaleziono {dumpPlace}, gdzie [bywa|bywa] codziennie",
+    "gen.classic.a_los_narzedzia_zgadza_sie_z": "a los narzędzia zgadza się z ustaleniami",
+    "gen.classic.nie_ma_alibi": "nie ma alibi",
+    "gen.classic.jego_jej_papiery_sa_z_innego": "[jego|jej] papiery są z innego dnia, więc nie ma alibi",
+    "gen.classic.jego_jej_papiery_pokazuja_inne_godziny": "[jego|jej] papiery pokazują inne godziny niż zeznanie, więc nie ma alibi",
+    "gen.classic.jego_jej_alibi_okazalo_sie_klamstwem": "[jego|jej] alibi okazało się kłamstwem",
+    "gen.classic.byl_byla_in_we_wlasciwym_czasie": "[był|była] {in} we właściwym czasie",
+    "gen.classic.ma_klucz_do_gen": "ma klucz do {gen}",
+    "gen.classic.wf_regula_n": "{wf} (reguła {n}).",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_t": "[mógł|mogła] zabrać {acc}, ale {T}, a to nie zgadza się z regułą {n}.",
+    "gen.classic.we_wlasciwym_czasie": " we właściwym czasie",
+    "gen.classic.ma_klucz_do_gen_ale": "ma klucz do {gen}, ale ",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_nie": "[mógł|mogła] zabrać {acc}, ale nie bywa codziennie {T}, gdzie {it} znaleziono (reguła {n}).",
+    "gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n": "ma potwierdzone alibi: {alibiTxt} (reguła {n}).",
+    "gen.classic.alibi": "alibi",
+    "gen.classic.regula_n_v": "Reguła {n}: {v}",
+    "gen.classic.regula_n_hint": "Reguła {n}: {hint}",
+    "gen.classic.regula_n_replace": "Reguła {n}: {replace}",
+    "gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot": "Reguła {n}: porównaj, gdzie znaleziono przedmioty, z tym, gdzie kto bywa codziennie.",
+    "gen.classic.regula_n_sprawdz_w_aktach_przedmiotow": "Reguła {n}: sprawdź w aktach przedmiotów, co się z każdym z nich stało.",
+    "gen.classic.regula_n_sprawdz_kto_ma_klucze": "Reguła {n}: sprawdź, kto ma klucze do których miejsc.",
+    "gen.classic.regula_n_kto_byl_przy_przedmiocie": "Reguła {n}: kto był przy przedmiocie we właściwym czasie, ale nie miał klucza?",
+    "gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi": "Reguła {n}: porównaj godziny zniknięcia przedmiotów z tym, kto i kiedy był na miejscu.",
+    "gen.classic.regula_n_kto_ma_potwierdzone_alibi": "Reguła {n}: kto ma potwierdzone alibi na {a}–{b}?",
+    "gen.classic.jego": "jego",
+    "gen.classic.jej": "jej",
+    "gen.classic.zeznal": "zeznał",
+    "gen.classic.zeznala": "zeznała",
+    "gen.classic.ktory": "który",
+    "gen.classic.ktora": "która",
+    "gen.classic.widzial": "widział",
+    "gen.classic.widziala": "widziała",
+    "gen.classic.stal": "stał",
+    "gen.classic.stala": "stała",
+    "gen.classic.niego": "niego",
+    "gen.classic.niej": "niej",
+    "gen.classic.tego_wieczoru": "Tego wieczoru",
+    "gen.classic.to_falszywy_trop_nie_pasuje_do": "to fałszywy trop. Nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie.",
+    "gen.classic.to_falszywe_tropy_zaden_nie_pasuje": "to fałszywe tropy. Żaden nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie.",
+    "gen.classic.dowod_rzeczowy": "Dowód rzeczowy:",
+    "gen.classic.dowody_rzeczowe": "Dowody rzeczowe:",
+    "gen.classic.spelnia_wszystkie_reguly_join": "spełnia wszystkie reguły: {join}.",
+    "gen.classic.nie_ma_go_jej_w_zeszycie": "nie ma [go|jej] w zeszycie dozorcy",
+    "gen.classic.relacja_z_osoba_refname_what": "relacja z osobą: {refName} ({what})",
+    "gen.classic.mniej": "mniej",
+    "gen.classic.wiecej": "więcej",
+    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "jest w zeszycie dozorcy: o {toHM} [szedł|szła] przez podwórko (reguła {n}).",
+    "gen.classic.w_teczce_nie_ma_nic_co": "w teczce nie ma nic, co ich łączy (reguła {n}).",
+    "gen.classic.relnoun_a_nie_relnoun2_regula_n": "{relNoun}, a nie {relNoun2} (reguła {n}).",
+    "gen.classic.nizszy": "niższy",
+    "gen.classic.wyzszy": "wyższy",
+    "gen.classic.szwagrostwo": "szwagrostwo",
+    "gen.classic.szwagierki": "szwagierki",
+    "gen.classic.szwagrowie": "szwagrowie",
+    "gen.classic.sasiedzi_z_jednej_klatki": "sąsiedzi z jednej klatki",
+    "gen.classic.sasiedzi_z_klatki": "sąsiedzi z klatki",
+    "gen.classic.wspolpracownicy_z_jednego_zakladu": "współpracownicy z jednego zakładu",
+    "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób.",
+    "gen.classic.nie_kazde_alibi_sie_trzyma_porownaj": "Nie każde alibi się trzyma. Porównaj, co mówią o tym samym wieczorze różne osoby.",
+    "gen.classic.dowod_rzeczowy_2": "Dowód rzeczowy",
+    "gen.classic.przedmiot": "Przedmiot",
+    "gen.classic.gone_from_tego_dnia": "{gone} {from} tego dnia.",
+    "gen.classic.gone_from_miedzy_tohm_a_tohm2": "{gone} {from} między {toHM} a {toHM2}.",
+    "gen.classic.zniknely": "Zniknęły",
+    "gen.classic.zniknelo": "Zniknęło",
+    "gen.classic.zniknela": "Zniknęła",
+    "gen.classic.zniknal": "Zniknął",
+    "gen.classic.miejsce": "Miejsce",
+    "gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl": "Drzwi zwykle stoją otwarte, wejść mógł każdy.",
+    "gen.classic.nikt_z_podejrzanych_nie_ma_tu": "Nikt z podejrzanych nie ma tu klucza. Zamek nieuszkodzony.",
+    "gen.classic.klucz_ma": "Klucz ma",
+    "gen.classic.klucze_maja": "Klucze mają",
+    "gen.classic.only_zamek_nieuszkodzony": "{only} Zamek nieuszkodzony.",
+    "gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy": "Tego wieczoru zniknęły stąd dwie rzeczy: {plList}.",
+    "gen.classic.szwagier": "szwagier",
+    "gen.classic.szwagierka": "szwagierka",
+    "gen.classic.byl_byla_in_v_ale_nie": "[był|była] {in}{v}, ale nie ma klucza (reguła {n}).",
+    "gen.classic.v_byl_byla_in_o_tohm": "{v}[był|była] {in} o {toHM}, poza czasem zniknięcia przedmiotów (reguła {n}).",
+    "gen.classic.first_pick_v_zabral_zabrala_acc": "{first} {pick}. {v} [zabrał|zabrała] {acc} {from} {epilogueEnd}",
+    "gen.classic.ma_cm_cm_v_niz_refname": "ma {cm} cm, {v} niż {refName} ({refCm} cm)",
+    "gen.classic.ma_cm_cm_a_sprawca_jest": "ma {cm} cm, a sprawca jest {v} niż {refName} ({refCm} cm) (reguła {n}).",
+    "gen.classic.v_pllist_zamek_nieuszkodzony": "{v} {plList}. Zamek nieuszkodzony.",
+    "gen.classic.v_pllist_others_zamek_nieuszkodzony": "{v} {plList}. {others} Zamek nieuszkodzony.",
+    "gen.timeline.os_czasu": "Oś czasu",
+    "gen.timeline.nikt_nie_jest_w_dwoch_miejscach": "Nikt nie jest w dwóch miejscach naraz. Kto zdążył?",
+    "gen.timeline.first_pick_o_tohm_byl_byla": "{first} {pick}. O {toHM} [był|była] jeszcze {in}, o {toHM2} już na miejscu zdarzenia, a o {toHM3} [pokazał|pokazała] się {in2}, jakby nic się nie stało.",
+    "gen.timeline.dowod_rzeczowy": "Dowód rzeczowy:",
+    "gen.timeline.dowody_rzeczowe": "Dowody rzeczowe:",
+    "gen.timeline.zdazyl_a_o_tb_in_dp": "zdążył[|a]: o {tb} {in}, {dp} min drogi, na miejscu zdarzenia [mógł|mogła] być od {arr} do {back}, czyli {len} min w czasie zdarzenia ({from}–{to}); potem {dq} min drogi i o {ta} {in2}{v}.",
+    "gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia": "[mógł|mogła] zdążyć na miejsce zdarzenia, ale {wf} (reguła {ruleNo}).",
+    "gen.timeline.nadal_tam": "nadal tam",
+    "gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w": "nie [zdążyłby|zdążyłaby] tam być w czasie zdarzenia ani chwili",
+    "gen.timeline.moglby_moglaby_tam_byc_najwyzej_od": "[mógłby|mogłaby] tam być najwyżej od {toHM} do {toHM2}, czyli {len} min",
+    "gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
+    "gen.timeline.regula_ruleno_lc1": "Reguła {ruleNo}: {lc1}",
+    "gen.timeline.dowod_rzeczowy_2": "Dowód rzeczowy",
+    "gen.timeline.miejsce": "Miejsce",
+    "gen.timeline.miejsce_zdarzenia": "Miejsce zdarzenia",
+    "gen.timeline.stad_pieszo_join": "Stąd pieszo: {join}.",
+    "gen.timeline.miejsce_zdarz": "Miejsce zdarz.",
+    "gen.timeline.miejsce_zdarzenia_2": " (miejsce zdarzenia)",
+    "gen.timeline.tu_to_sie_stalo": "Tu to się stało.",
+    "gen.timeline.tu_to_sie_stalo_where": "Tu to się stało, {where}.",
+    "gen.timeline.o_tb_byl_byla_in_a": "o {tb} [był|była] {in}, a o {ta} {v}. Z drogą na miejsce zdarzenia ({dp} min) i z powrotem ({dq} min) {where}, a sprawca spędził tam co najmniej {stay} min (reguła {ruleNo}).",
+    "gen.solver.id_fakt_type_dotyczy_who_nie": "{id}: fakt {type} dotyczy {who}, nie właściciela",
+    "gen.solver.id_znak_wskazuje_v_a_dowod": "{id}: znak wskazuje {v}, a dowód należy do {owner}",
+    "gen.solver.id_znak_kind_value_pasuje_do": "{id}: znak {kind}={value} pasuje do {length} osób",
+    "gen.solver.alibi": "alibi",
+    "ui.game.label_city_name_year_size_seed": "{label} · {city_name}, {year} · {size} · seed {seed} · generator {caseVersion} · {st}, pomyłki {wrong}, podpowiedzi {hints}",
+    "ui.game.rozwiazana": "rozwiązana",
+    "ui.game.samouczek_pierwsze_uruchomienie": "Samouczek: pierwsze uruchomienie",
+    "ui.game.zapis_sprawy_z_archiwum_pominiety": "Zapis sprawy z archiwum pominięty",
+    "ui.game.zapis_sprawy_dnia_pominiety": "Zapis sprawy dnia pominięty",
+    "ui.game.sprawa_na_rozgrzewke": "Sprawa na rozgrzewkę",
+    "ui.game.sprawa_dnia": "Sprawa dnia",
+    "ui.game.limit_nowych_spraw_wyczerpany": "Limit nowych spraw wyczerpany",
+    "ui.game.nowe_sprawy_za_v_v2_min": "Nowe sprawy za {v}{v2} min, o północy.",
+    "ui.game.zostalo": "zostało",
+    "ui.game.zostala": "została",
+    "ui.game.nowa_sprawa_left_daily_new_cases": "Nowa sprawa · {left}/{DAILY_NEW_CASES}",
+    "ui.game.nowa_sprawa": "Nowa sprawa",
+    "ui.game.nie_udalo_sie": "Nie udało się",
+    "ui.game.wynik_jako_obrazek": "Wynik jako obrazek",
+    "ui.game.udostepniono": "Udostępniono",
+    "ui.game.brak_obrazka": "brak obrazka",
+    "ui.game.archiwum": "archiwum",
+    "ui.game.wsparcie_tworcy_wynik": "Wsparcie twórcy: wynik",
+    "ui.game.blad_w_sprawie_logice": "Błąd w sprawie/logice",
+    "ui.game.wynik_udostepniony": "Wynik udostępniony",
+    "ui.game.wynik_skopiowany": "Wynik skopiowany",
+    "ui.game.podoba_ci_sie_postaw_komisarzowi_html": "<p class=\"support-line\"><a id=\"supportLink\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>",
+    "ui.game.nowa_sprawa_html": "<button class=\"btn red full\" id=\"againBtn\">Nowa sprawa</button>",
+    "ui.game.sprawa_dnia_html": "<button class=\"btn red full\" id=\"toDailyBtn\">Sprawa dnia</button>",
+    "ui.game.kopiuj_wynik": "Kopiuj wynik",
+    "ui.game.udostepnij": "Udostępnij",
+    "ui.game.niedomkniety": "niedomknięty",
+    "ui.game.domkniety": "domknięty",
+    "ui.game.a_narzedziem_v": ", a narzędziem {v}",
+    "ui.game.byl": "był",
+    "ui.game.byla": "była",
+    "ui.game.sprawa_umorzona": "SPRAWA UMORZONA",
+    "ui.game.sprawa_zamknieta": "SPRAWA ZAMKNIĘTA",
+    "ui.game.siatka_powiazan_label_city_name_year": "Siatka Powiązań · {label}\n{city_name}, {year}\n{repeat}{v} {repeat2}{repeat3}\nPodpowiedzi: {hints} · {time}",
+    "ui.game.sprawa_dnia_2": "sprawa dnia",
+    "ui.game.przegrana": "Przegrana",
+    "ui.game.wygrana": "Wygrana",
+    "ui.game.wynik": "Wynik",
+    "ui.game.zostaly_left_proby": "Zostały {left} próby.",
+    "ui.game.zostala_1_proba": "Została 1 próba.",
+    "ui.game.podpowiedz_hints": "Podpowiedź {hints}",
+    "ui.game.podpowiedz_v": "Podpowiedź ({v})",
+    "ui.game.podpowiedz_v_max": "Podpowiedź {v}/{max}",
+    "ui.game.powiazania_html": "<p class=\"how\">Powiązania: {join}</p>",
+    "ui.game.wyklucz": "Wyklucz",
+    "ui.game.przywroc": "Przywróć",
+    "ui.game.przedmioty": "przedmioty",
+    "ui.game.przedmiotow": "przedmiotów",
+    "ui.game.dowodow_rzeczowych": "dowodów rzeczowych",
+    "ui.game.dowody_rzeczowe": "dowody rzeczowe",
+    "ui.game.dowod_rzeczowy": "dowód rzeczowy",
+    "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Notatnik detektywa</h2><div class=\"kind\">Ustalenia techników i lekarza</div><ol>{join}</ol>{travelTable}",
+    "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Czasy dojścia pieszo</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
+    "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Stuknij pulsującą pinezkę albo zdjęcie, żeby przeciągnąć sznurek od: {name}.",
+    "ui.game.laczenie": "Łączenie",
+    "ui.game.przetnij_sznurek_html": "<path class=\"s\" data-k=\"{k}\" d=\"{d}\"/><path class=\"hit\" data-k=\"{k2}\" d=\"{d2}\"><title>Przetnij sznurek</title></path>",
+    "ui.game.name_otworz_akta": "{name}, otwórz akta",
+    "ui.game.oskarz": "Oskarż",
+    "ui.game.os_czasu_karta_wprowadzajaca": "Oś czasu: karta wprowadzająca",
+    "ui.game.nowy_typ_sprawy_os_czasu_html": "<div class=\"card tl-card\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"tlH\"><h3 id=\"tlH\">Nowy typ sprawy: oś czasu</h3>\n    <p>Nikt nie jest w dwóch miejscach naraz. W notatniku jest tabela czasów dojścia, a w teczkach godziny, o których kogo widziano: sprawdź, kto zdążyłby dojść na miejsce zdarzenia, spędzić tam tyle, ile mówi reguła, i wrócić na czas.</p>\n    <table class=\"tt\"><tbody><tr><td>Kiosk ↔ Miejsce zdarzenia</td><td>10 min</td></tr><tr><td>Bar ↔ Miejsce zdarzenia</td><td>15 min</td></tr></tbody></table>\n    <p class=\"ex\">Sprawca był na miejscu co najmniej 10 min. Anna była w kiosku o 19:00, a w barze o 19:40. Droga tam (10 min), 10 min na miejscu i droga do baru (15 min) to 35 min, a miała 40, więc mogła zdążyć. Gdyby w barze była o 19:30, nie zdążyłaby.</p>\n    <p>Oskarżasz tylko sprawcę, bez narzędzia.</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"tlGo\">Do roboty</button></div></div>",
+    "ui.game.hl_cars_re": "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)",
+    "ui.game.hl_keys_re": "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek|\\p{Lu}\\.\\p{Lu}\\.|m\\. \\d+|(?:mieszkani\\p{L}*|numer\\p{L}*|spod) (?:nr )?\\d+)",
+    "ui.game.sprawa_dnia_v": "Sprawa dnia, {v}",
+    "ui.game.nowa_sprawa_na_dzis_v_left": "Nowa sprawa, na dziś {v} {left} z {DAILY_NEW_CASES}",
+    "ui.game.sprawca_html": "<p>Sprawcą {v} {name}{v2}.</p>",
+    "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "Prokurator odrzuca akt oskarżenia. Fakty się nie spinają. {v}",
+    "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Akta sprawy</button></div>\n    {v2}",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Akta sprawy · {np} podejrzanych · {v}{evTxt} ·{length} reguł{v2}</div><p>{rich}</p>\n      <p class=\"how\">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>",
+    "ui.game.sprawa_porzucona_v_size_devicetype": "Sprawa porzucona: {v} {size} ({deviceType})",
+    "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Rozumowanie</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Twoja tablica</div>\n    <div class=\"stat\">Sznurki zgodne z faktami: {good} · bez pokrycia: {bad}<br>Obwód sprawcy ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Sprawy dnia</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>seria</span></div><div><b>{best}</b><span>rekord</span></div><div><b>{pct}%</b><span>wygrane</span></div><div><b>{played}</b><span>rozegrane</span></div></div>\n    <div class=\"lbl\">Wszystkie sprawy</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>rozegrane</span></div><div><b>{pct2}%</b><span>wygrane</span></div><div><b>{v7}</b><span>średni czas</span></div></div>\n    <div class=\"lbl\">Wynik do udostępnienia</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Zapisz obrazek</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Coś się nie zgadza? Zgłoś uwagę</button></p>\n    {v10}",
+    "ui.settings.wsparcie_tworcy_ustawienia": "Wsparcie twórcy: ustawienia",
+    "ui.settings.wibracje": "Wibracje",
+    "ui.settings.spokojny_jazz_z_plyty": "Spokojny jazz z płyty",
+    "ui.settings.efekty_dzwiekowe": "Efekty dźwiękowe",
+    "ui.settings.osiagniecia_html": "<button class=\"pick wide set-ach\" id=\"setAch\">Osiągnięcia <small>{got}/{all}</small></button>",
+    "ui.settings.zainstaluj_gre_html": "<p class=\"set-note\"><b>Zainstaluj grę:</b> {hint}</p>",
+    "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Zainstaluj grę</button><p class=\"set-note\">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>",
+    "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">Gra jest zainstalowana na tym urządzeniu.</p>",
+    "ui.settings.co_nowego_wroc_html": "<h3>Co nowego</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Wróć</button></div>",
+    "ui.settings.pelny_ekran": "Pełny ekran",
+    "ui.settings.wyjdz_z_pelnego_ekranu": "Wyjdź z pełnego ekranu",
+    "ui.settings.zgloszenie_uwagi": "Zgłoszenie uwagi: ",
+    "ui.settings.przegladarka": "przeglądarka",
+    "ui.settings.aplikacja": "aplikacja",
+    "ui.settings.inna_przegladarka": "inna przeglądarka",
+    "ui.settings.samsung_internet": "Samsung Internet ",
+    "ui.settings.inny_system": "inny system",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu": "Kliknij ikonę instalacji w pasku adresu albo menu <b>⋮</b> → <b>„Przesyłaj, zapisuj i udostępniaj”</b> → <b>„Zainstaluj stronę jako aplikację”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b": "Stuknij menu <b>⋮</b>, potem <b>„Dodaj do ekranu głównego”</b> → <b>„Zainstaluj”</b>.",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2": "Kliknij ikonę instalacji w pasku adresu albo menu <b>…</b> → <b>„Aplikacje”</b> → <b>„Zainstaluj tę witrynę jako aplikację”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_2": "Stuknij menu <b>…</b>, potem <b>„Dodaj do telefonu”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_3": "Stuknij menu <b>⋮</b>, potem <b>„Zainstaluj”</b> (albo „Dodaj do ekranu głównego”).",
+    "ui.settings.stuknij_menu_b_b_potem_b_4": "Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.",
+    "ui.settings.w_safari_stuknij_b_udostepnij_b": "W Safari stuknij <b>Udostępnij</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.",
+    "ui.settings.gra_zainstalowana": "Gra zainstalowana",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Samouczek: wyjście z gry na kroku {v}",
+    "ui.tutorial.samouczek_pominiety_na_kroku_v": "Samouczek pominięty na kroku {v}",
+    "ui.tutorial.samouczek_ukonczony": "Samouczek ukończony",
+    "ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html": "<button class=\"btn ghost\" id=\"hwInstallBtn\">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>",
+    "ui.tutorial.graj_jak_w_aplikacji_html": "<b>Graj jak w aplikacji.</b> {hintHtml}",
+    "ui.tutorial.dalej": "Dalej",
+    "ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html": "<div class=\"hw-desk\"></div><span class=\"hw-lives\"><i></i><i></i><i></i></span>\n        <span class=\"hw-btn\">Oskarż</span>\n        <div class=\"hw-acc\"><b class=\"h\">Akt oskarżenia</b><span>Sprawca: <b>{name}</b></span><span>Narzędzie: <b>{toLowerCase}</b></span>\n          <span class=\"hw-stamp\">SPRAWA ZAMKNIĘTA</span><span class=\"hw-stars\">★★★</span></div>{F}",
+    "ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r": "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    "ui.tutorial.gdy_wiesz_kto_i_czym_stuknij": "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
+    "ui.tutorial.oskarzenie": "Oskarżenie",
+    "ui.tutorial.spelnia_br_wszystkie": "spełnia<br>wszystkie",
+    "ui.tutorial.lamie_br_3": "łamie<br>3",
+    "ui.tutorial.lamie_br_1": "łamie<br>1",
+    "ui.tutorial.alibi": "alibi",
+    "ui.tutorial.garazu": "garażu",
+    "ui.tutorial.klucz": "klucz",
+    "ui.tutorial.ten_kto_nie_lamie_zadnej_reguly": "Ten, kto nie łamie żadnej reguły, jest sprawcą. Pomyłka? „Przywróć” cofa wykluczenie.",
+    "ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika": "Sprawca spełnia wszystkie reguły z notatnika. Każdy niewinny łamie co najmniej jedną – wtedy stuknij w jego aktach „Wyklucz”.",
+    "ui.tutorial.sznurki_to_twoje_notatki_gra_nie": "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
+    "ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki": "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
+    "ui.tutorial.sznurek": "Sznurek",
+    "ui.tutorial.swiadkow": "Świadków",
+    "ui.tutorial.spal": "spał",
+    "ui.tutorial.spala": "spała",
+    "ui.tutorial.piwnicy": "piwnicy",
+    "ui.tutorial.ja": "ją",
+    "ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i": "Na tablicy wiszą podejrzani, miejsca i przedmioty. Czerwona kropka na zdjęciu znaczy, że akt jeszcze nie czytałeś.",
+    "ui.tutorial.codziennie_nowa_sprawa_z_lat_90": "Codziennie nowa sprawa z lat 90. Stuknij zdjęcie, żeby otworzyć akta.",
+    "ui.tutorial.notatnik_sprawca_ma_do_nie_html": "<div class=\"hw-desk\"></div>\n        <div class=\"hw-note\"><b class=\"h\">Notatnik</b><ol>\n          <li class=\"q1\">Sprawca ma {k} do {l}.</li>\n          <li class=\"q2\">Nie ma {k2} między {fxT} a {fxT2}.</li>\n          <li class=\"q3\">Sprawca nosi okulary.</li></ol></div>\n        {join}\n        {tag}{tag2}{tag3}",
+    "ui.stats.statystyki_otwarte": "Statystyki otwarte",
+    "ui.stats.umorzone": "umorzone",
+    "ui.stats.statystyki_wyniki_w_tej_przegladarce_html": "<h3>Statystyki</h3><p class=\"sub\">Wyniki w tej przeglądarce.</p>\n    <div class=\"lbl\">Sprawy dnia</div>\n    <div class=\"st-grid\">\n      <div><b>{cur}</b><span>seria</span></div><div><b>{best}</b><span>rekord</span></div>\n      <div><b>{pct}%</b><span>wygrane</span></div><div><b>{played}</b><span>rozegrane</span></div>\n    </div>\n    <div class=\"lbl\">Gwiazdki w sprawach dnia</div>\n    {row}{row2}{row3}{row4}\n    <div class=\"lbl\">Wszystkie sprawy</div>\n    <div class=\"st-grid three\">\n      <div><b>{played2}</b><span>rozegrane</span></div><div><b>{pct2}%</b><span>wygrane</span></div>\n      <div><b>{v}</b><span>średni czas</span></div>\n    </div>\n    <p class=\"stat\">Sprawy z archiwum: rozwiązane {won} z {played3}.</p>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"statsClose\">Zamknij</button></div>",
+    "ui.ach.osiagniecia_html": "\n  <div class=\"overlay ach-pop\" id=\"achPop\" hidden><div class=\"card\" id=\"achPopCard\" role=\"dialog\" aria-modal=\"true\" aria-live=\"assertive\"></div></div>\n  <div class=\"overlay\" id=\"achList\" hidden><div class=\"card\" id=\"achListCard\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Osiągnięcia\"></div></div>",
+    "ui.ach.osiagniecia_otwarte": "Osiągnięcia otwarte",
+    "ui.ach.osiagniecia_zdobyte_z_zapisane_w_html": "<h3>Osiągnięcia</h3><p class=\"sub\">Zdobyte: {got} z {all}. Zapisane w tej przeglądarce.</p>\n    <ul class=\"ach-list\">{rows}</ul>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"achClose\">Zamknij</button></div>",
+    "ui.ach.nowe_osiagniecie_html": "\n    <div class=\"ach-kicker\">Nowe osiągnięcie</div>\n    <div class=\"ach-stage\"><div class=\"ach-rays\"></div>{badge}{repeat}</div>\n    <div class=\"ach-tier t{tier}\">{tierName}</div>\n    <h3>{name}</h3>\n    <p class=\"ach-desc\">{desc}</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"achOk\">{v}</button></div>",
+    "ui.ach.osiagniecie_name": "Osiągnięcie: {name}",
+    "ui.ach.zloto": "złoto",
+    "ui.ach.braz": "brąz",
+    "ui.ach.weteran": "Weteran",
+    "ui.ach.zamknij_sprawe_z_kazdego_roku_od": "Zamknij sprawę z każdego roku od 1989 do 1999.",
+    "ui.ach.cala_dekada": "Cała dekada",
+    "ui.ach.rozwiaz_sprawe_dnia_30_dni_z": "Rozwiąż sprawę dnia 30 dni z rzędu.",
+    "ui.ach.miesiac_na_sluzbie": "Miesiąc na służbie",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na": "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.",
+    "ui.ach.wielka_szostka": "Wielka szóstka",
+    "ui.ach.zamknij_sprawe_kazdego_z_11_typow": "Zamknij sprawę każdego z 11 typów zbrodni.",
+    "ui.ach.wszechstronny": "Wszechstronny",
+    "ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu": "Zamknij sprawę w każdym z siedmiu miast.",
+    "ui.ach.delegacja": "Delegacja",
+    "ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z": "Rozwiąż sprawę dnia siedem dni z rzędu.",
+    "ui.ach.tydzien_na_sluzbie": "Tydzień na służbie",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi": "Zamknij sprawę z sześcioma podejrzanymi.",
+    "ui.ach.grube_akta": "Grube akta",
+    "ui.ach.wygraj_z_co_najmniej_10_sznurkami": "Wygraj z co najmniej 10 sznurkami zgodnymi z faktami.",
+    "ui.ach.pajeczyna": "Pajęczyna",
+    "ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i": "Wygraj z domkniętym obwodem sprawcy i bez ani jednego sznurka bez pokrycia.",
+    "ui.ach.czysta_robota": "Czysta robota",
+    "ui.ach.zamknij_sprawe_w_mniej_niz_dwie": "Zamknij sprawę w mniej niż dwie minuty.",
+    "ui.ach.blyskawica": "Błyskawica",
+    "ui.ach.staly_bywalec": "Stały bywalec",
+    "ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z": "Rozwiąż sprawę dnia trzy dni z rzędu.",
+    "ui.ach.staly_rytm": "Stały rytm",
+    "ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta": "Zamknij sprawę między północą a czwartą rano.",
+    "ui.ach.nocna_zmiana": "Nocna zmiana",
+    "ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn": "Przed oskarżeniem wyklucz wszystkich niewinnych.",
+    "ui.ach.sito": "Sito",
+    "ui.ach.wygraj_przy_ostatniej_probie": "Wygraj przy ostatniej próbie.",
+    "ui.ach.ostatni_naboj": "Ostatni nabój",
+    "ui.ach.zamknij_sprawe_na_trzy_gwiazdki": "Zamknij sprawę na trzy gwiazdki.",
+    "ui.ach.bez_pudla": "Bez pudła",
+    "ui.ach.zamknij_pierwsza_sprawe": "Zamknij pierwszą sprawę.",
+    "ui.ach.pierwsza_sprawa": "Pierwsza sprawa",
+    "ui.share.sprawa_umorzona": "SPRAWA UMORZONA",
+    "ui.share.sprawa_zamknieta": "SPRAWA ZAMKNIĘTA",
+    "ui.share.dni": "dni",
+    "ui.share.dzien": "dzień",
+    "ui.share.seria": "seria",
+    "ui.share.podpowiedzi": "podpowiedzi",
+    "ui.share.pomylki": "pomyłki",
+    "ui.share.czas": "czas",
+    "ui.share.siatka_powiazan": "Siatka Powiązań",
+    "ui.track.dniach": "dniach",
+    "ui.track.dniu": "dniu",
+    "ui.track.nowy_gracz": "Nowy gracz",
+    "ui.track.powrot_w_dniu_n_po_pierwszej": "Powrót w dniu {n} po pierwszej grze ({device})",
+    "ui.track.powrot_po_n_v": "Powrót po {n} {v}",
+    "ui.game.samouczek_przycisk": "Samouczek: przycisk",
+    "ui.game.zaznaczono_skopiuj": "Zaznaczono, skopiuj",
+    "ui.game.min_html": "<tr><td>{nm} ↔ {nm2}</td><td>{m} min</td></tr>",
+    "ui.settings.aplikacja_html": "<div class=\"lbl\">Aplikacja</div>{app}",
+    "ui.settings.nowe_html": "<span class=\"dot\" aria-label=\"nowe\"></span>",
+    "ui.settings.wersja_html": "<h4>Wersja {v}<small>{fmtDate}</small></h4><ul>{join}</ul>",
+    "ui.tutorial.krok_html": "<button data-j=\"{j}\" aria-label=\"Krok {v}: {title}\"{v2}></button>",
+    "ui.tutorial.widziano_o_ma_do_od_html": "<div class=\"hw-desk\"></div>{pol}\n        <div class=\"hw-sheet\"><b class=\"h\">{name}</b><ul>\n          <li>Widziano {v} {l} o {fxT}.</li>\n          <li>Ma {k} do {l2}.</li>\n          <li>Od {fxT2} {v2}. {k2} brak.</li></ul></div>\n        <i class=\"hw-f\" style=\"--x:53px;--y:86px\"></i>",
+    "ui.ach.zdobyte_html": "<small>{v} · zdobyte {date}</small>",
+    "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} z 3\">{repeat}{repeat2}</div>",
+    "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} z {need}</small>",
+    "ui.game.w_trakcie": "w trakcie",
+    "ui.game.sprawa_z_archiwum": "Sprawa z archiwum",
+    "ui.game.sprawa_padstart": "Sprawa #{padStart}",
+    "ui.game.seria_cur": "\nSeria: {cur} 🔥",
+    "ui.game.seria_cur_dni": "Seria {cur} dni",
+    "ui.game.wynik_starsof_z_3_gwiazdek": "Wynik: {starsOf} z 3 gwiazdek",
+    "ui.game.wygrana_devicetype": "Wygrana ({deviceType})",
+    "ui.game.wykluczony": " · wykluczony",
+    "ui.game.length_miejsca": "{length} miejsca",
+    "ui.game.pinezka_name": "Pinezka: {name}",
+    "ui.game.start_v_size": "Start: {v} {size}",
+    "ui.settings.co_nowego": "Co nowego",
+    "ui.settings.muzyka_w_tle": "Muzyka w tle",
+    "ui.settings.instalacja_v_where": "Instalacja: {v} ({where})",
+    "ui.tutorial.do_roboty": "Do roboty!",
+    "ui.tutorial.krok_v_z_length": "Krok {v} z {length}",
+    "ui.tutorial.ilustracja_title": "Ilustracja: {title}",
+    "ui.tutorial.notatnik_i_wykluczanie": "Notatnik i wykluczanie",
+    "ui.tutorial.na_miejscu": "na miejscu",
+    "ui.tutorial.tablica_i_akta": "Tablica i akta",
+    "ui.ach.do_akt": "Do akt",
+    "ui.ach.dalej_left": "Dalej ({left})",
+    "gen.classic.komisarz_detective": "Komisarz {detective}",
+    "gen.classic.porucznik_detective_z_mo": "Porucznik {detective} z MO",
+    "gen.timeline.komisarz_detective": "Komisarz {detective}",
+    "gen.timeline.porucznik_detective_z_mo": "Porucznik {detective} z MO",
+    "gen.timeline.name_d_min": "{name}: {d} min"
+  };
+  /* END MESSAGES */
+
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("./i18n.js") : null);
+  if (I18N) I18N.register("pl", { messages, grammar });
+  if (typeof module !== "undefined" && module.exports) module.exports = { messages, grammar };
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
 <script>
 /*
  * Siatka Powiązań — pixel art 12×12.
@@ -622,20 +1111,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   }
 
   /* ---------------- tekst ---------------- */
-  const GIDX = { m: 0, f: 1, n: 2, pl: 3 }; // pl = liczba mnoga przedmiotu (widły, nożyce); bez 4. wariantu bierze 3.
-  /* najpierw {k} → vars[k], potem [a|b|c] → wariant wg rodzaju */
-  function tx(str, g, vars) {
-    let s = String(str);
-    if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
-    s = s.replace(/\[([^\[\]]*)\]/g, (_, body) => { const parts = body.split("|"); return parts[Math.min(GIDX[g] || 0, parts.length - 1)]; });
-    // „z Słowiańskiej” → „ze Słowiańskiej”: przed nazwą zaczynającą się zbitką s/z/ś/ź/ż + spółgłoska
-    return s.replace(/(^|[\s„(])([zZ]) (?=(?:Sz|Rz)[^aeiouyąęó\s]|[SZŚŹŻ](?![zh])[^aeiouyąęóz\s])/g, "$1$2e ");
-  }
+  /* Gramatyka zależy od języka (data/i18n/<język>.js): odmiana [a|b|c] wg rodzaju, liczba mnoga, wyliczenie, kwoty słownie. */
+  const I18N = () => root.SiatkaI18n;
+  const G = () => I18N().grammar();
+  const t = (key, vars) => I18N().t(key, vars);
+  const tx = (str, g, vars) => G().tx(str, g, vars);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const toHM = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
-  const plList = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " i " + a[a.length - 1];
-  const plural = (n, one, few, many) => { if (n === 1) return one; const d = n % 10, h = n % 100; return d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? few : many; };
+  const plList = a => G().list(a);
+  const plural = (n, ...forms) => G().plural(n, ...forms);
   /* years:[od,do] i opcjonalnie months:[od,do] (1–12, w każdym roku z zakresu); m = indeks miesiąca sprawy 0–11 */
   const inYears = (o, y, m) => !o || ((!o.years || (y >= o.years[0] && y <= o.years[1])) && (!o.months || m === undefined || (m + 1 >= o.months[0] && m + 1 <= o.months[1])));
   /* 2.2.1: świadkowie i dowody pasują do rodzaju miejsca (pt: street, yard, field, shop, stair, cellar, work); wpis z `at` tylko w miejscach z listy */
@@ -643,28 +1128,25 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   const atTexts = (list, pt) => list.filter(o => fitsAt(o, pt)).map(o => typeof o === "string" ? o : o.t);
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
   const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
-  const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const slug = s => G().slug(s);
   const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 
   function money(R, year) {
-    if (year <= 1989) return `${R.int(2, 9) * 100} tysięcy złotych`;
-    if (year < 1995) { const n = R.int(3, 60); return `${n} ${plural(n, "milion", "miliony", "milionów")} złotych`; }
-    const n = R.int(2, 15); return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`;
+    if (year <= 1989) return G().amount(R.int(2, 9) * 100, "thousand");
+    if (year < 1995) return G().amount(R.int(3, 60), "million");
+    return G().amount(R.int(2, 15), "thousand");
   }
   /* 2.2: kwota z cennika (B.prices): rodzaj → zakres dla 1989, 1990–94 i od 1995. Dwie cyfry znaczące,
      od tysiąca słownie („37 tysięcy”, „2,5 miliona”); w nowych złotych pełne tysiące też słownie. */
   function price(B, R, year, kind) {
-    const p = (B.prices || {})[kind]; if (!p) throw new Error("Brak ceny: " + kind);
+    const p = (B.prices || {})[kind]; if (!p) throw new Error("Missing price: " + kind);
     const [lo, hi] = p[year <= 1989 ? 0 : year < 1995 ? 1 : 2];
     let v = R.int(lo, hi);
     const step = Math.pow(10, Math.max(0, Math.floor(Math.log10(v)) - 1)); v = Math.max(lo, Math.round(v / step) * step);
-    if (v >= 1e6) {
-      const m = v / 1e6;
-      return Number.isInteger(m) ? `${m} ${plural(m, "milion", "miliony", "milionów")} złotych` : `${String(m).replace(".", ",")} miliona złotych`;
-    }
-    if (v >= 1000 && v % 1000 === 0) { const k = v / 1000; return `${k} ${plural(k, "tysiąc", "tysiące", "tysięcy")} złotych`; }
-    if (v >= 10000) { const k = Math.round(v / 1000); return `${k} ${plural(k, "tysiąc", "tysiące", "tysięcy")} złotych`; }
-    return `${v} ${plural(v, "złoty", "złote", "złotych")}`;
+    if (v >= 1e6) { const m = v / 1e6; return G().amount(m, Number.isInteger(m) ? "million" : "millionFrac"); }
+    if (v >= 1000 && v % 1000 === 0) return G().amount(v / 1000, "thousand");
+    if (v >= 10000) return G().amount(Math.round(v / 1000), "thousand");
+    return G().amount(v, "zloty");
   }
   /* 2.2: wzrost w cm. Rozkład trójkątny wg płci (m 165–190, najczęściej 176; k 155–178, najczęściej 164).
      Opis: wysoki od progu tall, niski do progu short, pomiędzy „mid” (bez zdań o wzroście).
@@ -681,12 +1163,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   /* {kwota_<rodzaj>} w tekście → kwota z cennika */
   const prices = (B, R, year, s) => s.replace(/\{kwota_(\w+)\}/g, (_, k) => price(B, R, year, k));
   /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
-  const moneyGen = s => s.replace(/ (tysiące|tysiąc|miliony|milion)(?= )/, (_, w) => w[0] === "t" ? " tysięcy" : " milionów");
+  const moneyGen = s => G().moneyGen(s);
   /* drobna kwota na kwitach i paragonach: do 1994 stare złote, od denominacji nowe */
   function smallMoney(R, year) {
-    if (year <= 1989) { const n = R.int(3, 9); return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`; }
-    if (year < 1995) { const n = R.int(5, 40) * 10; return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`; }
-    const n = R.int(15, 90); return `${n} ${plural(n, "złoty", "złote", "złotych")}`;
+    if (year <= 1989) return G().amount(R.int(3, 9), "thousand");
+    if (year < 1995) return G().amount(R.int(5, 40) * 10, "thousand");
+    return G().amount(R.int(15, 90), "zloty");
   }
   /* Czy tekst (napis albo {t, ages, k, roles, trait}) pasuje do postaci {age, role, traits}:
      ages = wiek postaci, roles = tylko te role, k = tagi, których rola nie może mieć (role.no),
@@ -707,10 +1189,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   /* ---------------- wielkości ---------------- */
   /* n = podejrzani, k = liczba dowodów; miejsc jest k albo k-1 (dwa dowody w jednym miejscu) */
   const SIZES = {
-    S:  { n: 3, k: [2],    name: "Mała" },
-    M:  { n: 4, k: [2, 3], name: "Średnia" },
-    L:  { n: 5, k: [3],    name: "Duża" },
-    XL: { n: 6, k: [3, 4], name: "Ogromna" }
+    S:  { n: 3, k: [2],    get name() { return t("gen.size.S"); } },
+    M:  { n: 4, k: [2, 3], get name() { return t("gen.size.M"); } },
+    L:  { n: 5, k: [3],    get name() { return t("gen.size.L"); } },
+    XL: { n: 6, k: [3, 4], get name() { return t("gen.size.XL"); } }
   };
 
   /* ---------------- archetypy ---------------- */
@@ -724,7 +1206,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   function pickArchetype(seed, opts) {
     if (opts.archetype && ARCH[opts.archetype]) return ARCH[opts.archetype];
     const ok = Object.values(ARCH).filter(a => SIZE_ORDER.indexOf(opts.size) >= SIZE_ORDER.indexOf(a.minSize || "S") && weightOf(a, opts.size) > 0 && (!a.supports || a.supports(opts)));
-    if (!ok.length) throw new Error("Brak archetypu dla wielkości " + opts.size);
+    if (!ok.length) throw new Error("No archetype for size " + opts.size);
     if (ok.length === 1) return ok[0];
     const R = makeRng(seed + "/arch"), total = ok.reduce((s, a) => s + weightOf(a, opts.size), 0);
     let x = R.next() * total;
@@ -755,7 +1237,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       bar: R.pick(city.bars), church_at: city.church_at, team: R.pick(city.teams), cinema: city.cinema, gazeta: city.gazeta,
       dworzec: city.dworzec, szpital: city.szpital, walk: city.walk, uni: city.uni,
       zaklad_at: R.pick(A(city.zaklad_at)),
-      month: B.months[monthIdx], year, police_dat: milicja ? "milicji" : "policji", money: price(B, R, year, "money"), ransom: price(B, R, year, "ransom")
+      month: B.months[monthIdx], year, police_dat: t(milicja ? "gen.police_dat.militia" : "gen.police_dat.police"), money: price(B, R, year, "money"), ransom: price(B, R, year, "ransom")
     };
     V.money_gen = moneyGen(V.money); V.ransom_gen = moneyGen(V.ransom); // „z żądaniem 2 tysięcy złotych”
     const T = (s, g, extra) => tx(s, g, extra ? Object.assign({}, V, extra) : V);
@@ -769,7 +1251,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   const solver = () => root.SiatkaSolver || require("./solver.js");
   function solve(c, opts) {
     const A = archetypeOf(c);
-    if (!A) throw new Error("Nieznany archetyp: " + c.archetype);
+    if (!A) throw new Error("Unknown archetype: " + c.archetype);
     return solver().solve(c, A, opts);
   }
 
@@ -795,7 +1277,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         depth: { minFacts: d.minFacts, strongRule: d.strongRule, strongFact: d.strongFact } };
       return c;
     }
-    throw new Error("Nie udało się wygenerować poprawnej sprawy dla seeda " + seed);
+    throw new Error("Could not generate a valid case for seed " + seed);
   }
 
   /* ---------------- sprawa dnia ---------------- */
@@ -845,7 +1327,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const L = legacy(ver);
       if (L) { const c = L.dailyCase(date); c.gen = ver; return c; }
       // brak zamrożonej wersji (np. plik się nie wczytał): lepsza inna sprawa niż wywalona gra
-      if (typeof console !== "undefined") console.warn("Brak generatora w wersji " + ver + ", sprawa dnia z wersji " + GEN_VERSION);
+      if (typeof console !== "undefined") console.warn("Missing generator version " + ver + ", daily case from version " + GEN_VERSION);
     }
     const c = generateCase(world, "daily-" + n, dailyOpts(date));
     c.number = n; return c;
@@ -863,12 +1345,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   }
 
   const util = { fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
-  const api = { makeRng, tx, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
+  const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
     // w Node dociągamy solver i archetypy (w przeglądarce ładuje je index.html)
+    require("../data/i18n/i18n.js");
+    require("../data/i18n/pl.js");
     require("./solver.js");
     require("./archetypes/classic.js");
     require("./archetypes/timeline.js");
@@ -893,6 +1377,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  * żeby znak pasował do dokładnie jednej osoby i żeby była to osoba z faktu.
  */
 (function (root) {
+  const t = (key, vars) => root.SiatkaI18n.t(key, vars);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
   function indexFacts(c, skip) {
@@ -901,7 +1386,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       if (skip && skip(f)) continue;
       if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
       else if (f.type === "presence") ix.pres.push(f);
-      else if (f.type === "alibi") (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
+      else if (f.type === t("gen.solver.alibi")) (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
       else if (f.type === "trait") (ix.trait[f.who] = ix.trait[f.who] || {})[f.trait] = f.value;
       else if (f.type === "item_origin") ix.origin[f.what] = f.where;
       else if (f.type === "item_moved") ix.moved[f.what] = f;
@@ -968,9 +1453,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const ev = ix.evidence[id];
       if (!ev.mark) continue; // dowód bez właściciela (np. książka wydań kluczy z miejsca)
       const who = ix.marks.filter(m => m.kind === ev.mark.kind && m.value === ev.mark.value).map(m => m.who);
-      if (who.length !== 1) errors.push(`${id}: znak ${ev.mark.kind}=${ev.mark.value} pasuje do ${who.length} osób`);
-      else if (who[0] !== ev.owner) errors.push(`${id}: znak wskazuje ${who[0]}, a dowód należy do ${ev.owner}`);
-      for (const f of c.facts) if (f.src === id && f.who && f.who !== ev.owner) errors.push(`${id}: fakt ${f.type} dotyczy ${f.who}, nie właściciela`);
+      if (who.length !== 1) errors.push(t("gen.solver.id_znak_kind_value_pasuje_do", { id, kind: ev.mark.kind, value: ev.mark.value, length: who.length }));
+      else if (who[0] !== ev.owner) errors.push(t("gen.solver.id_znak_wskazuje_v_a_dowod", { id, v: who[0], owner: ev.owner }));
+      for (const f of c.facts) if (f.src === id && f.who && f.who !== ev.owner) errors.push(t("gen.solver.id_fakt_type_dotyczy_who_nie", { id, type: f.type, who: f.who }));
     }
     return errors;
   }
@@ -1036,6 +1521,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  */
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
+  const t = Eng.t;
   const { tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
@@ -1184,7 +1670,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     if (P < 1) return null;
     const useAlibi = R.chance(.6);
     const traitIds = R.sample(TRAITS.filter(t => t !== "known"), useAlibi ? P - 1 : P);
-    const rules = [...(useAlibi ? [{ type: "alibi" }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
+    const rules = [...(useAlibi ? [{ type: t("gen.classic.alibi") }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
       ...traitIds.map(t => ({ type: "trait", trait: t, value: t === "shoe" ? null : R.pick(B.traits[t].ruleValues || B.traits[t].values) }))];
     /* 2.2: reguły nietypowe zastępują reguły cech: najwyżej 1 w S–M, 2 w L–XL */
     {
@@ -1200,7 +1686,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     }
     if (rules.some(r => r.type === "cmp") && rules.some(r => r.trait === "height")) return null;
     if (rules.some(r => r.trait === "known") && rules.some(r => r.trait === "motive")) return null;
-    if (!rules.some(r => r.type === "alibi" || r.type === "trait" || r.u)) return null;
+    if (!rules.some(r => r.type === t("gen.classic.alibi") || r.type === "trait" || r.u)) return null;
     const ruleKey = r => r.type === "trait" ? "trait:" + r.trait : r.type;
 
     /* 6. Podejrzani */
@@ -1263,7 +1749,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       } else {
         const pool = okTraps.filter(i => i !== wIdx);
         trap = pool.length && R.chance(.7) ? R.pick(pool) : R.pick(okTraps);
-        if (r.type === "alibi") { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
+        if (r.type === t("gen.classic.alibi")) { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
         else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); if (!satisfyItem(s, trap)) return null; }
         else if (r.u) { if (!satisfyItem(s, trap)) return null; } // cmp, relation, absent: wartości po tożsamościach
         else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); if (!addPresence(s, locOf[trap], outT)) return null; }
@@ -1286,7 +1772,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* ZMYŁKA: fałszywe alibi. Brzmi jak potwierdzone, ale obala je zdanie w aktach innej osoby.
        Najczęściej kłamie sprawca, czasem niewinny, który i tak odpada z innego powodu. */
     if (useAlibi && R.chance(.55)) cul.fakeAlibi = true;
-    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== "alibi"); if (c.length) S[R.pick(c)].fakeAlibi = true; }
+    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== t("gen.classic.alibi")); if (c.length) S[R.pick(c)].fakeAlibi = true; }
 
     /* 7. Tożsamości */
     const roles = [...A(B.roles), ...A(city.roles || []), city.worker].filter(r => r && inYears(r, year, monthIdx));
@@ -1381,8 +1867,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const s = Pp.s;
       if (hasK) for (const li of s.keys) facts.push({ type: "has_key", who: Pp.id, where: LOCS[li].id });
       for (const p of s.pres) facts.push({ type: "presence", who: Pp.id, where: LOCS[p.loc].id, at: toHM(p.t) });
-      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
-                         : { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
+      facts.push(s.alibi || s.fakeAlibi ? { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
+                         : { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
       if (s.fakeAlibi) facts.push({ type: "alibi_debunked", who: Pp.id });
       for (const t of [...TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: s.traits[t] });
       facts.push({ type: "trait", who: Pp.id, trait: "height_cm", value: Pp.cm });
@@ -1423,11 +1909,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
           cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
-        else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
+        else if (f.type === t("gen.classic.alibi") && !Pp.s.fakeAlibi && iniOk(Pp)) {
           const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
           // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
-          if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
-          else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
+          if (f.confirmed && !lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === t("gen.classic.alibi") });
+          else if (!f.confirmed && lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
         }
         else if (f.type === "trait" && ruleTraits.has(f.trait) && iniOk(Pp) && (f.trait === "shoe" || f.value === "yes")) {
           // listy z motywem i kwity tylko pasujące do osoby (licealista bez weksla i wymówienia z pracy)
@@ -1492,7 +1978,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* 2.1.2: kontrola spójności. Nikt nie jest w dwóch miejscach naraz ani w trakcie własnego alibi. */
     for (const Pp of persons) {
       const ps = facts.filter(f => (f.type === "presence" || f.type === "roster_entry") && f.who === Pp.id).map(f => ({ w: f.where, t: toMin(f.at) }));
-      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
       for (let i = 0; i < ps.length; i++) {
         if (ps[i].t >= ALIBI_FROM) return null;
         if (al && al.confirmed && ps[i].t >= toMin(al.from) && ps[i].t <= toMin(al.to)) return null;
@@ -1528,8 +2014,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
-      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
-      const evAl = evOf(Pp, "alibi");
+      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
+      const evAl = evOf(Pp, t("gen.classic.alibi"));
       if (evAl) { // alibi potwierdza dopiero dowód rzeczowy
         const said = evAl.claim || al; // przy dokumencie, który obala alibi, teczka podaje godziny z zeznania
         text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: said.from, to: said.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
@@ -1546,7 +2032,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       else text.push(T(pickU(noJanitor(forP(B.claimFrame, Pp))).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
       for (const r of rules.filter(r => r.type === "trait")) if (!evOf(Pp, "trait:" + r.trait)) text.push(traitFact(B, crime, pickU, r.trait, s.traits[r.trait], Pp, year, T, monthIdx));
       if (cmpRule) text.push(T(pickU(forP(B.rules2.heightCm, Pp)), g, { cm: Pp.cm, cmm: (Pp.cm / 100).toFixed(2).replace(".", ",") }));
-      if (Pp.rel) text.push(T(pickU(forP(B.rules2.relation[Pp.rel].fact, Pp)), g, { ref: relRule.refName, szw: relRule.refG === "f" ? "szwagierka" : "szwagier" }));
+      if (Pp.rel) text.push(T(pickU(forP(B.rules2.relation[Pp.rel].fact, Pp)), g, { ref: relRule.refName, szw: relRule.refG === "f" ? t("gen.classic.szwagierka") : t("gen.classic.szwagier") }));
       if (s.yard != null) text.push(T(pickU(B.rules2.absent.fact), g, { t: toHM(s.yard) }));
       if (hasD || R.chance(.25)) text.push(T(pickU(forP(B.habits[s.traits.habit], Pp)), g));
       const nTraitRules = rules.filter(r => r.type === "trait").length;
@@ -1571,21 +2057,21 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     LOCS.forEach((loc, li) => {
       const text = [T(R.pick(loc.desc))];
       const here = I.filter((_, i) => locOf[i] === li);
-      if (here.length > 1) text.push(`Tego wieczoru zniknęły stąd dwie rzeczy: ${plList(here.map(it => lc1(it.name)))}.`);
+      if (here.length > 1) text.push(t("gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy", { plList: plList(here.map(it => lc1(it.name))) }));
       if (hasK) {
         const h = holders(li), book = evs.some(c => c.kind === "keys" && c.li === li);
-        if (book) text.push(h.length ? `${h.length > 1 ? "Klucze mają" : "Klucz ma"} ${plList(h)}. ${B.keyBookNote.others} Zamek nieuszkodzony.` : `${B.keyBookNote.only} Zamek nieuszkodzony.`);
-        else text.push(h.length ? `${h.length > 1 ? "Klucze mają" : "Klucz ma"} ${plList(h)}. Zamek nieuszkodzony.` : "Nikt z podejrzanych nie ma tu klucza. Zamek nieuszkodzony.");
+        if (book) text.push(h.length ? t("gen.classic.v_pllist_others_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h), others: B.keyBookNote.others }) : t("gen.classic.only_zamek_nieuszkodzony", { only: B.keyBookNote.only }));
+        else text.push(h.length ? t("gen.classic.v_pllist_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h) }) : t("gen.classic.nikt_z_podejrzanych_nie_ma_tu"));
       }
-      else text.push(T(R.pick(loc.open || ["Drzwi zwykle stoją otwarte, wejść mógł każdy."])));
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: "Miejsce", sprite: { kind: "loc", icon: loc.icon }, text,
+      else text.push(T(R.pick(loc.open || [t("gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl")])));
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
         forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
     });
     I.forEach((it, i) => {
-      const gone = { m: "Zniknął", f: "Zniknęła", n: "Zniknęło", pl: "Zniknęły" }[it.g];
+      const gone = { m: t("gen.classic.zniknal"), f: t("gen.classic.zniknela"), n: t("gen.classic.zniknelo"), pl: t("gen.classic.zniknely") }[it.g];
       const from = LOCS[locOf[i]].from;
-      const text = [R.pick(it.desc), hasW ? `${gone} ${from} między ${toHM(win[i][0])} a ${toHM(win[i][1])}.` : `${gone} ${from} tego dnia.`, T(B.fates[fate[i]].item, it.g)];
-      nodes.push({ id: it.id, type: "item", g: it.g, label: it.label, name: it.name, kind: "Przedmiot", sprite: { kind: "item", shape: it.icon.shape, pal: it.icon.p }, text });
+      const text = [R.pick(it.desc), hasW ? t("gen.classic.gone_from_miedzy_tohm_a_tohm2", { gone, from, toHM: toHM(win[i][0]), toHM2: toHM(win[i][1]) }) : t("gen.classic.gone_from_tego_dnia", { gone, from }), T(B.fates[fate[i]].item, it.g)];
+      nodes.push({ id: it.id, type: "item", g: it.g, label: it.label, name: it.name, kind: t("gen.classic.przedmiot"), sprite: { kind: "item", shape: it.icon.shape, pal: it.icon.p }, text });
     });
     for (const c of evs) {
       const loc = c.li >= 0 ? LOCS[c.li] : null, f = c.f;
@@ -1594,7 +2080,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && loc.in, gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
         dogname: RE.pick(D.dogs), dogbreed: RE.pick(D.breeds), film: RE.pick(A(D.films)), band: RE.pick(A(D.bands)),
         cig: RE.pick(A(D.cigs)), packs: RE.pick(D.packs), goods: RE.pick(A(D.goods)), kwota: smallMoney(RE, year) };
-      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: "Dowód rzeczowy", sprite: { kind: "ev", icon: c.def.icon },
+      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.classic.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
         text: [...c.def.text, ...(c.otherDay ? [c.otherDay] : [])].map(x => T(prices(B, RE, year, x), c.Pp.g, vars).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) }); // „M.M..” → „M.M.”
     }
 
@@ -1616,38 +2102,38 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const ruleNo = r => r.id.slice(1);
     const hintRules = [...new Set([...innocents.map(i => elim[i].rule), ...rules.filter(r => H.has(r.type))])];
     let hints = R.shuffle(hintRules).map(r => hintText(B, r, ruleNo(r), crimeFrom, crimeTo, hasW));
-    if (debunks.length) hints.splice(R.int(0, 1), 0, "Nie każde alibi się trzyma. Porównaj, co mówią o tym samym wieczorze różne osoby.");
+    if (debunks.length) hints.splice(R.int(0, 1), 0, t("gen.classic.nie_kazde_alibi_sie_trzyma_porownaj"));
     if (evs.some(c => c.ess)) hints.splice(RE.int(0, 2), 0, evs.some(c => c.mark === "flat")
-      ? "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób."
-      : "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
-    if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.");
+      ? t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly")
+      : t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
+    if (useAlibi && evs.some(c => c.kind === t("gen.classic.alibi"))) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
     hints = hints.slice(0, 3);
     // 2.2.1: para zapisana rzeczownikami w mianowniku, po dwukropku, z pełnymi nazwiskami obu osób („Piotr Kowal i Alicja Baran: szwagrostwo”),
     // bo „Piotr i Alicja Baran to szwagrostwo” czyta się jak dwie osoby o tym samym nazwisku; bez odmiany nazwisk (zbyt ryzykowna)
-    const relNoun = (t, g1, g2, neg) => t === "workmate" ? "współpracownicy z jednego zakładu"
-      : t === "stairwell" ? (neg ? "sąsiedzi z klatki" : "sąsiedzi z jednej klatki")
-      : (g1 === "m" && g2 === "m" ? "szwagrowie" : g1 === "f" && g2 === "f" ? "szwagierki" : "szwagrostwo");
+    const relNoun = (rel, g1, g2, neg) => rel === "workmate" ? t("gen.classic.wspolpracownicy_z_jednego_zakladu")
+      : rel === "stairwell" ? (neg ? t("gen.classic.sasiedzi_z_klatki") : t("gen.classic.sasiedzi_z_jednej_klatki"))
+      : (g1 === "m" && g2 === "m" ? t("gen.classic.szwagrowie") : g1 === "f" && g2 === "f" ? t("gen.classic.szwagierki") : t("gen.classic.szwagrostwo"));
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
-      if (e.rule.type === "cmp") return [Pp.first, `ma ${Pp.cm} cm, a sprawca jest ${e.rule.dir === "up" ? "wyższy" : "niższy"} niż ${e.rule.refName} (${e.rule.refCm} cm) (reguła ${n}).`];
-      if (e.rule.type === "relation") return [`${Pp.first} ${Pp.last} i ${e.rule.refName}:`, Pp.rel ? `${relNoun(Pp.rel, g, e.rule.refG)}, a nie ${relNoun(e.rule.rel, g, e.rule.refG, true)} (reguła ${n}).`
-        : `w teczce nie ma nic, co ich łączy (reguła ${n}).`];
-      if (e.rule.type === "absent") return [Pp.first, T(`jest w zeszycie dozorcy: o ${toHM(Pp.s.yard)} [szedł|szła] przez podwórko (reguła ${n}).`, g)];
+      if (e.rule.type === "cmp") return [Pp.first, t("gen.classic.ma_cm_cm_a_sprawca_jest", { cm: Pp.cm, v: e.rule.dir === "up" ? t("gen.classic.wyzszy") : t("gen.classic.nizszy"), refName: e.rule.refName, refCm: e.rule.refCm, n })];
+      if (e.rule.type === "relation") return [`${Pp.first} ${Pp.last} i ${e.rule.refName}:`, Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
+        : t("gen.classic.w_teczce_nie_ma_nic_co", { n })];
+      if (e.rule.type === "absent") return [Pp.first, T(t("gen.classic.jest_w_zeszycie_dozorcy_o_tohm", { toHM: toHM(Pp.s.yard), n }), g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
     });
     const extraBits = [];
-    if (cmpRule) extraBits.push(`ma ${C0.cm} cm, ${cmpRule.dir === "up" ? "więcej" : "mniej"} niż ${cmpRule.refName} (${cmpRule.refCm} cm)`);
-    if (relRule) extraBits.push(`relacja z osobą: ${relRule.refName} (${B.rules2.relation[relRule.rel].what})`);
-    if (absentRule) extraBits.push("nie ma [go|jej] w zeszycie dozorcy");
-    why.push([C0.first, T(`spełnia wszystkie reguły: ${[describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ")}.`, C0.s.g)]);
+    if (cmpRule) extraBits.push(t("gen.classic.ma_cm_cm_v_niz_refname", { cm: C0.cm, v: cmpRule.dir === "up" ? t("gen.classic.wiecej") : t("gen.classic.mniej"), refName: cmpRule.refName, refCm: cmpRule.refCm }));
+    if (relRule) extraBits.push(t("gen.classic.relacja_z_osoba_refname_what", { refName: relRule.refName, what: B.rules2.relation[relRule.rel].what }));
+    if (absentRule) extraBits.push(t("gen.classic.nie_ma_go_jej_w_zeszycie"));
+    why.push([C0.first, T(t("gen.classic.spelnia_wszystkie_reguly_join", { join: [describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ") }), C0.s.g)]);
     if (evs.length) {
       const owners = evs.map(c => `${lc1(c.def.name)} (${c.mark === "flat" ? "m. " + c.Pp.flat : ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`);
-      why.push([evs.length > 1 ? "Dowody rzeczowe:" : "Dowód rzeczowy:", owners.join("; ") + "."]);
+      why.push([evs.length > 1 ? t("gen.classic.dowody_rzeczowe") : t("gen.classic.dowod_rzeczowy"), owners.join("; ") + "."]);
     }
     const hNames = herrings.map(h => lc1(I[h].name));
     why.push([cap(plList(hNames)), hNames.length > 1
-      ? "to fałszywe tropy. Żaden nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie."
-      : "to fałszywy trop. Nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie."]);
+      ? t("gen.classic.to_falszywe_tropy_zaden_nie_pasuje")
+      : t("gen.classic.to_falszywy_trop_nie_pasuje_do")]);
     const tTake = C0.s.pres.find(p => p.loc === locOf[wIdx] && p.t >= win[wIdx][0] && p.t <= win[wIdx][1]);
     const sceneTo = T(scene.to);
     // gdy odpis testamentu wskazuje kogoś innego niż sprawcę, epilog nie może mówić o spadku ani mieszkaniu po ofierze (heir)
@@ -1655,7 +2141,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const mList = heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives;
     // gdy nic nie pasuje do osoby, zapasowo tylko motywy bez tagów (nigdy dorosłe sprawy u licealisty)
     const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait || o.vt)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
-    const epilogue = T(`${C0.first} ${R.pick(motives.length ? motives : avail(mList, year, monthIdx))}. ${tTake ? "O " + toHM(tTake.t) : "Tego wieczoru"} [zabrał|zabrała] ${I[wIdx].acc} ${wLoc.from} ${crime.epilogueEnd}`, C0.s.g, { to: sceneTo });
+    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? "O " + toHM(tTake.t) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
@@ -1672,7 +2158,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       red_herrings: herrings.map(h => I[h].id),
       supported_connections: supported, culprit_chain: chain,
       hints, why, epilogue, quip: T(quipRaw = R.pick(quips)),
-      detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
+      detective: milicja ? t("gen.classic.porucznik_detective_z_mo", { detective: B.detective }) : t("gen.classic.komisarz_detective", { detective: B.detective }),
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: I[wIdx].name,
       // co ta sprawa zużyła z pul treści: gra zapamiętuje to i podaje kolejnym sprawom z archiwum jako opts.avoid
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
@@ -1683,15 +2169,15 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   /* ---------------- pomocnicze teksty ---------------- */
   function ruleText(B, R, crime, crimeId, scene, r, a, b, T, sub) {
     const pickL = x => R.pick(Array.isArray(x) ? x : [x]);
-    if (r.type === "alibi") return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
+    if (r.type === t("gen.classic.alibi")) return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
     if (r.type === "window") return pickL(crime.windowRule);
     if (r.type === "key") return pickL(crime.keyRule);
     if (r.type === "fate") return T(B.fates[r.value].rule, "m");
     if (r.type === "dump") return pickL(B.dumpRule);
     const f = r.refG === "f";
-    if (r.type === "cmp") return T(pickL(B.rules2.cmp.rule[r.dir]), "m", { ref: r.refName, refm: (r.refCm / 100).toFixed(2).replace(".", ","), ref_od: f ? "niej" : "niego",
-      stal: f ? "stała" : "stał", widzial: f ? "widziała" : "widział", ktory: f ? "która" : "który" });
-    if (r.type === "relation") return T(pickL(B.rules2.relation[r.rel].rule), "m", { ref: r.refName, zeznal: f ? "zeznała" : "zeznał", ref_jego: f ? "jej" : "jego" });
+    if (r.type === "cmp") return T(pickL(B.rules2.cmp.rule[r.dir]), "m", { ref: r.refName, refm: (r.refCm / 100).toFixed(2).replace(".", ","), ref_od: f ? t("gen.classic.niej") : t("gen.classic.niego"),
+      stal: f ? t("gen.classic.stala") : t("gen.classic.stal"), widzial: f ? t("gen.classic.widziala") : t("gen.classic.widzial"), ktory: f ? t("gen.classic.ktora") : t("gen.classic.ktory") });
+    if (r.type === "relation") return T(pickL(B.rules2.relation[r.rel].rule), "m", { ref: r.refName, zeznal: f ? t("gen.classic.zeznala") : t("gen.classic.zeznal"), ref_jego: f ? t("gen.classic.jej") : t("gen.classic.jego") });
     if (r.type === "absent") return T(pickL(B.rules2.absent.rule), "m", { a: toHM(r.a), b: toHM(r.b) });
     if (r.trait === "motive") return pickL(crime.motiveRule);
     const def = B.traits[r.trait];
@@ -1709,56 +2195,56 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     return T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: value, cm: Pp.cm });
   }
   function hintText(B, r, n, a, b, hasW) {
-    if (r.type === "alibi") return `Reguła ${n}: kto ma potwierdzone alibi na ${a}–${b}?`;
-    if (r.type === "window") return `Reguła ${n}: porównaj godziny zniknięcia przedmiotów z tym, kto i kiedy był na miejscu.`;
-    if (r.type === "key") return hasW ? `Reguła ${n}: kto był przy przedmiocie we właściwym czasie, ale nie miał klucza?` : `Reguła ${n}: sprawdź, kto ma klucze do których miejsc.`;
-    if (r.type === "fate") return `Reguła ${n}: sprawdź w aktach przedmiotów, co się z każdym z nich stało.`;
-    if (r.type === "dump") return `Reguła ${n}: porównaj, gdzie znaleziono przedmioty, z tym, gdzie kto bywa codziennie.`;
-    if (r.type === "cmp") return `Reguła ${n}: ${B.rules2.cmp.hint.replace("{ref}", r.refName).replace("{refm}", (r.refCm / 100).toFixed(2).replace(".", ","))}`;
-    if (r.type === "relation") return `Reguła ${n}: ${B.rules2.relation.hint.replace("{ref}", r.refName)}`;
-    if (r.type === "absent") return `Reguła ${n}: ${B.rules2.absent.hint}`;
-    const h = B.traits[r.trait].hint; return `Reguła ${n}: ${h.charAt(0).toLowerCase() + h.slice(1)}`;
+    if (r.type === t("gen.classic.alibi")) return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
+    if (r.type === "window") return t("gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi", { n });
+    if (r.type === "key") return hasW ? t("gen.classic.regula_n_kto_byl_przy_przedmiocie", { n }) : t("gen.classic.regula_n_sprawdz_kto_ma_klucze", { n });
+    if (r.type === "fate") return t("gen.classic.regula_n_sprawdz_w_aktach_przedmiotow", { n });
+    if (r.type === "dump") return t("gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot", { n });
+    if (r.type === "cmp") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.cmp.hint.replace("{ref}", r.refName).replace("{refm}", (r.refCm / 100).toFixed(2).replace(".", ",")) });
+    if (r.type === "relation") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.relation.hint.replace("{ref}", r.refName) });
+    if (r.type === "absent") return t("gen.classic.regula_n_hint", { n, hint: B.rules2.absent.hint });
+    const h = B.traits[r.trait].hint; return t("gen.classic.regula_n_v", { n, v: h.charAt(0).toLowerCase() + h.slice(1) });
   }
   function whyText(B, Pp, e, loc, li, item, itemFate, n, hasW, hasK, T) {
     const r = e.rule, g = Pp.s.g;
-    if (r.type === "alibi") return T(`ma potwierdzone alibi: ${Pp.alibiTxt} (reguła ${n}).`, g);
-    if (r.type === "dump") return T(`[mógł|mogła] zabrać ${item.acc}, ale nie bywa codziennie ${T(B.fates[itemFate].place, g)}, gdzie [go|ją|je] znaleziono (reguła ${n}).`.replace(/\[go\|ją\|je\]/, ["go", "ją", "je", "je"][{ m: 0, f: 1, n: 2, pl: 3 }[item.g]]), g);
+    if (r.type === t("gen.classic.alibi")) return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
+    if (r.type === "dump") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_nie", { acc: item.acc, T: T(B.fates[itemFate].place, g), n, it: t("gen.classic.it_" + item.g) }), g); // it = „go / ją / je / je” wg rodzaju przedmiotu
     if (r.type === "window") {
       const p = Pp.s.pres.find(x => x.loc === li);
-      return T(`${hasK ? `ma klucz do ${loc.gen}, ale ` : ""}[był|była] ${loc.in} o ${toHM(p.t)}, poza czasem zniknięcia przedmiotów (reguła ${n}).`, g);
+      return T(t("gen.classic.v_byl_byla_in_o_tohm", { v: hasK ? t("gen.classic.ma_klucz_do_gen_ale", { gen: loc.gen }) : "", in: loc.in, toHM: toHM(p.t), n }), g);
     }
-    if (r.type === "key") return T(`[był|była] ${loc.in}${hasW ? " we właściwym czasie" : ""}, ale nie ma klucza (reguła ${n}).`, g);
-    if (r.type === "fate") return T(`[mógł|mogła] zabrać ${item.acc}, ale ${T(B.fates[itemFate].why, g)}, a to nie zgadza się z regułą ${n}.`, g);
+    if (r.type === "key") return T(t("gen.classic.byl_byla_in_v_ale_nie", { in: loc.in, v: hasW ? t("gen.classic.we_wlasciwym_czasie") : "", n }), g);
+    if (r.type === "fate") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_t", { acc: item.acc, T: T(B.fates[itemFate].why, g), n }), g);
     const def = B.traits[r.trait];
     const wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
-    return T(`${wf} (reguła ${n}).`, g, { v: Pp.s.traits[r.trait] });
+    return T(t("gen.classic.wf_regula_n", { wf, n }), g, { v: Pp.s.traits[r.trait] });
   }
   function describeCulprit(B, rules, loc, hasW, hasK, useAlibi, fake, dumpPlace, lie) {
     const bits = [];
-    if (hasK) bits.push(`ma klucz do ${loc.gen}`);
-    if (hasW) bits.push(`[był|była] ${loc.in} we właściwym czasie`);
-    if (useAlibi) bits.push(fake ? "[jego|jej] alibi okazało się kłamstwem"
-      : lie === "hours" ? "[jego|jej] papiery pokazują inne godziny niż zeznanie, więc nie ma alibi"
-      : lie === "day" ? "[jego|jej] papiery są z innego dnia, więc nie ma alibi" : "nie ma alibi");
+    if (hasK) bits.push(t("gen.classic.ma_klucz_do_gen", { gen: loc.gen }));
+    if (hasW) bits.push(t("gen.classic.byl_byla_in_we_wlasciwym_czasie", { in: loc.in }));
+    if (useAlibi) bits.push(fake ? t("gen.classic.jego_jej_alibi_okazalo_sie_klamstwem")
+      : lie === "hours" ? t("gen.classic.jego_jej_papiery_pokazuja_inne_godziny")
+      : lie === "day" ? t("gen.classic.jego_jej_papiery_sa_z_innego") : t("gen.classic.nie_ma_alibi"));
     for (const r of rules.filter(r => r.type === "trait")) {
       const w = B.traits[r.trait].why;
       bits.push(typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]);
     }
-    if (rules.some(r => r.type === "fate")) bits.push("a los narzędzia zgadza się z ustaleniami");
-    if (rules.some(r => r.type === "dump")) bits.push(`a narzędzie znaleziono ${dumpPlace}, gdzie [bywa|bywa] codziennie`);
+    if (rules.some(r => r.type === "fate")) bits.push(t("gen.classic.a_los_narzedzia_zgadza_sie_z"));
+    if (rules.some(r => r.type === "dump")) bits.push(t("gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa", { dumpPlace }));
     return bits.join(", ");
   }
 
   function sprites() {
     if (root.SiatkaSprites) return root.SiatkaSprites;
     if (typeof require !== "undefined") return require("../sprites.js");
-    throw new Error("Brak modułu sprites");
+    throw new Error(t("gen.classic.brak_modulu_sprites"));
   }
 
   const classic = {
     id: "classic",
     aliases: ["single_culprit_one_reason_each"], // nazwa z ręcznej case_001.json
-    name: "Klasyczna sprawa",
+    name: t("gen.classic.klasyczna_sprawa"),
     minSize: "S",
     weight: 3, // oś czasu ma wagę 1 od M: ok. 25% spraw M–XL
     question: "culprit_weapon",
@@ -1788,15 +2274,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  */
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
+  const t = Eng.t;
   const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
   /* 2.2.1: rodzaj miejsca zdarzenia z nazwy (pt jak w data/base.js): dobiera pasujących świadków i dowody */
-  const placeType = n => /Altana|Działk|działkach|Kurnik/.test(n) ? "field"
-    : /Klatka schodowa/.test(n) ? "stair"
-    : /Zaplecze|Maszynownia|Hydrofornia|Kotłownia|Pracownia|Gabinet|Biuro|Księgowość|Szwalnia|Spółdzielnia pracy|Zakrystia|Ciemnia|Zakład szewski|Warsztat|Piekarnia|Kasa spółdzielni|Dziedziniec mleczarni/.test(n) ? "work"
-    : /Podwórko|Klatki na podwórku|Szopa|Garaż|Budka dozorcy|Wózkownia|Stodoła|Plac budowy|Barak/.test(n) ? "yard"
-    : /Postój|Wiata|Przystanek|Pętla|Park|Staw|Pomnik|Muszla|Scena|Tablica|Wesołe|Zwrotnica|Stragan|Szczęka|Budka|Klatki|Brama|Wejście do|Stacja|Mur|Gablota|Furtka|Ogrodzenie|Boisko|Parking/.test(n) ? "street"
-    : /Mieszkanie|Balkon|Willa|Piwnica|Gołębnik|Dach|Plebania/.test(n) ? "cellar"
-    : /Kantor|Kiosk|Apteka|Cukiernia|Komis|Wypożyczalnia|Antykwariat|Kasa|Sklep|Zakład fryzjerski|Magiel|Poczta|Przychodnia|Poczekalnia|Lecznica|Bar mleczny/.test(n) ? "shop" : "work";
+  const placeType = (n, TL) => { const hit = TL.placeTypes.find(([, re]) => re.test(n)); return hit ? hit[0] : TL.placeTypeDefault; };
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -1834,13 +2315,13 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
     const pool = [...B.locations, ...cityLocs];
     const others = R.sample(pool, NLOC[sizeKey] - 1);
-    const X = Object.assign({ desc: [scene.where ? `Tu to się stało, ${scene.where}.` : "Tu to się stało."] }, TL.scene);
+    const X = Object.assign({ desc: [scene.where ? t("gen.timeline.tu_to_sie_stalo_where", { where: scene.where }) : t("gen.timeline.tu_to_sie_stalo")] }, TL.scene);
     // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
     X.name = T((TL.places && TL.places[scene.title]) || scene.title);
     X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
-    X.pt = placeType(X.name);
-    if (others.some(o => o.name === X.name)) X.name += " (miejsce zdarzenia)";
-    if (others.some(o => o.label === X.label)) X.label = "Miejsce zdarz.";
+    X.pt = placeType(X.name, TL);
+    if (others.some(o => o.name === X.name)) X.name += t("gen.timeline.miejsce_zdarzenia_2");
+    if (others.some(o => o.label === X.label)) X.label = t("gen.timeline.miejsce_zdarz");
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
     const L = LOCS.length;
     const pt = LOCS.map((_, i) => i === 0 ? [0, 0] : (a => { const r = R.int(8, 30); return [r * Math.cos(a), r * Math.sin(a)]; })(R.next() * 2 * Math.PI));
@@ -2034,14 +2515,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
     });
     LOCS.forEach((loc, li) => {
-      const near = LOCS.map((o, j) => j !== li ? `${o.name}: ${d(li, j)} min` : null).filter(Boolean);
-      const text = [T(R.pick(loc.desc)), `Stąd pieszo: ${near.join(", ")}.`];
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? "Miejsce zdarzenia" : "Miejsce",
+      const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
+      const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
         sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
     });
     for (const c of evs) {
       const loc = LOCS[c.li];
-      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: "Dowód rzeczowy", sprite: { kind: "ev", icon: c.def.icon },
+      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.timeline.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
         text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: loc.in }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
     }
 
@@ -2055,31 +2536,31 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* 12. Podpowiedzi, rozumowanie, epilog */
     const ruleNo = r => r.id.slice(1), reach = rules[0];
     const hints = R.shuffle([TL.hint.replace("{n}", ruleNo(reach)).replace("{a}", reach.from).replace("{b}", reach.to).replace("{stay}", reach.stay),
-      ...tRules.map(r => `Reguła ${ruleNo(r)}: ${lc1(B.traits[r.trait].hint)}`)]);
-    if (evs.length) hints.splice(RE.int(0, 1), 0, "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.");
+      ...tRules.map(r => t("gen.timeline.regula_ruleno_lc1", { ruleNo: ruleNo(r), lc1: lc1(B.traits[r.trait].hint) }))]);
+    if (evs.length) hints.splice(RE.int(0, 1), 0, t("gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
     const route = Pp => { const b = Pp.s.bracket, p = LOCS[b.p], q = LOCS[b.q];
       return { p, q, tb: toHM(b.tb), ta: toHM(b.ta), dp: d(b.p, 0), dq: d(0, b.q), gap: b.ta - b.tb }; };
     const why = innocents.map(i => {
       const Pp = persons[i], g = Pp.s.g, r = assign[i];
       if (r.type === "reach") {
         const x = route(Pp), b = Pp.s.bracket, E = Math.max(b.tb + x.dp, A0), Lx = Math.min(b.ta - x.dq, B0), len = Lx - E;
-        const where = len > 0 ? `[mógłby|mogłaby] tam być najwyżej od ${toHM(E)} do ${toHM(Lx)}, czyli ${len} min` : "nie [zdążyłby|zdążyłaby] tam być w czasie zdarzenia ani chwili";
-        return [Pp.first, T(`o ${x.tb} [był|była] ${x.p.in}, a o ${x.ta} ${x.q === x.p ? "nadal tam" : x.q.in}. Z drogą na miejsce zdarzenia (${x.dp} min) i z powrotem (${x.dq} min) ${where}, a sprawca spędził tam co najmniej ${reach.stay} min (reguła ${ruleNo(r)}).`, g)];
+        const where = len > 0 ? t("gen.timeline.moglby_moglaby_tam_byc_najwyzej_od", { toHM: toHM(E), toHM2: toHM(Lx), len }) : t("gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w");
+        return [Pp.first, T(t("gen.timeline.o_tb_byl_byla_in_a", { tb: x.tb, in: x.p.in, ta: x.ta, v: x.q === x.p ? t("gen.timeline.nadal_tam") : x.q.in, dp: x.dp, dq: x.dq, where, stay: reach.stay, ruleNo: ruleNo(r) }), g)];
       }
       const def = B.traits[r.trait], wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
-      return [Pp.first, T(`[mógł|mogła] zdążyć na miejsce zdarzenia, ale ${wf} (reguła ${ruleNo(r)}).`, g, { v: Pp.s.traits[r.trait] })];
+      return [Pp.first, T(t("gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia", { wf, ruleNo: ruleNo(r) }), g, { v: Pp.s.traits[r.trait] })];
     });
     {
       const x = route(C0), b = C0.s.bracket, arr = toHM(Math.max(b.tb + x.dp, A0)), back = toHM(Math.min(b.ta - x.dq, B0));
       const tw = tRules.map(r => { const w = B.traits[r.trait].why; return typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]; });
-      why.push([C0.first, T(`zdążył[|a]: o ${x.tb} ${x.p.in}, ${x.dp} min drogi, na miejscu zdarzenia [mógł|mogła] być od ${arr} do ${back}, czyli ${b.len} min w czasie zdarzenia (${reach.from}–${reach.to}); potem ${x.dq} min drogi i o ${x.ta} ${x.q.in}${tw.length ? ". Do tego " + tw.join(", ") : ""}.`, C0.s.g)]);
+      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? ". Do tego " + tw.join(", ") : "" }), C0.s.g)]);
     }
-    if (evs.length) why.push([evs.length > 1 ? "Dowody rzeczowe:" : "Dowód rzeczowy:", evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
+    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
     const motives = (m => m.length ? m : avail(crime.motives.filter(o => typeof o === "string"), year, monthIdx))(avail(ofWho(crime.motives, C0), year, monthIdx));
     const bq = C0.s.bracket;
-    const epilogue = T(`${C0.first} ${R.pick(motives)}. O ${toHM(bq.tb)} [był|była] jeszcze ${LOCS[bq.p].in}, o ${toHM(bq.tb + d(bq.p, 0))} już na miejscu zdarzenia, a o ${toHM(bq.ta)} [pokazał|pokazała] się ${LOCS[bq.q].in}, jakby nic się nie stało.`, C0.s.g);
+    const epilogue = T(t("gen.timeline.first_pick_o_tohm_byl_byla", { first: C0.first, pick: R.pick(motives), toHM: toHM(bq.tb), in: LOCS[bq.p].in, toHM2: toHM(bq.tb + d(bq.p, 0)), toHM3: toHM(bq.ta), in2: LOCS[bq.q].in }), C0.s.g);
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, scene.vg || "m", { victim }), T(crime.cause[sub], scene.vg || "m"),
-      "Nikt nie jest w dwóch miejscach naraz. Kto zdążył?"].join(" ");
+      t("gen.timeline.nikt_nie_jest_w_dwoch_miejscach")].join(" ");
 
     return {
       case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
@@ -2093,7 +2574,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
       red_herrings: [], supported_connections: supported, culprit_chain: chain,
       hints: hints.slice(0, 3), why, epilogue, quip: T(quipRaw = R.pick(prefer(A([...B.quips, ...(city.quips || [])]), x => avoidOf("quips").has(x)))),
-      detective: milicja ? `Porucznik ${B.detective} z MO` : `Komisarz ${B.detective}`,
+      detective: milicja ? t("gen.timeline.porucznik_detective_z_mo", { detective: B.detective }) : t("gen.timeline.komisarz_detective", { detective: B.detective }),
       culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
       used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
         roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: [] }
@@ -2102,7 +2583,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 
   const timeline = {
     id: "timeline",
-    name: "Oś czasu",
+    name: t("gen.timeline.os_czasu"),
     minSize: "M",
     weight: size => size === "S" ? 0 : 1, // ok. 25% spraw M–XL (classic ma wagę 3)
     question: "culprit",
@@ -17189,6 +17670,17 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         "Pies z plebanii":"Furtka plebanii"
       },
       scene:{ id:"miejsce", name:"Miejsce zdarzenia", label:"Miejsce zdarzenia", gen:"miejsca zdarzenia", in:"na miejscu zdarzenia", from:"z miejsca zdarzenia", icon:"house" },
+      /* rodzaj miejsca zdarzenia z jego nazwy (pt: patrz presenceTpl): pierwszy pasujący wpis wygrywa, reszta to `work` */
+      placeTypes:[
+        ["field", /Altana|Działk|działkach|Kurnik/],
+        ["stair", /Klatka schodowa/],
+        ["work", /Zaplecze|Maszynownia|Hydrofornia|Kotłownia|Pracownia|Gabinet|Biuro|Księgowość|Szwalnia|Spółdzielnia pracy|Zakrystia|Ciemnia|Zakład szewski|Warsztat|Piekarnia|Kasa spółdzielni|Dziedziniec mleczarni/],
+        ["yard", /Podwórko|Klatki na podwórku|Szopa|Garaż|Budka dozorcy|Wózkownia|Stodoła|Plac budowy|Barak/],
+        ["street", /Postój|Wiata|Przystanek|Pętla|Park|Staw|Pomnik|Muszla|Scena|Tablica|Wesołe|Zwrotnica|Stragan|Szczęka|Budka|Klatki|Brama|Wejście do|Stacja|Mur|Gablota|Furtka|Ogrodzenie|Boisko|Parking/],
+        ["cellar", /Mieszkanie|Balkon|Willa|Piwnica|Gołębnik|Dach|Plebania/],
+        ["shop", /Kantor|Kiosk|Apteka|Cukiernia|Komis|Wypożyczalnia|Antykwariat|Kasa|Sklep|Zakład fryzjerski|Magiel|Poczta|Przychodnia|Poczekalnia|Lecznica|Bar mleczny/]
+      ],
+      placeTypeDefault:"work",
       reachRule:["Sprawca spędził na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Czasy w tabeli to najkrótsza droga, szybciej się nie da.",
                  "Lekarz i technicy zgodnie ustalili: sprawca był na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Tabela podaje najkrótsze czasy dojścia, szybciej nie przejdzie nikt.",
                  "Sąsiedzi słyszeli hałas między {a} a {b}. Sprawca spędził wtedy na miejscu zdarzenia co najmniej {stay} minut. Szybciej, niż podaje tabela, nie da się przejść."],
@@ -18782,6 +19274,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   };
 
   root.SIATKA_BASE = BASE;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { base: BASE } });
   if (typeof module !== "undefined" && module.exports) module.exports = BASE;
 })(typeof window !== "undefined" ? window : globalThis);
 
@@ -19152,46 +19647,53 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   };
 
   root.SIATKA_CITIES = CITIES;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { cities: CITIES } });
   if (typeof module !== "undefined" && module.exports) module.exports = CITIES;
 })(typeof window !== "undefined" ? window : globalThis);
 
 </script>
 <script>
 /*
- * Siatka Powiązań — dziennik zmian („Co nowego” w Ustawieniach).
+ * Siatka Powiązań — dziennik zmian („Co nowego” w Ustawieniach), po polsku.
  * Najnowsza wersja pierwsza. Wpisy piszemy dla gracza: krótko, bez żargonu. `v` = wersja generatora.
  * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
+ * Treść jest kluczem „ui.changelog” polskiej paczki językowej (tłumaczenie: ten sam klucz w en.js).
  */
-(typeof window !== "undefined" ? window : globalThis).SIATKA_CHANGELOG = [
-  { v: "2.2.1", date: "2026-11-18", items: [
-    "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
-    "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",
-    "Godziny zbrodni zależą od sceny: targ, sklep, apteka i poczta wtedy, kiedy są czynne albo zaraz po zamknięciu.",
-    "Czytelniejszy zapis relacji w wyjaśnieniu: „Piotr Kowal i Alicja Baran: szwagrostwo, a nie sąsiedzi z klatki”.",
-    "Komentarze komisarza zależą od pory roku, a realia lat 90. są dokładniejsze (seriale, telefony, pagery, auta, gazety)."
-  ] },
-  { v: "2.2", date: "2026-11-15", items: [
-    "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
-    "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",
-    "Kwoty z lat 90. są bliższe prawdy: parking za kilka złotych, OC za kilkaset."
-  ] },
-  { v: "2.1.2", date: "2026-11-11", items: [
-    "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
-    "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",
-    "Portrety nie zdradzają cech z notatnika: papieros pojawia się u części palących, a okulary znikają ze zdjęć, gdy dotyczy ich reguła.",
-    "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach.",
-    "Naprawiony samouczek."
-  ] },
-  { v: "2.1.1", date: "2026-11-06", items: [
-    "11 rodzajów zbrodni zamiast 4: kradzież, otrucie zwierzęcia, podpalenie, szantaż, fałszerstwo, sabotaż, napad, wandalizm, porwanie psa, otrucie człowieka.",
-    "220 scen, nowe role, miejsca i przedmioty z ikonami, więcej różnych zdań w aktach.",
-    "Dokładniejsze realia lat 90.: kartki, kwoty, nazwy i daty."
-  ] },
-  { v: "2.1", date: "2026-11-05", items: [
-    "Dowody rzeczowe: polaroidy z przedmiotami i dokumentami, które łączysz z podejrzanymi po inicjałach albo numerze mieszkania.",
-    "Imiona pasują do wieku postaci, a gra unika powtarzania tych samych imion i scen z ostatnich spraw."
-  ] }
-];
+(function (root) {
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { messages: { "ui.changelog": [
+    { v: "2.2.1", date: "2026-11-18", items: [
+      "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
+      "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",
+      "Godziny zbrodni zależą od sceny: targ, sklep, apteka i poczta wtedy, kiedy są czynne albo zaraz po zamknięciu.",
+      "Czytelniejszy zapis relacji w wyjaśnieniu: „Piotr Kowal i Alicja Baran: szwagrostwo, a nie sąsiedzi z klatki”.",
+      "Komentarze komisarza zależą od pory roku, a realia lat 90. są dokładniejsze (seriale, telefony, pagery, auta, gazety)."
+    ] },
+    { v: "2.2", date: "2026-11-15", items: [
+      "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
+      "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",
+      "Kwoty z lat 90. są bliższe prawdy: parking za kilka złotych, OC za kilkaset."
+    ] },
+    { v: "2.1.2", date: "2026-11-11", items: [
+      "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
+      "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",
+      "Portrety nie zdradzają cech z notatnika: papieros pojawia się u części palących, a okulary znikają ze zdjęć, gdy dotyczy ich reguła.",
+      "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach.",
+      "Naprawiony samouczek."
+    ] },
+    { v: "2.1.1", date: "2026-11-06", items: [
+      "11 rodzajów zbrodni zamiast 4: kradzież, otrucie zwierzęcia, podpalenie, szantaż, fałszerstwo, sabotaż, napad, wandalizm, porwanie psa, otrucie człowieka.",
+      "220 scen, nowe role, miejsca i przedmioty z ikonami, więcej różnych zdań w aktach.",
+      "Dokładniejsze realia lat 90.: kartki, kwoty, nazwy i daty."
+    ] },
+    { v: "2.1", date: "2026-11-05", items: [
+      "Dowody rzeczowe: polaroidy z przedmiotami i dokumentami, które łączysz z podejrzanymi po inicjałach albo numerze mieszkania.",
+      "Imiona pasują do wieku postaci, a gra unika powtarzania tych samych imion i scen z ostatnich spraw."
+    ] }
+  ] } });
+})(typeof window !== "undefined" ? window : globalThis);
 
 </script>
 <script>
@@ -19236,7 +19738,7 @@ function checkReturn() {
   try {
     const g = +localStorage.getItem("siatka-first-game-day"); if (!g) return;
     const since = dayNo() - g, sent = JSON.parse(localStorage.getItem("siatka-ret2") || "[]");
-    for (const n of [1, 7]) if (since === n && !sent.includes(n)) { sent.push(n); localStorage.setItem("siatka-ret2", JSON.stringify(sent)); track(`return_d${n}/${track.device()}`, `Powrót w dniu ${n} po pierwszej grze (${track.device()})`); }
+    for (const n of [1, 7]) if (since === n && !sent.includes(n)) { sent.push(n); localStorage.setItem("siatka-ret2", JSON.stringify(sent)); track(`return_d${n}/${track.device()}`, t("ui.track.powrot_w_dniu_n_po_pierwszej", { n, device: track.device() })); }
   } catch (_) {}
 }
 checkReturn();
@@ -19246,11 +19748,11 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 try {
   const day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
   let first = +localStorage.getItem("siatka-first-day");
-  if (!first) { first = day; localStorage.setItem("siatka-first-day", String(day)); track("gracz/nowy", "Nowy gracz"); }
+  if (!first) { first = day; localStorage.setItem("siatka-first-day", String(day)); track("gracz/nowy", t("ui.track.nowy_gracz")); }
   const sent = JSON.parse(localStorage.getItem("siatka-ret") || "[]"), since = day - first;
   const label = { 1: "po-1-dniu", 3: "po-3-dniach", 7: "po-7-dniach", 14: "po-14-dniach", 30: "po-30-dniach" };
   for (const n of [1, 3, 7, 14, 30]) {
-    if (since >= n && !sent.includes(n)) { track("powrot/" + label[n], `Powrót po ${n} ${n === 1 ? "dniu" : "dniach"}`); sent.push(n); }
+    if (since >= n && !sent.includes(n)) { track("powrot/" + label[n], t("ui.track.powrot_po_n_v", { n, v: n === 1 ? t("ui.track.dniu") : t("ui.track.dniach") })); sent.push(n); }
   }
   localStorage.setItem("siatka-ret", JSON.stringify(sent));
 } catch (_) {}
@@ -19541,7 +20043,7 @@ function draw(d) {
   g.textAlign = "center"; g.textBaseline = "alphabetic";
 
   // nagłówek
-  g.fillStyle = C.fg; g.font = `700 84px ${F.pixel}`; g.fillText("Siatka Powiązań", W / 2, 140);
+  g.fillStyle = C.fg; g.font = `700 84px ${F.pixel}`; g.fillText(t("ui.share.siatka_powiazan"), W / 2, 140);
   g.fillStyle = C.muted; g.font = `40px ${F.type}`; g.fillText(`${d.label} · ${d.place}`, W / 2, 204);
 
   // tablica: rzędy jak w grze, ale kolejność w rzędzie przetasowana
@@ -19593,8 +20095,8 @@ function draw(d) {
   // gwiazdki
   for (let i = 0; i < 3; i++) star(g, W / 2 - 90 + i * 90, PY + 82, 36, i < d.stars);
   // statystyki
-  const cells = [["czas", d.time], ["pomyłki", String(d.wrong)], ["podpowiedzi", String(d.hints)]];
-  if (d.streak) cells.push(["seria", `${d.streak} ${d.streak === 1 ? "dzień" : "dni"}`]);
+  const cells = [[t("ui.share.czas"), d.time], [t("ui.share.pomylki"), String(d.wrong)], [t("ui.share.podpowiedzi"), String(d.hints)]];
+  if (d.streak) cells.push([t("ui.share.seria"), `${d.streak} ${d.streak === 1 ? t("ui.share.dzien") : t("ui.share.dni")}`]);
   const cw = (PW - 60) / cells.length;
   cells.forEach(([k, v], i) => {
     const cx = PX + 30 + cw * i + cw / 2;
@@ -19605,7 +20107,7 @@ function draw(d) {
 
   // pieczątka na styku tablicy i kartki
   g.save(); g.translate(W / 2 + 150, PY - 10); g.rotate(-6 * Math.PI / 180);
-  const txt = d.win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA", col = d.win ? C.ok : C.stamp;
+  const txt = d.win ? t("ui.share.sprawa_zamknieta") : t("ui.share.sprawa_umorzona"), col = d.win ? C.ok : C.stamp;
   g.font = `700 58px ${F.pixel}`;
   const tw = g.measureText(txt).width;
   g.globalAlpha = .93;
@@ -19785,7 +20287,8 @@ window.SiatkaHistory = { record, has, dailyResult, summary, gamesDone, data, fro
  * Wymaga: engine/sprites.js, engine/engine.js, data/base.js, data/cities.js, js/audio.js
  */
 (() => {
-const WORLD = { base: window.SIATKA_BASE, cities: window.SIATKA_CITIES };
+const WORLD = SiatkaI18n.world();
+SiatkaI18n.apply(document); // statyczne teksty index.html (data-i18n)
 const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
 const AU = window.SiatkaAudio || { sfx() {}, setSfx() {}, setMusic() {}, pref: { sfx: false, music: false } };
@@ -19888,8 +20391,8 @@ function buildRich() {
     "(?<t>\\d{1,2}:\\d{2})",
     ...(locs.size ? [`(?<l>${[...locs].sort((a, b) => b.length - a.length).map(esc).join("|")})`] : []),
     // klucze i alibi, a do łączenia dowodów z teczkami: inicjały (B.S.) i numery mieszkań
-    "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek|\\p{Lu}\\.\\p{Lu}\\.|m\\. \\d+|(?:mieszkani\\p{L}*|numer\\p{L}*|spod) (?:nr )?\\d+)",
-    "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)"
+    t("ui.game.hl_keys_re"),
+    t("ui.game.hl_cars_re")
   ];
   RICH = new RegExp(`(?<![\\p{L}\\d])(?:${parts.join("|")})(?![\\p{L}\\d])`, "giu");
 }
@@ -19907,7 +20410,7 @@ function reportAbandon(c, kindRaw) {
   if (sent.includes(id)) return;
   sent.push(id); ls.set("siatka-aband", sent.slice(-60));
   const kind = kindRaw === "daily" ? "daily" : "archive";
-  track(`case_abandon/${kind}/${c.size}/${deviceType()}`, `Sprawa porzucona: ${kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size} (${deviceType()})`);
+  track(`case_abandon/${kind}/${c.size}/${deviceType()}`, t("ui.game.sprawa_porzucona_v_size_devicetype", { v: kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum"), size: c.size, deviceType: deviceType() }));
 }
 function abandonCheck(next) {
   try {
@@ -19934,15 +20437,10 @@ function timelineIntro() {
   if (ls.get("siatka-new-timeline") || !CASE || CASE.archetype !== "timeline" || ($("howto") && !$("howto").hidden)) return;
   ls.set("siatka-new-timeline", 1);
   const ov = document.createElement("div"); ov.className = "overlay"; const t0 = Date.now();
-  ov.innerHTML = `<div class="card tl-card" role="dialog" aria-modal="true" aria-labelledby="tlH"><h3 id="tlH">Nowy typ sprawy: oś czasu</h3>
-    <p>Nikt nie jest w dwóch miejscach naraz. W notatniku jest tabela czasów dojścia, a w teczkach godziny, o których kogo widziano: sprawdź, kto zdążyłby dojść na miejsce zdarzenia, spędzić tam tyle, ile mówi reguła, i wrócić na czas.</p>
-    <table class="tt"><tbody><tr><td>Kiosk ↔ Miejsce zdarzenia</td><td>10 min</td></tr><tr><td>Bar ↔ Miejsce zdarzenia</td><td>15 min</td></tr></tbody></table>
-    <p class="ex">Sprawca był na miejscu co najmniej 10 min. Anna była w kiosku o 19:00, a w barze o 19:40. Droga tam (10 min), 10 min na miejscu i droga do baru (15 min) to 35 min, a miała 40, więc mogła zdążyć. Gdyby w barze była o 19:30, nie zdążyłaby.</p>
-    <p>Oskarżasz tylko sprawcę, bez narzędzia.</p>
-    <div class="foot"><button class="btn red" id="tlGo">Do roboty</button></div></div>`;
+  ov.innerHTML = t("ui.game.nowy_typ_sprawy_os_czasu_html");
   document.body.appendChild(ov); AU.sfx("paper");
   ov.querySelector("#tlGo").onclick = () => { ov.remove(); if (S && !S.done) S.t0 += Date.now() - t0; saveSoon(); };
-  track("os-czasu/karta", "Oś czasu: karta wprowadzająca");
+  track("os-czasu/karta", t("ui.game.os_czasu_karta_wprowadzajaca"));
 }
 function load(c, label, meta, saved) {
   abandonCheck(c);
@@ -19966,8 +20464,8 @@ function load(c, label, meta, saved) {
   $("caseLine").textContent = `${label} · ${c.city_name}, ${c.year}`;
   buildBoard();
   const nh = Math.min(3, c.hints.length);
-  $("hintBtn").disabled = S.done || S.hints >= nh; $("hintBtn").textContent = `Podpowiedź (${nh - S.hints})`;
-  $("accuseBtn").textContent = S.done ? "Wynik" : "Oskarż";
+  $("hintBtn").disabled = S.done || S.hints >= nh; $("hintBtn").textContent = t("ui.game.podpowiedz_v", { v: nh - S.hints });
+  $("accuseBtn").textContent = S.done ? t("ui.game.wynik") : t("ui.game.oskarz");
   $("result").hidden = true; $("accuse").hidden = true; $("newCase").hidden = true;
   $("clock").textContent = fmt((S.tEnd || Date.now()) - S.t0);
   renderLives(); hideToast(); renderTabs(); renderSheet(); paintQuota();
@@ -19975,7 +20473,7 @@ function load(c, label, meta, saved) {
   saveNow(); paintDaily();
   if (!saved) rememberUsed(c);
   if (c.archetype === "timeline") setTimeout(timelineIntro, 400);
-  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, `Start: ${meta.kind === "daily" ? "sprawa dnia" : "archiwum"} ${c.size}`);
+  if (!saved) track(`sprawa/start/${meta.kind}/${c.size}`, t("ui.game.start_v_size", { v: meta.kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum"), size: c.size }));
 }
 
 /* ---------- tablica: układ zależny od liczby węzłów ---------- */
@@ -19990,11 +20488,11 @@ function buildBoard() {
     const r = Math.round((h01(n.id + "r") * 2 - 1) * 3);
     b.style.setProperty("--r", r + "deg");
     b.innerHTML = `<span class="ph">${sprite(n.sprite)}</span><span class="lb">${n.label}</span>`;
-    b.setAttribute("aria-label", `${n.name}, otwórz akta`);
+    b.setAttribute("aria-label", t("ui.game.name_otworz_akta", { name: n.name }));
     b.addEventListener("click", () => cardTap(n.id));
     board.appendChild(b);
     const p = document.createElement("button");
-    p.className = "pin"; p.dataset.pin = n.id; p.setAttribute("aria-label", `Pinezka: ${n.name}`);
+    p.className = "pin"; p.dataset.pin = n.id; p.setAttribute("aria-label", t("ui.game.pinezka_name", { name: n.name }));
     board.appendChild(p);
     els[n.id] = { card: b, pin: p, r, n };
   });
@@ -20072,7 +20570,7 @@ function pathD(a, b, m = 1) { const d = Math.hypot(b.x - a.x, b.y - a.y), sag = 
 function drawStrings(fresh) {
   let h = "";
   S.strings.forEach(k => { const [a, b] = k.split("|"); const d = pathD(els[a].pt, els[b].pt, k === fresh && !reduced() ? 0 : 1);
-    h += `<path class="s" data-k="${k}" d="${d}"/><path class="hit" data-k="${k}" d="${d}"><title>Przetnij sznurek</title></path>`; });
+    h += t("ui.game.przetnij_sznurek_html", { k, d, k2: k, d2: d }); });
   svgEl.innerHTML = h + `<path class="tmp" id="tmp" d=""/>`;
   svgEl.querySelectorAll(".hit").forEach(p => p.addEventListener("click", e => { e.stopPropagation(); cut(p.dataset.k); }));
   if (fresh && !reduced()) twang(fresh);
@@ -20194,7 +20692,7 @@ window.addEventListener("pointercancel", e => endDrag(e, true));
 function setPending(id) {
   if (S.pending && els[S.pending]) els[S.pending].pin.classList.remove("pending");
   S.pending = id; showCompatible(id);
-  if (id) { els[id].pin.classList.add("pending"); toast("Łączenie", `Stuknij pulsującą pinezkę albo zdjęcie, żeby przeciągnąć sznurek od: ${byId[id].name}.`, 0); }
+  if (id) { els[id].pin.classList.add("pending"); toast(t("ui.game.laczenie"), t("ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby", { name: byId[id].name }), 0); }
   else hideToast();
 }
 function cardTap(id) {
@@ -20221,29 +20719,25 @@ function renderTabs() { $("tab-akta").setAttribute("aria-selected", S.tab === "a
 function travelTable() {
   if (!CASE.travel) return "";
   const nm = id => byId[id] ? byId[id].name : id;
-  return `<div class="lbl tt-h">Czasy dojścia pieszo</div><table class="tt"><tbody>${CASE.travel.map(([a, b, m]) =>
-    `<tr><td>${nm(a)} ↔ ${nm(b)}</td><td>${m} min</td></tr>`).join("")}</tbody></table>${CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : ""}`;
+  return t("ui.game.czasy_dojscia_pieszo_html", { join: CASE.travel.map(([a, b, m]) =>
+    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : "" });
 }
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
   if (S.tab === "notes") {
-    sheet.innerHTML = `<h2>Notatnik detektywa</h2><div class="kind">Ustalenia techników i lekarza</div><ol>${CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join("")}</ol>${travelTable()}`;
+    sheet.innerHTML = t("ui.game.notatnik_detektywa_ustalenia_technikow_i_html", { join: CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join(""), travelTable: travelTable() });
     return;
   }
   if (!S.sel) {
     const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
-    const evTxt = ne ? ` · ${ne} ${ne === 1 ? "dowód rzeczowy" : ne < 5 ? "dowody rzeczowe" : "dowodów rzeczowych"}` : "";
-    sheet.innerHTML = `<h2>${CASE.title}</h2><div class="kind">Akta sprawy · ${np} podejrzanych · ${ni ? `${ni} ${ni > 4 ? "przedmiotów" : "przedmioty"}` : `${CASE.nodes.filter(n => n.type === "location").length} miejsca`}${evTxt} ·${CASE.rules.length} reguł${CASE.rules.length < 5 ? "y" : ""}</div><p>${rich(CASE.intro)}</p>
-      <p class="how">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>`;
+    const evTxt = ne ? ` · ${ne} ${ne === 1 ? t("ui.game.dowod_rzeczowy") : ne < 5 ? t("ui.game.dowody_rzeczowe") : t("ui.game.dowodow_rzeczowych")}` : "";
+    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? `${ni} ${ni > 4 ? t("ui.game.przedmiotow") : t("ui.game.przedmioty")}` : t("ui.game.length_miejsca", { length: CASE.nodes.filter(n => n.type === "location").length }), evTxt, length: CASE.rules.length, v2: CASE.rules.length < 5 ? "y" : "", rich: rich(CASE.intro) });
     return;
   }
   const n = byId[S.sel];
   const linked = [...S.strings].filter(k => k.split("|").includes(n.id)).map(k => byId[k.split("|").find(x => x !== n.id)].label);
   const canOut = n.type === "person" || n.type === "item";
-  sheet.innerHTML = `<h2>${n.name}</h2><div class="kind">${n.kind}</div><ul>${n.text.map(f => `<li>${rich(f)}</li>`).join("")}</ul>
-    <div class="row">${canOut ? `<button class="chip ${S.out.has(n.id) ? "on" : ""}" id="outBtn">${S.out.has(n.id) ? "Przywróć" : "Wyklucz"}</button>` : ""}
-    <button class="chip" id="backBtn">Akta sprawy</button></div>
-    ${linked.length ? `<p class="how">Powiązania: ${linked.join(", ")}</p>` : ""}`;
+  sheet.innerHTML = t("ui.game.akta_sprawy_html", { name: n.name, kind: n.kind, join: n.text.map(f => `<li>${rich(f)}</li>`).join(""), v: canOut ? `<button class="chip ${S.out.has(n.id) ? "on" : ""}" id="outBtn">${S.out.has(n.id) ? t("ui.game.przywroc") : t("ui.game.wyklucz")}</button>` : "", v2: linked.length ? t("ui.game.powiazania_html", { join: linked.join(", ") }) : "" });
   const ob = $("outBtn");
   if (ob) ob.onclick = () => {
     S.out.has(n.id) ? S.out.delete(n.id) : S.out.add(n.id);
@@ -20263,11 +20757,11 @@ toastEl.addEventListener("click", hideToast);
 $("hintBtn").onclick = () => {
   const max = Math.min(3, CASE.hints.length);
   if (S.hints >= max || S.done) return;
-  toast(`Podpowiedź ${S.hints + 1}/${max}`, rich(CASE.hints[S.hints]), 9000);
+  toast(t("ui.game.podpowiedz_v_max", { v: S.hints + 1, max }), rich(CASE.hints[S.hints]), 9000);
   AU.sfx("hint"); haptic(10);
-  S.hints++; $("hintBtn").textContent = `Podpowiedź (${max - S.hints})`; if (S.hints >= max) $("hintBtn").disabled = true;
+  S.hints++; $("hintBtn").textContent = t("ui.game.podpowiedz_v", { v: max - S.hints }); if (S.hints >= max) $("hintBtn").disabled = true;
   saveSoon();
-  track(`podpowiedz/${S.hints}`, `Podpowiedź ${S.hints}`);
+  track(`podpowiedz/${S.hints}`, t("ui.game.podpowiedz_hints", { hints: S.hints }));
 };
 setInterval(() => { if (S && !S.done && !document.hidden) $("clock").textContent = fmt(Date.now() - S.t0); }, 1000);
 /* zegar stoi, gdy gra jest w tle */
@@ -20287,7 +20781,7 @@ function buildPicks() {
   const mk = (boxId, type, field) => {
     const box = $(boxId); box.innerHTML = "";
     CASE.nodes.filter(n => n.type === type).forEach(n => {
-      const b = document.createElement("button"); b.className = "pick"; b.textContent = n.name + (S.out.has(n.id) ? " · wykluczony" : "");
+      const b = document.createElement("button"); b.className = "pick"; b.textContent = n.name + (S.out.has(n.id) ? t("ui.game.wykluczony") : "");
       b.onclick = () => { S.pick[field] = n.id; box.querySelectorAll(".pick").forEach(x => x.classList.remove("on")); b.classList.add("on"); goBtn.disabled = !(S.pick.who && (S.pick.what || whoOnly())); msg.textContent = ""; AU.sfx("tick"); haptic(5); };
       box.appendChild(b);
     });
@@ -20305,22 +20799,22 @@ goBtn.onclick = () => {
   AU.sfx("stamp"); haptic([30, 60, 30]);
   const card = $("accuseCard"); card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
   const left = 3 - S.wrong;
-  msg.textContent = `Prokurator odrzuca akt oskarżenia. Fakty się nie spinają. ${left === 1 ? "Została 1 próba." : `Zostały ${left} próby.`}`;
+  msg.textContent = t("ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie", { v: left === 1 ? t("ui.game.zostala_1_proba") : t("ui.game.zostaly_left_proby", { left }) });
 };
 function renderLives() { document.querySelectorAll("#lives i").forEach((i, ix) => i.classList.toggle("lost", ix >= 3 - S.wrong)); }
 function finish(win) {
   S.done = true; S.win = win; S.tEnd = Date.now(); $("accuse").hidden = true; setPending(null);
   $("clock").textContent = fmt(S.tEnd - S.t0); // ten sam czas co w wyniku i po powrocie
-  $("accuseBtn").textContent = "Wynik"; $("hintBtn").disabled = true;
+  $("accuseBtn").textContent = t("ui.game.wynik"); $("hintBtn").disabled = true;
   AU.sfx(win ? "win" : "lose"); haptic(win ? [20, 60, 20, 60, 80] : [120]);
   saveNow();
   HIST.record(CASE, { kind: META.kind, win, stars: starsOf(), ms: S.tEnd - S.t0, wrong: S.wrong, hints: S.hints });
   paintDaily();
-  if (win) track(`case_win/${META.kind === "daily" ? "daily" : "archive"}/${CASE.size}/${deviceType()}`, `Wygrana (${deviceType()})`);
-  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? "Wygrana" : "Przegrana"}: ${META.kind === "daily" ? "sprawa dnia" : "archiwum"}`);
-  if (win) track(`wynik/${starsOf()}-gwiazdki`, `Wynik: ${starsOf()} z 3 gwiazdek`);
+  if (win) track(`case_win/${META.kind === "daily" ? "daily" : "archive"}/${CASE.size}/${deviceType()}`, t("ui.game.wygrana_devicetype", { deviceType: deviceType() }));
+  track(`sprawa/${win ? "wygrana" : "przegrana"}/${META.kind}`, `${win ? t("ui.game.wygrana") : t("ui.game.przegrana")}: ${META.kind === "daily" ? t("ui.game.sprawa_dnia_2") : t("ui.game.archiwum")}`);
+  if (win) track(`wynik/${starsOf()}-gwiazdki`, t("ui.game.wynik_starsof_z_3_gwiazdek", { starsOf: starsOf() }));
   const cur = META.kind === "daily" ? HIST.summary().daily.cur : 0;
-  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, `Seria ${cur} dni`);
+  if ([3, 7, 14, 30, 60, 100].includes(cur)) track(`seria/${cur}`, t("ui.game.seria_cur_dni", { cur }));
   showResult();
   if (window.SiatkaAch) {
     const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length;
@@ -20340,46 +20834,28 @@ function showResult() {
   const strs = [...S.strings], good = strs.filter(k => supportedSet.has(k)).length, bad = strs.length - good;
   const chainDone = chainKeys.every(k => S.strings.has(k));
   const cul = byId[CASE.solution.culprit], wpn = byId[CASE.solution.weapon], loc = byId[CASE.culprit_chain[0][1]];
-  const share = `Siatka Powiązań · ${S.label}\n${CASE.city_name}, ${CASE.year}\n${"🔴".repeat(S.wrong)}${win ? "🟢" : ""} ${"★".repeat(stars)}${"☆".repeat(3 - stars)}\nPodpowiedzi: ${S.hints} · ${time}` +
-    (sum && sum.cur >= 2 ? `\nSeria: ${sum.cur} 🔥` : "") + `\n${URL_GRY}`;
-  $("resultCard").innerHTML = `
-    <div class="stamp ${win ? "ok" : ""}">${win ? "SPRAWA ZAMKNIĘTA" : "SPRAWA UMORZONA"}</div>
-    <h3></h3>
-    ${win ? `<div class="stars" aria-label="${stars} z 3">${"★".repeat(stars)}${"☆".repeat(3 - stars)}</div>` : `<p>Sprawcą ${cul.g === "f" ? "była" : "był"} ${cul.name}${wpn ? `, a narzędziem ${(wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1))}` : ""}.</p>`}
-    <p class="epi">${CASE.epilogue}</p>
-    <div class="lbl">Rozumowanie</div>
-    <ul class="why">${CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join("")}</ul>
-    <div class="lbl">Twoja tablica</div>
-    <div class="stat">Sznurki zgodne z faktami: ${good} · bez pokrycia: ${bad}<br>Obwód sprawcy (${cul.label} → ${loc.label}${wpn ? " → " + wpn.label : ""}): ${chainDone ? "domknięty" : "niedomknięty"}</div>
-    ${win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : ""}
-    <div class="lbl">Sprawy dnia</div>
-    <div class="st-grid mini"><div><b>${sm.daily.cur}</b><span>seria</span></div><div><b>${sm.daily.best}</b><span>rekord</span></div><div><b>${sm.daily.pct}%</b><span>wygrane</span></div><div><b>${sm.daily.played}</b><span>rozegrane</span></div></div>
-    <div class="lbl">Wszystkie sprawy</div>
-    <div class="st-grid mini three"><div><b>${sm.all.played}</b><span>rozegrane</span></div><div><b>${sm.all.pct}%</b><span>wygrane</span></div><div><b>${sm.all.avgMs ? fmt(sm.all.avgMs) : "–"}</b><span>średni czas</span></div></div>
-    <div class="lbl">Wynik do udostępnienia</div>
-    <div class="share" id="shareTxt"></div>
-    <div class="foot wrap"><button class="btn ghost" id="copyBtn">${navigator.share ? "Udostępnij" : "Kopiuj wynik"}</button><button class="btn ghost" id="imgBtn">Zapisz obrazek</button>${S.label === WARMUP ? `<button class="btn red full" id="toDailyBtn">Sprawa dnia</button>` : `<button class="btn red full" id="againBtn">Nowa sprawa</button>`}</div>
-    <p class="fb-line"><button class="linkish" id="fbBtn">Coś się nie zgadza? Zgłoś uwagę</button></p>
-    ${win && window.SiatkaSupport ? `<p class="support-line"><a id="supportLink" href="${window.SiatkaSupport.url}" target="_blank" rel="noopener">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>` : ""}`;
+  const share = t("ui.game.siatka_powiazan_label_city_name_year", { label: S.label, city_name: CASE.city_name, year: CASE.year, repeat: "🔴".repeat(S.wrong), v: win ? "🟢" : "", repeat2: "★".repeat(stars), repeat3: "☆".repeat(3 - stars), hints: S.hints, time }) +
+    (sum && sum.cur >= 2 ? t("ui.game.seria_cur", { cur: sum.cur }) : "") + `\n${URL_GRY}`;
+  $("resultCard").innerHTML = t("ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html", { v: win ? "ok" : "", v2: win ? t("ui.game.sprawa_zamknieta") : t("ui.game.sprawa_umorzona"), v3: win ? t("ui.game.z_3_html", { stars, repeat: "★".repeat(stars), repeat2: "☆".repeat(3 - stars) }) : t("ui.game.sprawca_html", { v: cul.g === "f" ? t("ui.game.byla") : t("ui.game.byl"), name: cul.name, v2: wpn ? t("ui.game.a_narzedziem_v", { v: wpn.name.charAt(0).toLowerCase() + wpn.name.slice(1) }) : "" }), epilogue: CASE.epilogue, join: CASE.why.map(([w, t]) => `<li><b>${w}</b> ${t}</li>`).join(""), good, bad, label: cul.label, label2: loc.label, v4: wpn ? " → " + wpn.label : "", v5: chainDone ? t("ui.game.domkniety") : t("ui.game.niedomkniety"), v6: win ? `<p class="quip">${CASE.detective}: „${CASE.quip}”</p>` : "", cur: sm.daily.cur, best: sm.daily.best, pct: sm.daily.pct, played: sm.daily.played, played2: sm.all.played, pct2: sm.all.pct, v7: sm.all.avgMs ? fmt(sm.all.avgMs) : "–", v8: navigator.share ? t("ui.game.udostepnij") : t("ui.game.kopiuj_wynik"), v9: S.label === WARMUP ? t("ui.game.sprawa_dnia_html") : t("ui.game.nowa_sprawa_html"), v10: win && window.SiatkaSupport ? t("ui.game.podoba_ci_sie_postaw_komisarzowi_html", { url: window.SiatkaSupport.url }) : "" });
   $("resultCard").querySelector("h3").textContent = wpn ? `${cul.name} · ${wpn.name}` : cul.name;
   $("shareTxt").textContent = share;
   $("result").hidden = false;
   $("copyBtn").onclick = e => {
     const b = e.currentTarget;
-    const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Zaznaczono, skopiuj"; };
-    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", "Wynik skopiowany"); }, sel); } catch (_) { sel(); } };
+    const sel = () => { const r = document.createRange(); r.selectNodeContents($("shareTxt")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = t("ui.game.zaznaczono_skopiuj"); };
+    const copy = () => { try { navigator.clipboard.writeText(share).then(() => { b.textContent = "Skopiowano"; AU.sfx("tick"); haptic(8); track("wynik/kopiuj", t("ui.game.wynik_skopiowany")); }, sel); } catch (_) { sel(); } };
     // telefon: systemowe „Udostępnij”; anulowanie nic nie robi, brak wsparcia → kopiowanie
-    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", "Wynik udostępniony"), err => { if (!err || err.name !== "AbortError") copy(); });
+    if (navigator.share) navigator.share({ text: share }).then(() => track("wynik/udostepnij", t("ui.game.wynik_udostepniony")), err => { if (!err || err.name !== "AbortError") copy(); });
     else copy();
   };
   if ($("againBtn")) $("againBtn").onclick = openNewCase;
   if ($("toDailyBtn")) $("toDailyBtn").onclick = () => { AU.sfx("page"); dailyCase(); };
-  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", "Błąd w sprawie/logice"); };
-  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", "Wsparcie twórcy: wynik");
+  $("fbBtn").onclick = () => { if (window.SiatkaFeedback) SiatkaFeedback.open("wynik", t("ui.game.blad_w_sprawie_logice")); };
+  if ($("supportLink")) $("supportLink").onclick = () => track("wsparcie/wynik", t("ui.game.wsparcie_tworcy_wynik"));
   paintQuota();
   /* obrazek rysujemy od razu w tle: kliknięcie musi wywołać „Udostępnij” bez czekania, inaczej
      przeglądarka uzna, że to już nie gest gracza */
-  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : "archiwum"}.png`;
+  const imgName = `siatka-${CASE.number ? "sprawa-" + String(CASE.number).padStart(3, "0") : t("ui.game.archiwum")}.png`;
   const img = window.SiatkaShareImg ? SiatkaShareImg.render({
     label: S.label, place: `${CASE.city_name}, ${CASE.year}`, win, stars, time, wrong: S.wrong, hints: S.hints,
     streak: sum && sum.cur ? sum.cur : null, seed: CASE.seed, url: URL_GRY,
@@ -20390,12 +20866,12 @@ function showResult() {
     const b = e.currentTarget;
     try {
       const blob = await img;
-      if (!blob) throw new Error("brak obrazka");
+      if (!blob) throw new Error(t("ui.game.brak_obrazka"));
       const r = await SiatkaShareImg.deliver(blob, imgName);
       if (r === "cancel") return;
-      b.textContent = r === "shared" ? "Udostępniono" : "Zapisano"; AU.sfx("tick"); haptic(8);
-      track("wynik/obrazek", "Wynik jako obrazek");
-    } catch (_) { b.textContent = "Nie udało się"; }
+      b.textContent = r === "shared" ? t("ui.game.udostepniono") : "Zapisano"; AU.sfx("tick"); haptic(8);
+      track("wynik/obrazek", t("ui.game.wynik_jako_obrazek"));
+    } catch (_) { b.textContent = t("ui.game.nie_udalo_sie"); }
   };
 }
 $("result").addEventListener("click", e => { if (e.target.id === "result") e.currentTarget.hidden = true; });
@@ -20442,20 +20918,20 @@ try { localStorage.removeItem("siatka-next-case"); } catch (_) {} // po dawnej b
 /* Przy 0/5 przycisk jest wyszarzony, ale klikalny: pokazuje kartkę „archiwum zamknięte”. */
 function paintQuota() {
   const left = quota.left(), dev = left === Infinity;
-  const label = dev ? "Nowa sprawa" : `Nowa sprawa · ${left}/${DAILY_NEW_CASES}`;
+  const label = dev ? t("ui.game.nowa_sprawa") : t("ui.game.nowa_sprawa_left_daily_new_cases", { left, DAILY_NEW_CASES });
   ["newBtn", "againBtn"].forEach(id => {
     const b = $(id); if (!b) return;
     b.textContent = label; b.disabled = false; b.classList.toggle("spent", !left);
-    b.setAttribute("aria-label", dev ? label : `Nowa sprawa, na dziś ${left === 1 ? "została" : "zostało"} ${left} z ${DAILY_NEW_CASES}`);
+    b.setAttribute("aria-label", dev ? label : t("ui.game.nowa_sprawa_na_dzis_v_left", { v: left === 1 ? t("ui.game.zostala") : t("ui.game.zostalo"), left, DAILY_NEW_CASES }));
   });
 }
 function showLimit() {
   const now = new Date(), mid = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const min = Math.max(1, Math.ceil((mid - now) / 60000)), h = Math.floor(min / 60);
-  $("limitWhen").textContent = `Nowe sprawy za ${h ? `${h} h ` : ""}${min % 60} min, o północy.`;
+  $("limitWhen").textContent = t("ui.game.nowe_sprawy_za_v_v2_min", { v: h ? `${h} h ` : "", v2: min % 60 });
   $("limit").hidden = false;
   AU.sfx("stamp"); haptic([20, 50, 20]);
-  track("limit/wyczerpany", "Limit nowych spraw wyczerpany");
+  track("limit/wyczerpany", t("ui.game.limit_nowych_spraw_wyczerpany"));
 }
 $("limitClose").onclick = () => { $("limit").hidden = true; };
 $("limitDaily").onclick = () => { $("limit").hidden = true; $("result").hidden = true; saveNow(); AU.sfx("page"); dailyCase(); };
@@ -20471,8 +20947,8 @@ function dailyState() {
 }
 function paintDaily() {
   const st = dailyState(), b = $("dailyBtn");
-  b.innerHTML = "Sprawa dnia" + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
-  b.setAttribute("aria-label", st ? `Sprawa dnia, ${st === "win" ? "rozwiązana" : "umorzona"}` : "Sprawa dnia");
+  b.innerHTML = t("ui.game.sprawa_dnia") + (st ? `<i class="mk ${st}" aria-hidden="true">${st === "win" ? "✓" : "✗"}</i>` : "");
+  b.setAttribute("aria-label", st ? t("ui.game.sprawa_dnia_v", { v: st === "win" ? t("ui.game.rozwiazana") : "umorzona" }) : t("ui.game.sprawa_dnia"));
 }
 const paintDay = () => { paintQuota(); paintDaily(); };
 /* o północy: nowy licznik i nowa sprawa dnia (timery w tle bywają uśpione, więc też przy powrocie do karty) */
@@ -20491,7 +20967,7 @@ function rampSize() {
 }
 /* Rozgrzewka: nowy gracz (0 ukończonych gier), który trafia na sprawę dnia L lub XL, dostaje najpierw małą
    sprawę spoza serii. Sprawa dnia zostaje wspólna dla wszystkich i czeka pod przyciskiem. */
-const WARMUP = "Sprawa na rozgrzewkę";
+const WARMUP = t("ui.game.sprawa_na_rozgrzewke");
 function warmupCase() {
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
   if (todaySave()) return false; // sprawa dnia już zaczęta
@@ -20508,19 +20984,19 @@ function newCase() {
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
-  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), "Sprawa z archiwum", { kind: "random" });
+  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), t("ui.game.sprawa_z_archiwum"), { kind: "random" });
   paintQuota();
 }
 function dailyCase() {
   const n = Siatka.dailyNumber(), sv = todaySave();
-  const label = `Sprawa #${String(n).padStart(3, "0")}`;
+  const label = t("ui.game.sprawa_padstart", { padStart: String(n).padStart(3, "0") });
   /* Historia mówi, że sprawa dnia jest rozegrana, a zapis tablicy nie (np. nadpisała go starsza kopia
      gry albo zapis był z innej wersji generatora): zamykamy ją z wynikiem z historii. Drugi raz się jej nie rozegra. */
   const st = HIST.dailyResult(n);
   const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
-    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn("Zapis sprawy dnia pominięty", e); }
+    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
   }
   // brak pasującego zapisu: świeża sprawa; rozegrana już (wg statystyk) wraca od razu zamknięta
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" }, closed || undefined);
@@ -20528,7 +21004,7 @@ function dailyCase() {
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
   if (!saveOk(sv) || sv.done) return false;
-  try { load(sv.case, sv.label || "Sprawa z archiwum", { kind: "random" }, sv); return true; } catch (e) { console.warn("Zapis sprawy z archiwum pominięty", e); return false; }
+  try { load(sv.case, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random" }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
 $("newBtn").onclick = openNewCase;
@@ -20553,16 +21029,16 @@ if (!(ls.get(SAVE.last) === "random" && resumeRandom()) && !warmupCase()) dailyC
 /* ---------- samouczek: przy pierwszym uruchomieniu i pod „Jak grać”; zegar stoi, gdy jest otwarty ---------- */
 function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
-  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? "Samouczek: pierwsze uruchomienie" : "Samouczek: przycisk");
-  const t = Date.now(); setPending(null);
-  H.open(() => { if (S && !S.done) S.t0 += Date.now() - t; saveSoon(); }, { install: auto === true });
+  track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? t("ui.game.samouczek_pierwsze_uruchomienie") : t("ui.game.samouczek_przycisk"));
+  const opened = Date.now(); setPending(null);
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - opened; saveSoon(); }, { install: auto === true });
 }
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
 /* opis bieżącej sprawy do zgłoszeń: wystarczy, żeby ją odtworzyć (seed + miasto, rok, wielkość) */
 function caseInfo() {
   if (!CASE || !S) return "";
-  const st = S.done ? (S.win ? "rozwiązana" : "umorzona") : "w trakcie";
-  return `${S.label} · ${CASE.city_name}, ${CASE.year} · ${CASE.size} · seed ${CASE.seed} · generator ${Siatka.caseVersion(CASE)} · ${st}, pomyłki ${S.wrong}, podpowiedzi ${S.hints}`;
+  const st = S.done ? (S.win ? t("ui.game.rozwiazana") : "umorzona") : t("ui.game.w_trakcie");
+  return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
 window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
 })();
@@ -20587,7 +21063,7 @@ function demo() {
   // plansze potrzebują 3 osób, 2 miejsc i 2 przedmiotów; kolejne seedy, aż układ pasuje (zmiana generatora zmienia sprawę)
   let c;
   for (let k = 0; k < 40; k++) {
-    c = Siatka.generateCase({ base: window.SIATKA_BASE, cities: window.SIATKA_CITIES }, k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
+    c = Siatka.generateCase(SiatkaI18n.world(), k ? "samouczek-" + k : "samouczek", { size: "S", city: "warszawa", year: 1994, archetype: "classic" });
     const n = t => c.nodes.filter(x => x.type === t).length;
     if (n("person") >= 3 && n("location") >= 2 && n("item") >= 2) break;
   }
@@ -20608,29 +21084,24 @@ function pol(n, x, y, o = {}) {
     (o.pin === false ? "" : `<i class="hw-pin" style="left:${x + w / 2}px;top:${y + 3}px"></i>`);
 }
 const F = `<i class="hw-f"></i>`;
-const t = s => `<b class="fx fx-t">${s}</b>`, l = s => `<b class="fx fx-l">${s}</b>`, k = s => `<b class="fx fx-k">${s}</b>`;
+const fxT = s => `<b class="fx fx-t">${s}</b>`, l = s => `<b class="fx fx-l">${s}</b>`, k = s => `<b class="fx fx-k">${s}</b>`;
 
 const SLIDES = [
   {
     s: 2,
-    title: "Tablica i akta",
-    text: "Codziennie nowa sprawa z lat 90. Stuknij zdjęcie, żeby otworzyć akta.",
-    tip: "Na tablicy wiszą podejrzani, miejsca i przedmioty. Czerwona kropka na zdjęciu znaczy, że akt jeszcze nie czytałeś.",
+    title: t("ui.tutorial.tablica_i_akta"),
+    text: t("ui.tutorial.codziennie_nowa_sprawa_z_lat_90"),
+    tip: t("ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i"),
     scene() {
       const { P, L } = demo(), p = P[0], f = p.g === "f";
-      return `<div class="hw-desk"></div>${pol(p, 20, 50, { w: 66, r: -2, cls: "pick" })}
-        <div class="hw-sheet"><b class="h">${p.name}</b><ul>
-          <li>Widziano ${f ? "ją" : "go"} ${l(form(L[0], 1, "na miejscu"))} o ${t("19:40")}.</li>
-          <li>Ma ${k("klucz")} do ${l(form(L[1], 0, "piwnicy"))}.</li>
-          <li>Od ${t("19:00")} ${f ? "spała" : "spał"}. ${k("Świadków")} brak.</li></ul></div>
-        <i class="hw-f" style="--x:53px;--y:86px"></i>`;
+      return t("ui.tutorial.widziano_o_ma_do_od_html", { pol: pol(p, 20, 50, { w: 66, r: -2, cls: "pick" }), name: p.name, v: f ? t("ui.tutorial.ja") : "go", l: l(form(L[0], 1, t("ui.tutorial.na_miejscu"))), fxT: fxT("19:40"), k: k(t("ui.tutorial.klucz")), l2: l(form(L[1], 0, t("ui.tutorial.piwnicy"))), fxT2: fxT("19:00"), v2: f ? t("ui.tutorial.spala") : t("ui.tutorial.spal"), k2: k(t("ui.tutorial.swiadkow")) });
     }
   },
   {
     s: 4,
-    title: "Sznurek",
-    text: "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
-    tip: "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
+    title: t("ui.tutorial.sznurek"),
+    text: t("ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki"),
+    tip: t("ui.tutorial.sznurki_to_twoje_notatki_gra_nie"),
     scene() {
       const { P, L, I } = demo();
       return `<div class="hw-cork"></div>${pol(P[0], 21, 18, { r: -2 })}${pol(L[0], 177, 62, { r: 2 })}${pol(I[0], 97, 116, { r: -1 })}
@@ -20640,32 +21111,23 @@ const SLIDES = [
   },
   {
     s: 3,
-    title: "Notatnik i wykluczanie",
-    text: "Sprawca spełnia wszystkie reguły z notatnika. Każdy niewinny łamie co najmniej jedną – wtedy stuknij w jego aktach „Wyklucz”.",
-    tip: "Ten, kto nie łamie żadnej reguły, jest sprawcą. Pomyłka? „Przywróć” cofa wykluczenie.",
+    title: t("ui.tutorial.notatnik_i_wykluczanie"),
+    text: t("ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika"),
+    tip: t("ui.tutorial.ten_kto_nie_lamie_zadnej_reguly"),
     scene() {
       const { P, L } = demo();
       const tag = (txt, y, cls) => `<span class="hw-tag2 ${cls}" style="top:${y}px">${txt}</span>`;
-      return `<div class="hw-desk"></div>
-        <div class="hw-note"><b class="h">Notatnik</b><ol>
-          <li class="q1">Sprawca ma ${k("klucz")} do ${l(form(L[0], 0, "garażu"))}.</li>
-          <li class="q2">Nie ma ${k("alibi")} między ${t("19:00")} a ${t("19:30")}.</li>
-          <li class="q3">Sprawca nosi okulary.</li></ol></div>
-        ${P.map((n, i) => pol(n, 178, 12 + i * 62, { w: 36, pin: false, nolabel: true, cls: i === 2 ? "win" : "" })).join("")}
-        ${tag("łamie<br>1", 22, "a1")}${tag("łamie<br>3", 84, "a2")}${tag("spełnia<br>wszystkie", 146, "a3 ok")}`;
+      return t("ui.tutorial.notatnik_sprawca_ma_do_nie_html", { k: k(t("ui.tutorial.klucz")), l: l(form(L[0], 0, t("ui.tutorial.garazu"))), k2: k(t("ui.tutorial.alibi")), fxT: fxT("19:00"), fxT2: fxT("19:30"), join: P.map((n, i) => pol(n, 178, 12 + i * 62, { w: 36, pin: false, nolabel: true, cls: i === 2 ? "win" : "" })).join(""), tag: tag(t("ui.tutorial.lamie_br_1"), 22, "a1"), tag2: tag(t("ui.tutorial.lamie_br_3"), 84, "a2"), tag3: tag(t("ui.tutorial.spelnia_br_wszystkie"), 146, "a3 ok") });
     }
   },
   {
     s: 6,
-    title: "Oskarżenie",
-    text: "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
-    tip: "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    title: t("ui.tutorial.oskarzenie"),
+    text: t("ui.tutorial.gdy_wiesz_kto_i_czym_stuknij"),
+    tip: t("ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r"),
     scene() {
       const { P, I } = demo();
-      return `<div class="hw-desk"></div><span class="hw-lives"><i></i><i></i><i></i></span>
-        <span class="hw-btn">Oskarż</span>
-        <div class="hw-acc"><b class="h">Akt oskarżenia</b><span>Sprawca: <b>${P[2].name}</b></span><span>Narzędzie: <b>${I[1].name.toLowerCase()}</b></span>
-          <span class="hw-stamp">SPRAWA ZAMKNIĘTA</span><span class="hw-stars">★★★</span></div>${F}`;
+      return t("ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html", { name: P[2].name, toLowerCase: I[1].name.toLowerCase(), F });
     }
   }
 ];
@@ -20769,20 +21231,20 @@ function render() {
   const s = SLIDES[i], stage = $("hwStage");
   stage.className = "hw-stage hw-s" + s.s; // s = numer sceny (CSS animacji)
   stage.innerHTML = s.scene();
-  stage.setAttribute("aria-label", `Ilustracja: ${s.title}`);
+  stage.setAttribute("aria-label", t("ui.tutorial.ilustracja_title", { title: s.title }));
   $("hwTitle").textContent = s.title; $("hwTxt").textContent = s.text; $("hwTip").textContent = s.tip;
-  $("hwStep").textContent = `Krok ${i + 1} z ${SLIDES.length}`;
+  $("hwStep").textContent = t("ui.tutorial.krok_v_z_length", { v: i + 1, length: SLIDES.length });
   $("hwPrev").disabled = i === 0;
-  $("hwNext").textContent = i === SLIDES.length - 1 ? "Do roboty!" : "Dalej";
+  $("hwNext").textContent = i === SLIDES.length - 1 ? t("ui.tutorial.do_roboty") : t("ui.tutorial.dalej");
   // ostatnia plansza przy pierwszym uruchomieniu: zaproszenie do instalacji (jeśli możliwa)
   const box = $("hwInstall"), I = window.SiatkaInstall, last = i === SLIDES.length - 1;
   box.hidden = !(withInstall && last && I && I.available());
   if (!box.hidden) {
-    box.innerHTML = !I.canPrompt() ? `<b>Graj jak w aplikacji.</b> ${I.hintHtml()}`
-      : `<button class="btn ghost" id="hwInstallBtn">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>`;
+    box.innerHTML = !I.canPrompt() ? t("ui.tutorial.graj_jak_w_aplikacji_html", { hintHtml: I.hintHtml() })
+      : t("ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html");
     const b = $("hwInstallBtn"); if (b) b.onclick = async () => { if (await I.run("samouczek")) render(); };
   }
-  $("hwDots").innerHTML = SLIDES.map((x, j) => `<button data-j="${j}" aria-label="Krok ${j + 1}: ${x.title}"${j === i ? ' aria-current="step"' : ""}></button>`).join("");
+  $("hwDots").innerHTML = SLIDES.map((x, j) => t("ui.tutorial.krok_html", { j, v: j + 1, title: x.title, v2: j === i ? ' aria-current="step"' : "" })).join("");
 }
 function go(d) {
   const j = i + d;
@@ -20803,14 +21265,14 @@ const track = (p, t) => { if (window.SiatkaTrack) window.SiatkaTrack(p, t); };
 function close(done) {
   if ($("howto").hidden) return;
   $("howto").hidden = true;
-  track(done === true ? "samouczek/ukonczony" : `tutorial_skip/krok-${i + 1}/${dev()}`, done === true ? "Samouczek ukończony" : `Samouczek pominięty na kroku ${i + 1}`);
+  track(done === true ? "samouczek/ukonczony" : `tutorial_skip/krok-${i + 1}/${dev()}`, done === true ? t("ui.tutorial.samouczek_ukonczony") : t("ui.tutorial.samouczek_pominiety_na_kroku_v", { v: i + 1 }));
   try { localStorage.setItem(KEY, "1"); } catch (_) {}
   const cb = after; after = null; if (cb) cb();
 }
 /* wyjście z gry w trakcie samouczka (pagehide, schowanie karty): raz na otwarcie, z numerem kroku */
 function quitting() {
   if ($("howto").hidden || quitSent) return;
-  quitSent = true; track(`tutorial_quit/krok-${i + 1}/${dev()}`, `Samouczek: wyjście z gry na kroku ${i + 1}`);
+  quitSent = true; track(`tutorial_quit/krok-${i + 1}/${dev()}`, t("ui.tutorial.samouczek_wyjscie_z_gry_na_kroku", { v: i + 1 }));
 }
 window.addEventListener("pagehide", quitting);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") quitting(); });
@@ -20858,24 +21320,10 @@ function open() {
     const v = d.dist[k], here = d.today && (d.today.win ? d.today.stars : 0) === +k;
     return `<div class="st-row"><span class="st-k">${label}</span><span class="st-bar"><i class="${here ? "here" : ""}" style="width:${Math.max(v ? 8 : 0, v / max * 100)}%"></i></span><span class="st-v">${v}</span></div>`;
   };
-  $("statsCard").innerHTML = `<h3>Statystyki</h3><p class="sub">Wyniki w tej przeglądarce.</p>
-    <div class="lbl">Sprawy dnia</div>
-    <div class="st-grid">
-      <div><b>${d.cur}</b><span>seria</span></div><div><b>${d.best}</b><span>rekord</span></div>
-      <div><b>${d.pct}%</b><span>wygrane</span></div><div><b>${d.played}</b><span>rozegrane</span></div>
-    </div>
-    <div class="lbl">Gwiazdki w sprawach dnia</div>
-    ${row(3, "★★★")}${row(2, "★★☆")}${row(1, "★☆☆")}${row(0, "umorzone")}
-    <div class="lbl">Wszystkie sprawy</div>
-    <div class="st-grid three">
-      <div><b>${m.all.played}</b><span>rozegrane</span></div><div><b>${m.all.pct}%</b><span>wygrane</span></div>
-      <div><b>${m.all.avgMs ? fmt(m.all.avgMs) : "–"}</b><span>średni czas</span></div>
-    </div>
-    <p class="stat">Sprawy z archiwum: rozwiązane ${m.archive.won} z ${m.archive.played}.</p>
-    <div class="foot"><button class="btn ghost" id="statsClose">Zamknij</button></div>`;
+  $("statsCard").innerHTML = t("ui.stats.statystyki_wyniki_w_tej_przegladarce_html", { cur: d.cur, best: d.best, pct: d.pct, played: d.played, row: row(3, "★★★"), row2: row(2, "★★☆"), row3: row(1, "★☆☆"), row4: row(0, t("ui.stats.umorzone")), played2: m.all.played, pct2: m.all.pct, v: m.all.avgMs ? fmt(m.all.avgMs) : "–", won: m.archive.won, played3: m.archive.played });
   $("stats").hidden = false;
   $("statsClose").onclick = () => { $("stats").hidden = true; };
-  if (window.SiatkaTrack) SiatkaTrack("statystyki/otwarte", "Statystyki otwarte");
+  if (window.SiatkaTrack) SiatkaTrack("statystyki/otwarte", t("ui.stats.statystyki_otwarte"));
 }
 const ov = $("stats");
 if (ov) ov.addEventListener("click", e => { if (e.target.id === "stats") e.currentTarget.hidden = true; });
@@ -20912,28 +21360,28 @@ function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch
 /* ---------- lista ---------- */
 const streak = () => { try { return window.SiatkaHistory ? SiatkaHistory.summary().daily.cur : 0; } catch (_) { return 0; } };
 const ACH = [
-  { id: "pierwsza", name: "Pierwsza sprawa", desc: "Zamknij pierwszą sprawę.", tier: 1, g: "lupa", ok: (i) => i.win },
-  { id: "bez-pudla", name: "Bez pudła", desc: "Zamknij sprawę na trzy gwiazdki.", tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
-  { id: "ostatni-naboj", name: "Ostatni nabój", desc: "Wygraj przy ostatniej próbie.", tier: 1, g: "bullet", ok: (i) => i.win && i.wrong === 2 },
-  { id: "sito", name: "Sito", desc: "Przed oskarżeniem wyklucz wszystkich niewinnych.", tier: 1, g: "x", ok: (i) => i.win && i.allOut },
-  { id: "nocna-zmiana", name: "Nocna zmiana", desc: "Zamknij sprawę między północą a czwartą rano.", tier: 1, g: "moon", ok: (i) => i.win && i.hour < 4 },
-  { id: "seria-3", name: "Stały rytm", desc: "Rozwiąż sprawę dnia trzy dni z rzędu.", tier: 1, g: "flame", need: 3, prog: () => streak() },
-  { id: "bywalec", name: "Stały bywalec", desc: "Zamknij 10 spraw.", tier: 1, g: "tally", need: 10, prog: () => statsSolved() },
+  { id: "pierwsza", name: t("ui.ach.pierwsza_sprawa"), desc: t("ui.ach.zamknij_pierwsza_sprawe"), tier: 1, g: "lupa", ok: (i) => i.win },
+  { id: "bez-pudla", name: t("ui.ach.bez_pudla"), desc: t("ui.ach.zamknij_sprawe_na_trzy_gwiazdki"), tier: 1, g: "star", ok: (i) => i.win && i.stars === 3 },
+  { id: "ostatni-naboj", name: t("ui.ach.ostatni_naboj"), desc: t("ui.ach.wygraj_przy_ostatniej_probie"), tier: 1, g: "bullet", ok: (i) => i.win && i.wrong === 2 },
+  { id: "sito", name: t("ui.ach.sito"), desc: t("ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn"), tier: 1, g: "x", ok: (i) => i.win && i.allOut },
+  { id: "nocna-zmiana", name: t("ui.ach.nocna_zmiana"), desc: t("ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta"), tier: 1, g: "moon", ok: (i) => i.win && i.hour < 4 },
+  { id: "seria-3", name: t("ui.ach.staly_rytm"), desc: t("ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z"), tier: 1, g: "flame", need: 3, prog: () => streak() },
+  { id: "bywalec", name: t("ui.ach.staly_bywalec"), desc: "Zamknij 10 spraw.", tier: 1, g: "tally", need: 10, prog: () => statsSolved() },
 
-  { id: "blyskawica", name: "Błyskawica", desc: "Zamknij sprawę w mniej niż dwie minuty.", tier: 2, g: "clock", ok: (i) => i.win && i.ms < 120000 },
-  { id: "czysta-robota", name: "Czysta robota", desc: "Wygraj z domkniętym obwodem sprawcy i bez ani jednego sznurka bez pokrycia.", tier: 2, g: "check", ok: (i) => i.win && i.chain && i.bad === 0 },
-  { id: "pajeczyna", name: "Pajęczyna", desc: "Wygraj z co najmniej 10 sznurkami zgodnymi z faktami.", tier: 2, g: "web", ok: (i) => i.win && i.good >= 10 },
-  { id: "grube-akta", name: "Grube akta", desc: "Zamknij sprawę z sześcioma podejrzanymi.", tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
-  { id: "seria-7", name: "Tydzień na służbie", desc: "Rozwiąż sprawę dnia siedem dni z rzędu.", tier: 2, g: "flame", need: 7, prog: () => streak() },
-  { id: "delegacja", name: "Delegacja", desc: "Zamknij sprawę w każdym z siedmiu miast.", tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
-  { id: "wszechstronny", name: "Wszechstronny", desc: "Zamknij sprawę każdego z 11 typów zbrodni.", tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
+  { id: "blyskawica", name: t("ui.ach.blyskawica"), desc: t("ui.ach.zamknij_sprawe_w_mniej_niz_dwie"), tier: 2, g: "clock", ok: (i) => i.win && i.ms < 120000 },
+  { id: "czysta-robota", name: t("ui.ach.czysta_robota"), desc: t("ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i"), tier: 2, g: "check", ok: (i) => i.win && i.chain && i.bad === 0 },
+  { id: "pajeczyna", name: t("ui.ach.pajeczyna"), desc: t("ui.ach.wygraj_z_co_najmniej_10_sznurkami"), tier: 2, g: "web", ok: (i) => i.win && i.good >= 10 },
+  { id: "grube-akta", name: t("ui.ach.grube_akta"), desc: t("ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi"), tier: 2, g: "folder", ok: (i) => i.win && i.size === "XL" },
+  { id: "seria-7", name: t("ui.ach.tydzien_na_sluzbie"), desc: t("ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z"), tier: 2, g: "flame", need: 7, prog: () => streak() },
+  { id: "delegacja", name: t("ui.ach.delegacja"), desc: t("ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu"), tier: 2, g: "pin", need: CITIES, prog: (st) => st.cities.length },
+  { id: "wszechstronny", name: t("ui.ach.wszechstronny"), desc: t("ui.ach.zamknij_sprawe_kazdego_z_11_typow"), tier: 2, g: "four", need: CRIMES, prog: (st) => st.crimes.length },
 
-  { id: "wielka-szostka", name: "Wielka szóstka", desc: "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.", tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
-  { id: "seria-30", name: "Miesiąc na służbie", desc: "Rozwiąż sprawę dnia 30 dni z rzędu.", tier: 3, g: "flame", need: 30, prog: () => streak() },
-  { id: "dekada", name: "Cała dekada", desc: "Zamknij sprawę z każdego roku od 1989 do 1999.", tier: 3, g: "cal", need: YEARS, prog: (st) => st.years.length },
-  { id: "weteran", name: "Weteran", desc: "Zamknij 50 spraw.", tier: 3, g: "tally", need: 50, prog: () => statsSolved() }
+  { id: "wielka-szostka", name: t("ui.ach.wielka_szostka"), desc: t("ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na"), tier: 3, g: "crown", ok: (i) => i.win && i.size === "XL" && i.stars === 3 },
+  { id: "seria-30", name: t("ui.ach.miesiac_na_sluzbie"), desc: t("ui.ach.rozwiaz_sprawe_dnia_30_dni_z"), tier: 3, g: "flame", need: 30, prog: () => streak() },
+  { id: "dekada", name: t("ui.ach.cala_dekada"), desc: t("ui.ach.zamknij_sprawe_z_kazdego_roku_od"), tier: 3, g: "cal", need: YEARS, prog: (st) => st.years.length },
+  { id: "weteran", name: t("ui.ach.weteran"), desc: "Zamknij 50 spraw.", tier: 3, g: "tally", need: 50, prog: () => statsSolved() }
 ];
-const TIER = { 1: ["brąz", "#c07a3c", "#6e3f17", "#e7a56a"], 2: ["srebro", "#c8c8c2", "#6b6b66", "#f2f2ec"], 3: ["złoto", "#e3b347", "#8a5f12", "#fbe08c"] };
+const TIER = { 1: [t("ui.ach.braz"), "#c07a3c", "#6e3f17", "#e7a56a"], 2: ["srebro", "#c8c8c2", "#6b6b66", "#f2f2ec"], 3: [t("ui.ach.zloto"), "#e3b347", "#8a5f12", "#fbe08c"] };
 
 /* ---------- odznaki: piksele ---------- */
 const GLYPH = {
@@ -20977,7 +21425,7 @@ function onFinish(info) {
     add("cities", info.city); add("years", info.year); add("crimes", info.crime);
   }
   const fresh = ACH.filter(a => !st.got[a.id] && (a.need ? a.prog(st) >= a.need : a.ok(info)));
-  fresh.forEach(a => { st.got[a.id] = Date.now(); track(`osiagniecie/${a.id}`, `Osiągnięcie: ${a.name}`); });
+  fresh.forEach(a => { st.got[a.id] = Date.now(); track(`osiagniecie/${a.id}`, t("ui.ach.osiagniecie_name", { name: a.name })); });
   save(st);
   if (fresh.length) { queue.push(...fresh); setTimeout(showNext, 1300); } // po pieczątce i dzwonku wygranej
 }
@@ -20989,13 +21437,7 @@ function showNext() {
   const a = queue.shift(); if (!a) return;
   showing = true;
   const left = queue.length, [tierName] = TIER[a.tier];
-  $("achPopCard").innerHTML = `
-    <div class="ach-kicker">Nowe osiągnięcie</div>
-    <div class="ach-stage"><div class="ach-rays"></div>${badge(a, true)}${"<i></i>".repeat(10)}</div>
-    <div class="ach-tier t${a.tier}">${tierName}</div>
-    <h3>${a.name}</h3>
-    <p class="ach-desc">${a.desc}</p>
-    <div class="foot"><button class="btn red" id="achOk">${left ? `Dalej (${left})` : "Do akt"}</button></div>`;
+  $("achPopCard").innerHTML = t("ui.ach.nowe_osiagniecie_html", { badge: badge(a, true), repeat: "<i></i>".repeat(10), tier: a.tier, tierName, name: a.name, desc: a.desc, v: left ? t("ui.ach.dalej_left", { left }) : t("ui.ach.do_akt") });
   $("achPop").hidden = false;
   AU.sfx("medal", a.tier); tap([15, 40, 15, 40, 15, 40, 90]);
   $("achOk").onclick = () => { $("achPop").hidden = true; showing = false; AU.sfx("tick"); if (queue.length) setTimeout(showNext, 180); };
@@ -21009,25 +21451,21 @@ function open() {
     const on = !!st.got[a.id];
     const prog = !on && a.need ? Math.min(a.need, a.prog(st)) : 0;
     return `<li class="ach-row${on ? "" : " off"}">${badge(a, on)}<div><b>${a.name}</b><span>${a.desc}</span>
-      ${on ? `<small>${TIER[a.tier][0]} · zdobyte ${date(st.got[a.id])}</small>`
-        : a.need ? `<div class="ach-bar"><i style="width:${prog / a.need * 100}%"></i></div><small>${prog} z ${a.need}</small>` : `<small>${TIER[a.tier][0]}</small>`}</div></li>`;
+      ${on ? t("ui.ach.zdobyte_html", { v: TIER[a.tier][0], date: date(st.got[a.id]) })
+        : a.need ? t("ui.ach.z_html", { v: prog / a.need * 100, prog, need: a.need }) : `<small>${TIER[a.tier][0]}</small>`}</div></li>`;
   }).join("");
-  $("achListCard").innerHTML = `<h3>Osiągnięcia</h3><p class="sub">Zdobyte: ${c.got} z ${c.all}. Zapisane w tej przeglądarce.</p>
-    <ul class="ach-list">${rows}</ul>
-    <div class="foot"><button class="btn ghost" id="achClose">Zamknij</button></div>`;
+  $("achListCard").innerHTML = t("ui.ach.osiagniecia_zdobyte_z_zapisane_w_html", { got: c.got, all: c.all, rows });
   $("achList").hidden = false; AU.sfx("paper");
   $("achClose").onclick = () => { $("achList").hidden = true; };
   // #dev: stuknięcie w odznakę pokazuje jej planszę (podgląd, bez zapisu)
   if (location.hash === "#dev") $("achListCard").querySelectorAll(".ach-row").forEach((row, k) => {
     row.style.cursor = "pointer"; row.onclick = () => { queue.push(ACH[k]); showNext(); };
   });
-  track("osiagniecia/otwarte", "Osiągnięcia otwarte");
+  track("osiagniecia/otwarte", t("ui.ach.osiagniecia_otwarte"));
 }
 
 /* ---------- okna i style ---------- */
-document.body.insertAdjacentHTML("beforeend", `
-  <div class="overlay ach-pop" id="achPop" hidden><div class="card" id="achPopCard" role="dialog" aria-modal="true" aria-live="assertive"></div></div>
-  <div class="overlay" id="achList" hidden><div class="card" id="achListCard" role="dialog" aria-modal="true" aria-label="Osiągnięcia"></div></div>`);
+document.body.insertAdjacentHTML("beforeend", t("ui.ach.osiagniecia_html"));
 $("achList").addEventListener("click", e => { if (e.target.id === "achList") e.currentTarget.hidden = true; });
 document.head.insertAdjacentHTML("beforeend", `<style>
 .ach-pop{z-index:12;align-items:center}
@@ -21092,30 +21530,30 @@ const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform ==
 const installed = () => matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)").matches || navigator.standalone === true;
 let deferred = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; refresh(); });
-window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", "Gra zainstalowana"); refresh(); paintFs(); });
+window.addEventListener("appinstalled", () => { deferred = null; track("instalacja/zainstalowana", t("ui.settings.gra_zainstalowana")); refresh(); paintFs(); });
 const available = () => !installed() && (!!deferred || !!hint());
 async function run(where) {
   if (deferred) {
     const d = deferred; deferred = null;
     d.prompt();
-    try { const c = await d.userChoice; track(`instalacja/${c.outcome === "accepted" ? "zgoda" : "odmowa"}-${where}`, `Instalacja: ${c.outcome === "accepted" ? "zgoda" : "odmowa"} (${where})`); } catch (_) {}
+    try { const c = await d.userChoice; track(`instalacja/${c.outcome === "accepted" ? "zgoda" : "odmowa"}-${where}`, t("ui.settings.instalacja_v_where", { v: c.outcome === "accepted" ? "zgoda" : "odmowa", where })); } catch (_) {}
     refresh();
     return true;
   }
   return false;
 }
-const IOS_HINT = `W Safari stuknij <b>Udostępnij</b> <span class="ios-ico" aria-hidden="true">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.`;
+const IOS_HINT = t("ui.settings.w_safari_stuknij_b_udostepnij_b");
 /* Gdy przeglądarka nie wyśle beforeinstallprompt (gra już zainstalowana, okno wcześniej odrzucone
  * albo przeglądarka go nie ma), pokazujemy, gdzie w jej menu jest instalacja. Bez wskazówki: "". */
 function hint() {
   if (ios) return IOS_HINT;
   const ua = navigator.userAgent, android = /Android/.test(ua);
-  if (/SamsungBrowser/.test(ua)) return `Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.`;
-  if (/Firefox/.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Zainstaluj”</b> (albo „Dodaj do ekranu głównego”).` : "";
-  if (/EdgA?\//.test(ua)) return android ? `Stuknij menu <b>…</b>, potem <b>„Dodaj do telefonu”</b>.`
-    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>…</b> → <b>„Aplikacje”</b> → <b>„Zainstaluj tę witrynę jako aplikację”</b>.`;
-  if (/Chrome\//.test(ua)) return android ? `Stuknij menu <b>⋮</b>, potem <b>„Dodaj do ekranu głównego”</b> → <b>„Zainstaluj”</b>.`
-    : `Kliknij ikonę instalacji w pasku adresu albo menu <b>⋮</b> → <b>„Przesyłaj, zapisuj i udostępniaj”</b> → <b>„Zainstaluj stronę jako aplikację”</b>.`;
+  if (/SamsungBrowser/.test(ua)) return t("ui.settings.stuknij_menu_b_b_potem_b_4");
+  if (/Firefox/.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b_3") : "";
+  if (/EdgA?\//.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b_2")
+    : t("ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2");
+  if (/Chrome\//.test(ua)) return android ? t("ui.settings.stuknij_menu_b_b_potem_b")
+    : t("ui.settings.kliknij_ikone_instalacji_w_pasku_adresu");
   return "";
 }
 window.SiatkaInstall = { available, installed, ios, run, canPrompt: () => !!deferred, hintHtml: hint };
@@ -21127,12 +21565,12 @@ function device() {
   const ua = navigator.userAgent, v = re => { const m = ua.match(re); return m ? m[1].replace(/_/g, ".") : ""; };
   const os = /Android/.test(ua) ? "Android " + v(/Android ([\d.]+)/)
     : /iPhone|iPad|iPod/.test(ua) ? (/iPad/.test(ua) ? "iPadOS " : "iOS ") + v(/OS ([\d_]+)/)
-    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "inny system";
-  const br = /SamsungBrowser/.test(ua) ? "Samsung Internet " + v(/SamsungBrowser\/(\d+)/)
+    : ios ? "iPadOS" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : t("ui.settings.inny_system");
+  const br = /SamsungBrowser/.test(ua) ? t("ui.settings.samsung_internet") + v(/SamsungBrowser\/(\d+)/)
     : /EdgA?\//.test(ua) ? "Edge " + v(/EdgA?\/(\d+)/) : /CriOS/.test(ua) ? "Chrome " + v(/CriOS\/(\d+)/)
     : /FxiOS|Firefox/.test(ua) ? "Firefox " + v(/(?:FxiOS|Firefox)\/(\d+)/) : /Chrome\//.test(ua) ? "Chrome " + v(/Chrome\/(\d+)/)
-    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : "inna przeglądarka";
-  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? "aplikacja" : "przeglądarka"}`;
+    : /Safari/.test(ua) ? "Safari " + v(/Version\/(\d+)/) : t("ui.settings.inna_przegladarka");
+  return `${os} · ${br} · ${innerWidth}×${innerHeight} · ${installed() ? t("ui.settings.aplikacja") : t("ui.settings.przegladarka")}`;
 }
 function feedback(where, category) {
   const p = new URLSearchParams({ usp: "pp_url" });
@@ -21140,7 +21578,7 @@ function feedback(where, category) {
   const info = window.SiatkaGame && window.SiatkaGame.caseInfo(); if (info) p.set(F.caseInfo, info);
   p.set(F.device, device());
   window.open(FORM + "?" + p.toString(), "_blank", "noopener");
-  track("uwagi/" + where, "Zgłoszenie uwagi: " + where);
+  track("uwagi/" + where, t("ui.settings.zgloszenie_uwagi") + where);
 }
 window.SiatkaFeedback = { open: feedback, device };
 
@@ -21163,14 +21601,14 @@ function paintFs() {
   const b = $("fsBtn"), on = fsActive();
   b.hidden = !fsSupported || installed();
   b.innerHTML = on ? FS_OFF : FS_ON;
-  b.title = on ? "Wyjdź z pełnego ekranu" : "Pełny ekran"; b.setAttribute("aria-label", b.title);
+  b.title = on ? t("ui.settings.wyjdz_z_pelnego_ekranu") : t("ui.settings.pelny_ekran"); b.setAttribute("aria-label", b.title);
 }
 $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, paintFs));
 paintFs();
 
-/* ---------- „Co nowego”: dziennik zmian z data/changelog.js, kropka przy zębatce po nowej wersji ---------- */
-const NEWS = window.SIATKA_CHANGELOG || [], NKEY = "siatka-news-seen";
+/* ---------- „Co nowego”: dziennik zmian (klucz ui.changelog w data/i18n/pl.js), kropka przy zębatce po nowej wersji ---------- */
+const NEWS = SiatkaI18n.get("ui.changelog") || [], NKEY = "siatka-news-seen";
 const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
 const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
 function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }
@@ -21195,8 +21633,7 @@ paintDot();
 let view = "main";
 const fmtDate = d => { const [y, m, dd] = d.split("-"); return `${+dd}.${+m}.${y}`; };
 function renderNews() {
-  $("menuCard").innerHTML = `<h3>Co nowego</h3><div class="news">${NEWS.map(n => `<h4>Wersja ${n.v}<small>${fmtDate(n.date)}</small></h4><ul>${n.items.map(i => `<li>${i}</li>`).join("")}</ul>`).join("")}</div>
-    <div class="foot"><button class="btn ghost" id="newsBack">Wróć</button></div>`;
+  $("menuCard").innerHTML = t("ui.settings.co_nowego_wroc_html", { join: NEWS.map(n => t("ui.settings.wersja_html", { v: n.v, fmtDate: fmtDate(n.date), join: n.items.map(i => `<li>${i}</li>`).join("") })).join("") });
   $("newsBack").onclick = () => { view = "main"; render(); };
   markNews();
 }
@@ -21208,30 +21645,18 @@ const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-
 function render() {
   if (view === "news") return renderNews();
   let app;
-  if (installed()) app = `<p class="set-note">Gra jest zainstalowana na tym urządzeniu.</p>`;
-  else if (deferred) app = `<button class="btn red set-install" id="setInstall">Zainstaluj grę</button><p class="set-note">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>`;
-  else if (hint()) app = `<p class="set-note"><b>Zainstaluj grę:</b> ${hint()}</p>`;
+  if (installed()) app = t("ui.settings.gra_jest_zainstalowana_na_tym_html");
+  else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
+  else if (hint()) app = t("ui.settings.zainstaluj_gre_html", { hint: hint() });
   else app = "";
-  $("menuCard").innerHTML = `<h3>Ustawienia</h3>
-    <div class="set-go"><button class="pick" id="setHowto">Jak grać</button><button class="pick" id="setStats">Statystyki</button>
-      <button class="pick wide" id="setNews">Co nowego${hasNews() ? '<span class="dot" aria-label="nowe"></span>' : ""}</button>
-      ${window.SiatkaAch ? (c => `<button class="pick wide set-ach" id="setAch">Osiągnięcia <small>${c.got}/${c.all}</small></button>`)(window.SiatkaAch.count()) : ""}
-      <button class="pick wide" id="setFeedback">Zgłoś uwagę lub błąd</button></div>
-    <div class="lbl">Dźwięk</div>
-    ${sw("swSfx", "Efekty dźwiękowe", !!AU.pref.sfx)}
-    ${sw("swMusic", "Muzyka w tle", !!AU.pref.music, "Spokojny jazz z płyty")}
-    ${hapticAvailable ? sw("swHaptic", "Wibracje", !!prefs.haptic) : ""}
-    ${app ? `<div class="lbl">Aplikacja</div>${app}` : ""}
-    <a class="support-link" id="setSupport" href="${SUPPORT_URL}" target="_blank" rel="noopener"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>
-    <div class="foot"><button class="btn ghost" id="menuClose">Zamknij</button></div>
-    <p class="set-foot">siatkapowiazan.pl</p>`;
+  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", SUPPORT_URL });
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
-  $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", "Co nowego"); render(); };
+  $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
   $("setStats").onclick =() => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");
-  $("setSupport").onclick = () => track("wsparcie/ustawienia", "Wsparcie twórcy: ustawienia");
+  $("setSupport").onclick = () => track("wsparcie/ustawienia", t("ui.settings.wsparcie_tworcy_ustawienia"));
   $("swSfx").onclick = () => { AU.setSfx(!AU.pref.sfx); AU.sfx("tick"); tap(6); render(); };
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
