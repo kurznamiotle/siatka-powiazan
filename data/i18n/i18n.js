@@ -24,16 +24,25 @@
     },
     use(lang) { if (!this.packs[lang]) throw new Error("Unknown language: " + lang); this.lang = lang; },
     /* wartość klucza (tekst, funkcja, lista albo obiekt) z bieżącego języka, a gdy brak (null) z polskiego */
-    get(key) {
-      const cur = this.packs[this.lang], pl = this.packs.pl;
+    get(key, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl;
       let v = cur && cur.messages[key];
       if (v == null && pl) v = pl.messages[key];
       return v;
     },
     has(key) { return this.get(key) != null; },
     /* tekst z wstawkami {nazwa}: jeden przebieg, więc wstawiona wartość nie jest ponownie przetwarzana; nieznane {x} zostają */
-    t(key, vars) {
-      const v = this.get(key);
+    /* Język GENERATORA (teksty zbudowane w kodzie sprawy: klucze gen.*, gramatyka szablonów). Zależy od treści, nie od
+       interfejsu: dopóki język nie ma własnych treści (content.base), sprawa powstaje po polsku, choć interfejs jest
+       w tym języku. genOverride wymusza język generatora (testy: angielskie gen.* i gramatyka na polskich treściach). */
+    genLang() {
+      if (this.genOverride) return this.genOverride;
+      const p = this.packs[this.lang];
+      return p && p.content && p.content.base ? this.lang : "pl";
+    },
+    tg(key, vars) { return this.t(key, vars, this.genLang()); },
+    t(key, vars, lang) {
+      const v = this.get(key, lang);
       if (v == null) return key;
       if (typeof v === "function") return v(vars || {});
       if (typeof v !== "string" || !vars) return v;
@@ -52,7 +61,8 @@
     },
     /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
     glossary(id, label) { return label != null ? label : id; },
-    grammar() { const p = this.packs[this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    grammar(lang) { const p = this.packs[lang || this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    genGrammar() { return this.grammar(this.genLang()); },
     /* treści generatora bieżącego języka: { base, cities } */
     world(lang) {
       const p = this.packs[lang || this.lang], pl = this.packs.pl;
@@ -62,6 +72,6 @@
   };
   root.SiatkaI18n = I;
   // skrót t(klucz, zmienne) dla kodu interfejsu (przeglądarka); silnik i narzędzia biorą go z SiatkaI18n / Siatka.t
-  if (typeof window !== "undefined" && !window.t) window.t = (key, vars) => I.t(key, vars);
+  if (typeof window !== "undefined" && !window.t) window.t = (key, vars, lang) => I.t(key, vars, lang);
   if (typeof module !== "undefined" && module.exports) module.exports = I;
 })(typeof window !== "undefined" ? window : globalThis);

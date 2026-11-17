@@ -287,9 +287,9 @@
     {
       const x = route(C0), b = C0.s.bracket, arr = toHM(Math.max(b.tb + x.dp, A0)), back = toHM(Math.min(b.ta - x.dq, B0));
       const tw = tRules.map(r => { const w = B.traits[r.trait].why; return typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]; });
-      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? ". Do tego " + tw.join(", ") : "" }), C0.s.g)]);
+      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? t("gen.timeline.also", { tw: tw.join(", ") }) : "" }), C0.s.g)]);
     }
-    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
+    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => t("gen.timeline.owner_is", { what: lc1(c.def.name), mark: ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` })).join("; ") + "."]);
     const motives = (m => m.length ? m : avail(crime.motives.filter(o => typeof o === "string"), year, monthIdx))(avail(ofWho(crime.motives, C0), year, monthIdx));
     const bq = C0.s.bracket;
     const epilogue = T(t("gen.timeline.first_pick_o_tohm_byl_byla", { first: C0.first, pick: R.pick(motives), toHM: toHM(bq.tb), in: LOCS[bq.p].in, toHM2: toHM(bq.tb + d(bq.p, 0)), toHM3: toHM(bq.ta), in2: LOCS[bq.q].in }), C0.s.g);

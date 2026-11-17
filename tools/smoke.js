@@ -42,7 +42,8 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
 
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
-  const URL = process.env.SMOKE_URL || `http://127.0.0.1:${server.address().port}/index.html`; // SMOKE_URL: test produkcji (dopisz #dev, żeby nie wysyłać analityki)
+  const LANG = process.env.SMOKE_LANG || ((process.argv.find(a => a.startsWith("--lang=")) || "").slice(7)) || "pl"; // --lang=en (albo SMOKE_LANG=en): ?lang=en#dev (angielski interfejs, sprawa po polsku)
+  const URL = process.env.SMOKE_URL || `http://127.0.0.1:${server.address().port}/index.html` + (LANG === "en" ? "?lang=en#dev" : ""); // SMOKE_URL: test produkcji (dopisz #dev, żeby nie wysyłać analityki)
   const PORT = 9400 + Math.floor(Math.random() * 400);
   profile = fs.mkdtempSync(path.join(os.tmpdir(), "siatka-smoke-"));
   proc = spawn(chrome, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--mute-audio",
@@ -111,20 +112,23 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
 
   // 1. samouczek przy pierwszym uruchomieniu, wszystkie kroki
   await waitFor(visible("howto"), "samouczek nie otworzył się sam przy pierwszym uruchomieniu");
-  const total = +(await ev(`(document.getElementById("hwStep").textContent.match(/z (\\d+)/) || [])[1]`));
+  const total = +(await ev(`(document.getElementById("hwStep").textContent.match(/(\\d+)\\D*$/) || [])[1]`));
+  const tl = (key, vars) => ev(`t(${JSON.stringify(key)}, ${JSON.stringify(vars || {})})`); // tekst w języku testu
+  const lastTitle = await tl("ui.tutorial.oskarzenie");
   if (!(total >= 4)) fail(`samouczek ma ${total} kroków, a powinien co najmniej 4`);
   const titles = [];
   for (let k = 1; k <= total; k++) {
     const st = await ev(`({ step: document.getElementById("hwStep").textContent, title: document.getElementById("hwTitle").textContent,
       stage: document.getElementById("hwStage").innerHTML.length, txt: document.getElementById("hwTxt").textContent.length })`);
-    if (st.step !== `Krok ${k} z ${total}`) fail(`oczekiwano „Krok ${k} z ${total}”, jest „${st.step}”`);
+    const wantStep = await tl("ui.tutorial.krok_v_z_length", { v: k, length: total });
+    if (st.step !== wantStep) fail(`oczekiwano „${wantStep}”, jest „${st.step}”`);
     if (!st.title || st.stage < 200 || st.txt < 20) fail(`pusta plansza samouczka na kroku ${k} (${st.title})`);
     if (/undefined|NaN|object Object/.test(await ev(`document.getElementById("hwCard").innerHTML`))) fail(`plansza ${k} („${st.title}”) ma „undefined”/„NaN” w treści`);
     titles.push(st.title);
     await click("hwNext");
   }
   if (await ev(visible("howto"))) fail("samouczek nie zamknął się po ostatnim kroku");
-  if (titles[titles.length - 1] !== "Oskarżenie") fail(`ostatnia plansza to „${titles[titles.length - 1]}”, a powinno być „Oskarżenie”`);
+  if (titles[titles.length - 1] !== lastTitle) fail(`ostatnia plansza to „${titles[titles.length - 1]}”, a powinno być „${lastTitle}”`);
   ok(`samouczek: ${total} kroki (${titles.join(" → ")})`);
   if (await ev(`localStorage.getItem("siatka-howto")`) !== "1") fail("samouczek nie zapisał flagi siatka-howto");
 
@@ -135,18 +139,25 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   // 3. Ustawienia → Jak grać
   await click("menuBtn");
   await waitFor(visible("menu") + ` && document.getElementById("setHowto")`, "Ustawienia się nie otworzyły");
+  // język: przełącznik tylko w #dev, <html lang> i <title> zgodne z językiem
+  const hasSwitch = await ev(`!!document.getElementById("langEn")`);
+  if (hasSwitch !== (LANG === "en")) fail(LANG === "en" ? "w #dev brak przełącznika języka w Ustawieniach" : "przełącznik języka widoczny poza #dev");
+  const doc = await ev(`({ lang: document.documentElement.lang, title: document.title, i18n: SiatkaI18n.lang })`);
+  if (doc.lang !== LANG || doc.i18n !== LANG || doc.title !== await tl("ui.html.title")) fail(`język strony: ${JSON.stringify(doc)}, a powinno być ${LANG}`);
+  if (LANG === "en" && !/translation in progress/.test(await ev(`document.getElementById("menuCard").innerText`))) fail("przy English brak dopisku o tłumaczeniu spraw");
+  ok(`język ${LANG}: <html lang>, <title>${hasSwitch ? ", przełącznik w Ustawieniach" : ", bez przełącznika poza #dev"}`);
   await click("setHowto");
   await waitFor(visible("howto"), "„Jak grać” nie otworzyło samouczka");
-  if (await ev(`document.getElementById("hwStep").textContent`) !== `Krok 1 z ${total}`) fail("„Jak grać” nie zaczyna od kroku 1");
+  if (await ev(`document.getElementById("hwStep").textContent`) !== await tl("ui.tutorial.krok_v_z_length", { v: 1, length: total })) fail("„Jak grać” nie zaczyna od kroku 1");
   for (let k = 1; k < total; k++) await click("hwNext");
-  if (await ev(`document.getElementById("hwTitle").textContent`) !== "Oskarżenie") fail("„Jak grać”: ostatni krok to nie „Oskarżenie”");
+  if (await ev(`document.getElementById("hwTitle").textContent`) !== lastTitle) fail("„Jak grać”: ostatni krok to nie „" + lastTitle + "”");
   await click("hwSkip");
   if (await ev(visible("howto"))) fail("„Pomiń” nie zamknęło samouczka");
   ok("Ustawienia → „Jak grać” → wszystkie kroki → Pomiń");
 
   // 4. sprawa dnia, akta, notatnik
   await click("dailyBtn");
-  await waitFor(`document.querySelector("#board .node") && /Sprawa/.test(document.getElementById("caseLine").textContent)`, "sprawa dnia się nie wczytała");
+  await waitFor(`document.querySelector("#board .node") && /·/.test(document.getElementById("caseLine").textContent)`, "sprawa dnia się nie wczytała");
   const line = await ev(`document.getElementById("caseLine").textContent.trim()`);
   // oś czasu: jednorazowa karta „Nowy typ sprawy” (pojawia się 400 ms po wczytaniu) zasłania tablicę i zakładki
   for (let t = 0; t < 1500 && !await ev(`!!document.getElementById("tlGo")`); t += 100) await sleep(100);

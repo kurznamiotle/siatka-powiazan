@@ -135,6 +135,12 @@ function renderNews() {
 const hapticAvailable = typeof navigator.vibrate === "function" || ios;
 const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-l">${label}</span>${sub ? `<small>${sub}</small>` : ""}</span>
   <button class="switch" id="${id}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button></div>`;
+/* Język / Language: widoczny tylko, gdy angielski jest dostępny (#dev albo SiatkaI18n.EN_PUBLIC). Zmiana przeładowuje grę. */
+const LANG = window.SiatkaI18n;
+const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
+  : t("ui.settings.language_html", { plOn: LANG.lang === "pl" ? " on" : "", enOn: LANG.lang === "en" ? " on" : "",
+    note: LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>` });
+const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
 function render() {
   if (view === "news") return renderNews();
   let app;
@@ -142,7 +148,7 @@ function render() {
   else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
   else if (hint()) app = t("ui.settings.zainstaluj_gre_html", { hint: hint() });
   else app = "";
-  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", SUPPORT_URL });
+  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", v5: langRow(), SUPPORT_URL });
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
@@ -154,6 +160,7 @@ function render() {
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
   if ($("setInstall")) $("setInstall").onclick = () => run("ustawienia");
+  if ($("langPl")) { $("langPl").onclick = () => setLanguage("pl"); $("langEn").onclick = () => setLanguage("en"); }
 }
 function refresh() { if (!$("menu").hidden) render(); }
 function open() { view = "main"; render(); $("menu").hidden = false; AU.sfx("paper"); }

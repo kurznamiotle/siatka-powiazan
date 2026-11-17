@@ -156,7 +156,7 @@
     if (P < 1) return null;
     const useAlibi = R.chance(.6);
     const traitIds = R.sample(TRAITS.filter(t => t !== "known"), useAlibi ? P - 1 : P);
-    const rules = [...(useAlibi ? [{ type: t("gen.classic.alibi") }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
+    const rules = [...(useAlibi ? [{ type: "alibi" }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
       ...traitIds.map(t => ({ type: "trait", trait: t, value: t === "shoe" ? null : R.pick(B.traits[t].ruleValues || B.traits[t].values) }))];
     /* 2.2: reguły nietypowe zastępują reguły cech: najwyżej 1 w S–M, 2 w L–XL */
     {
@@ -172,7 +172,7 @@
     }
     if (rules.some(r => r.type === "cmp") && rules.some(r => r.trait === "height")) return null;
     if (rules.some(r => r.trait === "known") && rules.some(r => r.trait === "motive")) return null;
-    if (!rules.some(r => r.type === t("gen.classic.alibi") || r.type === "trait" || r.u)) return null;
+    if (!rules.some(r => r.type === "alibi" || r.type === "trait" || r.u)) return null;
     const ruleKey = r => r.type === "trait" ? "trait:" + r.trait : r.type;
 
     /* 6. Podejrzani */
@@ -235,7 +235,7 @@
       } else {
         const pool = okTraps.filter(i => i !== wIdx);
         trap = pool.length && R.chance(.7) ? R.pick(pool) : R.pick(okTraps);
-        if (r.type === t("gen.classic.alibi")) { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
+        if (r.type === "alibi") { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
         else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); if (!satisfyItem(s, trap)) return null; }
         else if (r.u) { if (!satisfyItem(s, trap)) return null; } // cmp, relation, absent: wartości po tożsamościach
         else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); if (!addPresence(s, locOf[trap], outT)) return null; }
@@ -258,7 +258,7 @@
     /* ZMYŁKA: fałszywe alibi. Brzmi jak potwierdzone, ale obala je zdanie w aktach innej osoby.
        Najczęściej kłamie sprawca, czasem niewinny, który i tak odpada z innego powodu. */
     if (useAlibi && R.chance(.55)) cul.fakeAlibi = true;
-    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== t("gen.classic.alibi")); if (c.length) S[R.pick(c)].fakeAlibi = true; }
+    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== "alibi"); if (c.length) S[R.pick(c)].fakeAlibi = true; }
 
     /* 7. Tożsamości */
     const roles = [...A(B.roles), ...A(city.roles || []), city.worker].filter(r => r && inYears(r, year, monthIdx));
@@ -353,8 +353,8 @@
       const s = Pp.s;
       if (hasK) for (const li of s.keys) facts.push({ type: "has_key", who: Pp.id, where: LOCS[li].id });
       for (const p of s.pres) facts.push({ type: "presence", who: Pp.id, where: LOCS[p.loc].id, at: toHM(p.t) });
-      facts.push(s.alibi || s.fakeAlibi ? { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
-                         : { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
+      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
+                         : { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
       if (s.fakeAlibi) facts.push({ type: "alibi_debunked", who: Pp.id });
       for (const t of [...TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: s.traits[t] });
       facts.push({ type: "trait", who: Pp.id, trait: "height_cm", value: Pp.cm });
@@ -395,11 +395,11 @@
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
           cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
-        else if (f.type === t("gen.classic.alibi") && !Pp.s.fakeAlibi && iniOk(Pp)) {
+        else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
           const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
           // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
-          if (f.confirmed && !lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === t("gen.classic.alibi") });
-          else if (!f.confirmed && lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
+          if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
+          else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
         }
         else if (f.type === "trait" && ruleTraits.has(f.trait) && iniOk(Pp) && (f.trait === "shoe" || f.value === "yes")) {
           // listy z motywem i kwity tylko pasujące do osoby (licealista bez weksla i wymówienia z pracy)
@@ -464,7 +464,7 @@
     /* 2.1.2: kontrola spójności. Nikt nie jest w dwóch miejscach naraz ani w trakcie własnego alibi. */
     for (const Pp of persons) {
       const ps = facts.filter(f => (f.type === "presence" || f.type === "roster_entry") && f.who === Pp.id).map(f => ({ w: f.where, t: toMin(f.at) }));
-      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
       for (let i = 0; i < ps.length; i++) {
         if (ps[i].t >= ALIBI_FROM) return null;
         if (al && al.confirmed && ps[i].t >= toMin(al.from) && ps[i].t <= toMin(al.to)) return null;
@@ -500,8 +500,8 @@
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
-      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
-      const evAl = evOf(Pp, t("gen.classic.alibi"));
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      const evAl = evOf(Pp, "alibi");
       if (evAl) { // alibi potwierdza dopiero dowód rzeczowy
         const said = evAl.claim || al; // przy dokumencie, który obala alibi, teczka podaje godziny z zeznania
         text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: said.from, to: said.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
@@ -512,7 +512,7 @@
         const pool = alibisFor(Pp).filter(x => !s.fakeAlibi || x.debunk), own = pool.filter(x => x.roles);
         const a = pickU(own.length && R.chance(.5) ? own : pool);
         usedAlibi.push(a.text);
-        text.push(T(`Od ${al.from} do ${al.to} ${a.text}.`, g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
+        text.push(T(t("gen.classic.alibi_from_to", { from: al.from, to: al.to, text: a.text }), g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
         if (s.fakeAlibi) debunks.push({ who: Pp.idx, line: a.debunk });
       }
       else text.push(T(pickU(noJanitor(forP(B.claimFrame, Pp))).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
@@ -592,7 +592,7 @@
     if (evs.some(c => c.ess)) hints.splice(RE.int(0, 2), 0, evs.some(c => c.mark === "flat")
       ? t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly")
       : t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
-    if (useAlibi && evs.some(c => c.kind === t("gen.classic.alibi"))) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
+    if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
     hints = hints.slice(0, 3);
     // 2.2.1: para zapisana rzeczownikami w mianowniku, po dwukropku, z pełnymi nazwiskami obu osób („Piotr Kowal i Alicja Baran: szwagrostwo”),
     // bo „Piotr i Alicja Baran to szwagrostwo” czyta się jak dwie osoby o tym samym nazwisku; bez odmiany nazwisk (zbyt ryzykowna)
@@ -602,7 +602,7 @@
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
       if (e.rule.type === "cmp") return [Pp.first, t("gen.classic.ma_cm_cm_a_sprawca_jest", { cm: Pp.cm, v: e.rule.dir === "up" ? t("gen.classic.wyzszy") : t("gen.classic.nizszy"), refName: e.rule.refName, refCm: e.rule.refCm, n })];
-      if (e.rule.type === "relation") return [`${Pp.first} ${Pp.last} i ${e.rule.refName}:`, Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
+      if (e.rule.type === "relation") return [t("gen.classic.pair_names", { a: `${Pp.first} ${Pp.last}`, b: e.rule.refName }), Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
         : t("gen.classic.w_teczce_nie_ma_nic_co", { n })];
       if (e.rule.type === "absent") return [Pp.first, T(t("gen.classic.jest_w_zeszycie_dozorcy_o_tohm", { toHM: toHM(Pp.s.yard), n }), g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
@@ -613,7 +613,7 @@
     if (absentRule) extraBits.push(t("gen.classic.nie_ma_go_jej_w_zeszycie"));
     why.push([C0.first, T(t("gen.classic.spelnia_wszystkie_reguly_join", { join: [describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ") }), C0.s.g)]);
     if (evs.length) {
-      const owners = evs.map(c => `${lc1(c.def.name)} (${c.mark === "flat" ? "m. " + c.Pp.flat : ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`);
+      const owners = evs.map(c => t("gen.classic.owner_is", { what: lc1(c.def.name), mark: c.mark === "flat" ? t("gen.classic.flat_short", { n: c.Pp.flat }) : ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` }));
       why.push([evs.length > 1 ? t("gen.classic.dowody_rzeczowe") : t("gen.classic.dowod_rzeczowy"), owners.join("; ") + "."]);
     }
     const hNames = herrings.map(h => lc1(I[h].name));
@@ -627,7 +627,7 @@
     const mList = heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives;
     // gdy nic nie pasuje do osoby, zapasowo tylko motywy bez tagów (nigdy dorosłe sprawy u licealisty)
     const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait || o.vt)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
-    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? "O " + toHM(tTake.t) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
+    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? t("gen.classic.at_time", { toHM: toHM(tTake.t) }) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
@@ -655,7 +655,7 @@
   /* ---------------- pomocnicze teksty ---------------- */
   function ruleText(B, R, crime, crimeId, scene, r, a, b, T, sub) {
     const pickL = x => R.pick(Array.isArray(x) ? x : [x]);
-    if (r.type === t("gen.classic.alibi")) return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
+    if (r.type === "alibi") return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
     if (r.type === "window") return pickL(crime.windowRule);
     if (r.type === "key") return pickL(crime.keyRule);
     if (r.type === "fate") return T(B.fates[r.value].rule, "m");
@@ -681,7 +681,7 @@
     return T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: value, cm: Pp.cm });
   }
   function hintText(B, r, n, a, b, hasW) {
-    if (r.type === t("gen.classic.alibi")) return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
+    if (r.type === "alibi") return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
     if (r.type === "window") return t("gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi", { n });
     if (r.type === "key") return hasW ? t("gen.classic.regula_n_kto_byl_przy_przedmiocie", { n }) : t("gen.classic.regula_n_sprawdz_kto_ma_klucze", { n });
     if (r.type === "fate") return t("gen.classic.regula_n_sprawdz_w_aktach_przedmiotow", { n });
@@ -693,7 +693,7 @@
   }
   function whyText(B, Pp, e, loc, li, item, itemFate, n, hasW, hasK, T) {
     const r = e.rule, g = Pp.s.g;
-    if (r.type === t("gen.classic.alibi")) return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
+    if (r.type === "alibi") return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
     if (r.type === "dump") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_nie", { acc: item.acc, T: T(B.fates[itemFate].place, g), n, it: t("gen.classic.it_" + item.g) }), g); // it = „go / ją / je / je” wg rodzaju przedmiotu
     if (r.type === "window") {
       const p = Pp.s.pres.find(x => x.loc === li);

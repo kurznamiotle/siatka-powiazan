@@ -48,8 +48,8 @@
   /* ---------------- tekst ---------------- */
   /* Gramatyka zależy od języka (data/i18n/<język>.js): odmiana [a|b|c] wg rodzaju, liczba mnoga, wyliczenie, kwoty słownie. */
   const I18N = () => root.SiatkaI18n;
-  const G = () => I18N().grammar();
-  const t = (key, vars) => I18N().t(key, vars);
+  const G = () => I18N().genGrammar();
+  const t = (key, vars) => I18N().tg(key, vars);
   const tx = (str, g, vars) => G().tx(str, g, vars);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };

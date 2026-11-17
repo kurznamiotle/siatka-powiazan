@@ -200,6 +200,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .mode:hover{color:var(--fg);border-color:var(--muted)}
 .mode:disabled{opacity:.45;cursor:default;color:var(--muted);border-color:var(--desk-edge)}
 /* ustawienia */
+.set-lang{display:flex;gap:8px;margin:6px 0}
+.set-lang .pick{flex:1;text-align:center;font-family:var(--f-pixel);font-size:15px;padding:8px}
+.set-note{display:block;font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
 .set-go{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .set-go .pick{text-align:center;font-family:var(--f-pixel);font-size:15px;padding:10px 8px}
 .set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--paper-shade)}
@@ -386,16 +389,25 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     },
     use(lang) { if (!this.packs[lang]) throw new Error("Unknown language: " + lang); this.lang = lang; },
     /* wartość klucza (tekst, funkcja, lista albo obiekt) z bieżącego języka, a gdy brak (null) z polskiego */
-    get(key) {
-      const cur = this.packs[this.lang], pl = this.packs.pl;
+    get(key, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl;
       let v = cur && cur.messages[key];
       if (v == null && pl) v = pl.messages[key];
       return v;
     },
     has(key) { return this.get(key) != null; },
     /* tekst z wstawkami {nazwa}: jeden przebieg, więc wstawiona wartość nie jest ponownie przetwarzana; nieznane {x} zostają */
-    t(key, vars) {
-      const v = this.get(key);
+    /* Język GENERATORA (teksty zbudowane w kodzie sprawy: klucze gen.*, gramatyka szablonów). Zależy od treści, nie od
+       interfejsu: dopóki język nie ma własnych treści (content.base), sprawa powstaje po polsku, choć interfejs jest
+       w tym języku. genOverride wymusza język generatora (testy: angielskie gen.* i gramatyka na polskich treściach). */
+    genLang() {
+      if (this.genOverride) return this.genOverride;
+      const p = this.packs[this.lang];
+      return p && p.content && p.content.base ? this.lang : "pl";
+    },
+    tg(key, vars) { return this.t(key, vars, this.genLang()); },
+    t(key, vars, lang) {
+      const v = this.get(key, lang);
       if (v == null) return key;
       if (typeof v === "function") return v(vars || {});
       if (typeof v !== "string" || !vars) return v;
@@ -414,7 +426,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     },
     /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
     glossary(id, label) { return label != null ? label : id; },
-    grammar() { const p = this.packs[this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    grammar(lang) { const p = this.packs[lang || this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    genGrammar() { return this.grammar(this.genLang()); },
     /* treści generatora bieżącego języka: { base, cities } */
     world(lang) {
       const p = this.packs[lang || this.lang], pl = this.packs.pl;
@@ -424,7 +437,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   };
   root.SiatkaI18n = I;
   // skrót t(klucz, zmienne) dla kodu interfejsu (przeglądarka); silnik i narzędzia biorą go z SiatkaI18n / Siatka.t
-  if (typeof window !== "undefined" && !window.t) window.t = (key, vars) => I.t(key, vars);
+  if (typeof window !== "undefined" && !window.t) window.t = (key, vars, lang) => I.t(key, vars, lang);
   if (typeof module !== "undefined" && module.exports) module.exports = I;
 })(typeof window !== "undefined" ? window : globalThis);
 
@@ -506,6 +519,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.classic.it_n": "je",
     "gen.classic.it_pl": "je",
     "gen.classic.klasyczna_sprawa": "Klasyczna sprawa",
+    "gen.classic.alibi_from_to": "Od {from} do {to} {text}.",
+    "gen.classic.at_time": "O {toHM}",
+    "gen.classic.pair_names": "{a} i {b}:",
+    "gen.classic.owner_is": "{what} ({mark}) to {who}",
+    "gen.classic.flat_short": "m. {n}",
     "gen.classic.brak_modulu_sprites": "Brak modułu sprites",
     "gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa": "a narzędzie znaleziono {dumpPlace}, gdzie [bywa|bywa] codziennie",
     "gen.classic.a_los_narzedzia_zgadza_sie_z": "a los narzędzia zgadza się z ustaleniami",
@@ -521,7 +539,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.classic.ma_klucz_do_gen_ale": "ma klucz do {gen}, ale ",
     "gen.classic.mogl_mogla_zabrac_acc_ale_nie": "[mógł|mogła] zabrać {acc}, ale nie bywa codziennie {T}, gdzie {it} znaleziono (reguła {n}).",
     "gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n": "ma potwierdzone alibi: {alibiTxt} (reguła {n}).",
-    "gen.classic.alibi": "alibi",
     "gen.classic.regula_n_v": "Reguła {n}: {v}",
     "gen.classic.regula_n_hint": "Reguła {n}: {hint}",
     "gen.classic.regula_n_replace": "Reguła {n}: {replace}",
@@ -593,6 +610,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.classic.v_pllist_zamek_nieuszkodzony": "{v} {plList}. Zamek nieuszkodzony.",
     "gen.classic.v_pllist_others_zamek_nieuszkodzony": "{v} {plList}. {others} Zamek nieuszkodzony.",
     "gen.timeline.os_czasu": "Oś czasu",
+    "gen.timeline.also": ". Do tego {tw}",
+    "gen.timeline.owner_is": "{what} ({mark}) to {who}",
     "gen.timeline.nikt_nie_jest_w_dwoch_miejscach": "Nikt nie jest w dwóch miejscach naraz. Kto zdążył?",
     "gen.timeline.first_pick_o_tohm_byl_byla": "{first} {pick}. O {toHM} [był|była] jeszcze {in}, o {toHM2} już na miejscu zdarzenia, a o {toHM3} [pokazał|pokazała] się {in2}, jakby nic się nie stało.",
     "gen.timeline.dowod_rzeczowy": "Dowód rzeczowy:",
@@ -616,7 +635,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.solver.id_fakt_type_dotyczy_who_nie": "{id}: fakt {type} dotyczy {who}, nie właściciela",
     "gen.solver.id_znak_wskazuje_v_a_dowod": "{id}: znak wskazuje {v}, a dowód należy do {owner}",
     "gen.solver.id_znak_kind_value_pasuje_do": "{id}: znak {kind}={value} pasuje do {length} osób",
-    "gen.solver.alibi": "alibi",
     "ui.game.label_city_name_year_size_seed": "{label} · {city_name}, {year} · {size} · seed {seed} · generator {caseVersion} · {st}, pomyłki {wrong}, podpowiedzi {hints}",
     "ui.game.rozwiazana": "rozwiązana",
     "ui.game.samouczek_pierwsze_uruchomienie": "Samouczek: pierwsze uruchomienie",
@@ -713,7 +731,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.stuknij_menu_b_b_potem_b_4": "Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.",
     "ui.settings.w_safari_stuknij_b_udostepnij_b": "W Safari stuknij <b>Udostępnij</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.",
     "ui.settings.gra_zainstalowana": "Gra zainstalowana",
-    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.cases_in_progress": "(sprawy: tłumaczenie w toku)",
     "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Samouczek: wyjście z gry na kroku {v}",
     "ui.tutorial.samouczek_pominiety_na_kroku_v": "Samouczek pominięty na kroku {v}",
     "ui.tutorial.samouczek_ukonczony": "Samouczek ukończony",
@@ -1113,8 +1133,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   /* ---------------- tekst ---------------- */
   /* Gramatyka zależy od języka (data/i18n/<język>.js): odmiana [a|b|c] wg rodzaju, liczba mnoga, wyliczenie, kwoty słownie. */
   const I18N = () => root.SiatkaI18n;
-  const G = () => I18N().grammar();
-  const t = (key, vars) => I18N().t(key, vars);
+  const G = () => I18N().genGrammar();
+  const t = (key, vars) => I18N().tg(key, vars);
   const tx = (str, g, vars) => G().tx(str, g, vars);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -1377,7 +1397,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  * żeby znak pasował do dokładnie jednej osoby i żeby była to osoba z faktu.
  */
 (function (root) {
-  const t = (key, vars) => root.SiatkaI18n.t(key, vars);
+  const t = (key, vars) => root.SiatkaI18n.tg(key, vars);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
   function indexFacts(c, skip) {
@@ -1386,7 +1406,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       if (skip && skip(f)) continue;
       if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
       else if (f.type === "presence") ix.pres.push(f);
-      else if (f.type === t("gen.solver.alibi")) (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
+      else if (f.type === "alibi") (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
       else if (f.type === "trait") (ix.trait[f.who] = ix.trait[f.who] || {})[f.trait] = f.value;
       else if (f.type === "item_origin") ix.origin[f.what] = f.where;
       else if (f.type === "item_moved") ix.moved[f.what] = f;
@@ -1670,7 +1690,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     if (P < 1) return null;
     const useAlibi = R.chance(.6);
     const traitIds = R.sample(TRAITS.filter(t => t !== "known"), useAlibi ? P - 1 : P);
-    const rules = [...(useAlibi ? [{ type: t("gen.classic.alibi") }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
+    const rules = [...(useAlibi ? [{ type: "alibi" }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
       ...traitIds.map(t => ({ type: "trait", trait: t, value: t === "shoe" ? null : R.pick(B.traits[t].ruleValues || B.traits[t].values) }))];
     /* 2.2: reguły nietypowe zastępują reguły cech: najwyżej 1 w S–M, 2 w L–XL */
     {
@@ -1686,7 +1706,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     }
     if (rules.some(r => r.type === "cmp") && rules.some(r => r.trait === "height")) return null;
     if (rules.some(r => r.trait === "known") && rules.some(r => r.trait === "motive")) return null;
-    if (!rules.some(r => r.type === t("gen.classic.alibi") || r.type === "trait" || r.u)) return null;
+    if (!rules.some(r => r.type === "alibi" || r.type === "trait" || r.u)) return null;
     const ruleKey = r => r.type === "trait" ? "trait:" + r.trait : r.type;
 
     /* 6. Podejrzani */
@@ -1749,7 +1769,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       } else {
         const pool = okTraps.filter(i => i !== wIdx);
         trap = pool.length && R.chance(.7) ? R.pick(pool) : R.pick(okTraps);
-        if (r.type === t("gen.classic.alibi")) { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
+        if (r.type === "alibi") { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
         else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); if (!satisfyItem(s, trap)) return null; }
         else if (r.u) { if (!satisfyItem(s, trap)) return null; } // cmp, relation, absent: wartości po tożsamościach
         else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); if (!addPresence(s, locOf[trap], outT)) return null; }
@@ -1772,7 +1792,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* ZMYŁKA: fałszywe alibi. Brzmi jak potwierdzone, ale obala je zdanie w aktach innej osoby.
        Najczęściej kłamie sprawca, czasem niewinny, który i tak odpada z innego powodu. */
     if (useAlibi && R.chance(.55)) cul.fakeAlibi = true;
-    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== t("gen.classic.alibi")); if (c.length) S[R.pick(c)].fakeAlibi = true; }
+    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== "alibi"); if (c.length) S[R.pick(c)].fakeAlibi = true; }
 
     /* 7. Tożsamości */
     const roles = [...A(B.roles), ...A(city.roles || []), city.worker].filter(r => r && inYears(r, year, monthIdx));
@@ -1867,8 +1887,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const s = Pp.s;
       if (hasK) for (const li of s.keys) facts.push({ type: "has_key", who: Pp.id, where: LOCS[li].id });
       for (const p of s.pres) facts.push({ type: "presence", who: Pp.id, where: LOCS[p.loc].id, at: toHM(p.t) });
-      facts.push(s.alibi || s.fakeAlibi ? { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
-                         : { type: t("gen.classic.alibi"), who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
+      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
+                         : { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
       if (s.fakeAlibi) facts.push({ type: "alibi_debunked", who: Pp.id });
       for (const t of [...TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: s.traits[t] });
       facts.push({ type: "trait", who: Pp.id, trait: "height_cm", value: Pp.cm });
@@ -1909,11 +1929,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
           cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
-        else if (f.type === t("gen.classic.alibi") && !Pp.s.fakeAlibi && iniOk(Pp)) {
+        else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
           const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
           // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
-          if (f.confirmed && !lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === t("gen.classic.alibi") });
-          else if (!f.confirmed && lieMode) cands.push({ kind: t("gen.classic.alibi"), f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
+          if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
+          else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
         }
         else if (f.type === "trait" && ruleTraits.has(f.trait) && iniOk(Pp) && (f.trait === "shoe" || f.value === "yes")) {
           // listy z motywem i kwity tylko pasujące do osoby (licealista bez weksla i wymówienia z pracy)
@@ -1978,7 +1998,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     /* 2.1.2: kontrola spójności. Nikt nie jest w dwóch miejscach naraz ani w trakcie własnego alibi. */
     for (const Pp of persons) {
       const ps = facts.filter(f => (f.type === "presence" || f.type === "roster_entry") && f.who === Pp.id).map(f => ({ w: f.where, t: toMin(f.at) }));
-      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
       for (let i = 0; i < ps.length; i++) {
         if (ps[i].t >= ALIBI_FROM) return null;
         if (al && al.confirmed && ps[i].t >= toMin(al.from) && ps[i].t <= toMin(al.to)) return null;
@@ -2014,8 +2034,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
-      const al = facts.find(f => f.type === t("gen.classic.alibi") && f.who === Pp.id);
-      const evAl = evOf(Pp, t("gen.classic.alibi"));
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      const evAl = evOf(Pp, "alibi");
       if (evAl) { // alibi potwierdza dopiero dowód rzeczowy
         const said = evAl.claim || al; // przy dokumencie, który obala alibi, teczka podaje godziny z zeznania
         text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: said.from, to: said.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
@@ -2026,7 +2046,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         const pool = alibisFor(Pp).filter(x => !s.fakeAlibi || x.debunk), own = pool.filter(x => x.roles);
         const a = pickU(own.length && R.chance(.5) ? own : pool);
         usedAlibi.push(a.text);
-        text.push(T(`Od ${al.from} do ${al.to} ${a.text}.`, g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
+        text.push(T(t("gen.classic.alibi_from_to", { from: al.from, to: al.to, text: a.text }), g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
         if (s.fakeAlibi) debunks.push({ who: Pp.idx, line: a.debunk });
       }
       else text.push(T(pickU(noJanitor(forP(B.claimFrame, Pp))).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
@@ -2106,7 +2126,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     if (evs.some(c => c.ess)) hints.splice(RE.int(0, 2), 0, evs.some(c => c.mark === "flat")
       ? t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly")
       : t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
-    if (useAlibi && evs.some(c => c.kind === t("gen.classic.alibi"))) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
+    if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
     hints = hints.slice(0, 3);
     // 2.2.1: para zapisana rzeczownikami w mianowniku, po dwukropku, z pełnymi nazwiskami obu osób („Piotr Kowal i Alicja Baran: szwagrostwo”),
     // bo „Piotr i Alicja Baran to szwagrostwo” czyta się jak dwie osoby o tym samym nazwisku; bez odmiany nazwisk (zbyt ryzykowna)
@@ -2116,7 +2136,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const why = innocents.map(sIdx => {
       const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
       if (e.rule.type === "cmp") return [Pp.first, t("gen.classic.ma_cm_cm_a_sprawca_jest", { cm: Pp.cm, v: e.rule.dir === "up" ? t("gen.classic.wyzszy") : t("gen.classic.nizszy"), refName: e.rule.refName, refCm: e.rule.refCm, n })];
-      if (e.rule.type === "relation") return [`${Pp.first} ${Pp.last} i ${e.rule.refName}:`, Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
+      if (e.rule.type === "relation") return [t("gen.classic.pair_names", { a: `${Pp.first} ${Pp.last}`, b: e.rule.refName }), Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
         : t("gen.classic.w_teczce_nie_ma_nic_co", { n })];
       if (e.rule.type === "absent") return [Pp.first, T(t("gen.classic.jest_w_zeszycie_dozorcy_o_tohm", { toHM: toHM(Pp.s.yard), n }), g)];
       return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
@@ -2127,7 +2147,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     if (absentRule) extraBits.push(t("gen.classic.nie_ma_go_jej_w_zeszycie"));
     why.push([C0.first, T(t("gen.classic.spelnia_wszystkie_reguly_join", { join: [describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ") }), C0.s.g)]);
     if (evs.length) {
-      const owners = evs.map(c => `${lc1(c.def.name)} (${c.mark === "flat" ? "m. " + c.Pp.flat : ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`);
+      const owners = evs.map(c => t("gen.classic.owner_is", { what: lc1(c.def.name), mark: c.mark === "flat" ? t("gen.classic.flat_short", { n: c.Pp.flat }) : ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` }));
       why.push([evs.length > 1 ? t("gen.classic.dowody_rzeczowe") : t("gen.classic.dowod_rzeczowy"), owners.join("; ") + "."]);
     }
     const hNames = herrings.map(h => lc1(I[h].name));
@@ -2141,7 +2161,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const mList = heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives;
     // gdy nic nie pasuje do osoby, zapasowo tylko motywy bez tagów (nigdy dorosłe sprawy u licealisty)
     const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait || o.vt)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
-    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? "O " + toHM(tTake.t) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
+    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? t("gen.classic.at_time", { toHM: toHM(tTake.t) }) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
 
     const vg = scene.vg || "m";
     const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
@@ -2169,7 +2189,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   /* ---------------- pomocnicze teksty ---------------- */
   function ruleText(B, R, crime, crimeId, scene, r, a, b, T, sub) {
     const pickL = x => R.pick(Array.isArray(x) ? x : [x]);
-    if (r.type === t("gen.classic.alibi")) return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
+    if (r.type === "alibi") return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
     if (r.type === "window") return pickL(crime.windowRule);
     if (r.type === "key") return pickL(crime.keyRule);
     if (r.type === "fate") return T(B.fates[r.value].rule, "m");
@@ -2195,7 +2215,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     return T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: value, cm: Pp.cm });
   }
   function hintText(B, r, n, a, b, hasW) {
-    if (r.type === t("gen.classic.alibi")) return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
+    if (r.type === "alibi") return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
     if (r.type === "window") return t("gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi", { n });
     if (r.type === "key") return hasW ? t("gen.classic.regula_n_kto_byl_przy_przedmiocie", { n }) : t("gen.classic.regula_n_sprawdz_kto_ma_klucze", { n });
     if (r.type === "fate") return t("gen.classic.regula_n_sprawdz_w_aktach_przedmiotow", { n });
@@ -2207,7 +2227,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   }
   function whyText(B, Pp, e, loc, li, item, itemFate, n, hasW, hasK, T) {
     const r = e.rule, g = Pp.s.g;
-    if (r.type === t("gen.classic.alibi")) return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
+    if (r.type === "alibi") return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
     if (r.type === "dump") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_nie", { acc: item.acc, T: T(B.fates[itemFate].place, g), n, it: t("gen.classic.it_" + item.g) }), g); // it = „go / ją / je / je” wg rodzaju przedmiotu
     if (r.type === "window") {
       const p = Pp.s.pres.find(x => x.loc === li);
@@ -2553,9 +2573,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     {
       const x = route(C0), b = C0.s.bracket, arr = toHM(Math.max(b.tb + x.dp, A0)), back = toHM(Math.min(b.ta - x.dq, B0));
       const tw = tRules.map(r => { const w = B.traits[r.trait].why; return typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]; });
-      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? ". Do tego " + tw.join(", ") : "" }), C0.s.g)]);
+      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? t("gen.timeline.also", { tw: tw.join(", ") }) : "" }), C0.s.g)]);
     }
-    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => `${lc1(c.def.name)} (${ini(c.Pp)}) to ${c.Pp.first} ${c.Pp.last}`).join("; ") + "."]);
+    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => t("gen.timeline.owner_is", { what: lc1(c.def.name), mark: ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` })).join("; ") + "."]);
     const motives = (m => m.length ? m : avail(crime.motives.filter(o => typeof o === "string"), year, monthIdx))(avail(ofWho(crime.motives, C0), year, monthIdx));
     const bq = C0.s.bracket;
     const epilogue = T(t("gen.timeline.first_pick_o_tohm_byl_byla", { first: C0.first, pick: R.pick(motives), toHM: toHM(bq.tb), in: LOCS[bq.p].in, toHM2: toHM(bq.tb + d(bq.p, 0)), toHM3: toHM(bq.ta), in2: LOCS[bq.q].in }), C0.s.g);
@@ -19698,6 +19718,496 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 </script>
 <script>
 /*
+ * Siatka – a Polish Crime Board — English: grammar for the template engine and all UI/generator strings (key → text).
+ *
+ * Style: British English, dry noir tone. Polish names, places, brands and untranslatable terms stay Polish
+ *. Placeholders {name}, HTML ids and classes are kept exactly as in pl.js.
+ *
+ * Grammar (SiatkaI18n.grammar()):
+ *   tx(text, gender, vars)  {k} → vars[k], then [a|b|c|d] → variant by gender (m, f, n, pl)
+ *                           glossary marker {g:term} / {g:term|label} → SiatkaI18n.glossary(term, label)
+ *   plural(n, one, few, many) → English has only one/other: few and many are the same form
+ *   list(["a","b","c"]) → "a, b and c" (British, no serial comma)
+ *   slug(text) → id without diacritics
+ *   amount(n, unit) → "2 thousand złoty", "5 million złoty", "2.5 million złoty", "40 złoty"
+ *   moneyGen(s) → English has no genitive for money: returns s unchanged
+ *
+ * Reviewed against the engine (see git log): fragments are composed by engine/archetypes/*.js, so some keys carry
+ * English word order of their own (gen.classic.it_* = "it was"/"they were", gen.timeline.o_tb_… with explicit pronouns,
+ * gen.classic.at_time, owner_is, pair_names). Polish-only words that used to sit in the code are keys now.
+ */
+(function (root) {
+  "use strict";
+  const GIDX = { m: 0, f: 1, n: 2, pl: 3 };
+  function tx(str, g, vars) {
+    let s = String(str);
+    if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
+    s = s.replace(/\[([^\[\]]*)\]/g, (_, body) => { const parts = body.split("|"); return parts[Math.min(GIDX[g] || 0, parts.length - 1)]; });
+    s = s.replace(/\{g:([\w-]+)(?:\|([^{}]*))?\}/g, (m, id, label) => (root.SiatkaI18n ? root.SiatkaI18n.glossary(id, label) : (label != null ? label : id)));
+    // a/an before a word starting with a vowel sound (simple rule; "an hour", "a uniform" handled by exceptions)
+    return s.replace(/(^|[^\p{L}\p{N}_])([Aa]) (?=[A-Za-z])(\w+)/gu, (m, pre, a, word) => {
+      const w = word.toLowerCase();
+      const vowelSound = /^[aeiou]/.test(w) && !/^(uni|use|usu|eur|one|once)/.test(w) || /^(hour|honest|honour|heir)/.test(w);
+      return pre + (vowelSound ? (a === "A" ? "An" : "an") : a) + " " + word;
+    });
+  }
+  const list = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+  const plural = (n, one, few, many) => (n === 1 ? one : (many !== undefined ? many : few));
+  const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  function amount(n, unit) {
+    if (unit === "thousand") return `${n} thousand złoty`;
+    if (unit === "million") return `${n} million złoty`;
+    if (unit === "millionFrac") return `${n} million złoty`;
+    if (unit === "zloty") return `${n} złoty`;
+    throw new Error("Unknown amount unit: " + unit);
+  }
+  const moneyGen = s => s;
+  const grammar = { tx, plural, list, slug, amount, moneyGen };
+
+  /* BEGIN MESSAGES */
+  const messages = {
+    "gen.size.S": "Small",
+    "gen.size.M": "Medium",
+    "gen.size.L": "Large",
+    "gen.size.XL": "Huge",
+    "gen.police_dat.militia": "the Militia",
+    "gen.police_dat.police": "the police",
+    "ui.html.title": "Siatka – a Polish Crime Board",
+    "ui.html.loading_case": "Loading the case…",
+    "ui.html.tab_files": "Files",
+    "ui.html.tab_notes": "Notebook",
+    "ui.html.accuse_title": "Indictment",
+    "ui.html.culprit": "Culprit",
+    "ui.html.tool": "Weapon",
+    "ui.html.back_to_board": "Back to the board",
+    "ui.html.accuse_go": "Bring the charge",
+    "ui.html.newcase_sub": "Pick a city, a year and the size of the investigation. “Random” leaves the choice to the generator.",
+    "ui.html.city": "City",
+    "ui.html.year": "Year",
+    "ui.html.size": "Size",
+    "ui.html.cancel": "Cancel",
+    "ui.html.open_case": "Open the case",
+    "ui.html.skip": "Skip",
+    "ui.html.back": "Back",
+    "ui.html.archive_stamp": "ARCHIVE",
+    "ui.html.limit_title": "The archive is closed for today.",
+    "ui.html.limit_text": "Come back tomorrow for more cases, or unlock unlimited cases with the premium version (coming soon).",
+    "ui.html.lives": "Charges left",
+    "ui.html.settings": "Settings",
+    "ui.html.board": "Corkboard",
+    "gen.classic.it_m": "it was",
+    "gen.classic.it_f": "it was",
+    "gen.classic.it_n": "it was",
+    "gen.classic.it_pl": "they were",
+    "gen.classic.klasyczna_sprawa": "Classic case",
+    "gen.classic.alibi_from_to": "From {from} to {to}, {text}.",
+    "gen.classic.at_time": "At {toHM}",
+    "gen.classic.pair_names": "{a} and {b}:",
+    "gen.classic.owner_is": "{what} ({mark}) belongs to {who}",
+    "gen.classic.flat_short": "flat {n}",
+    "gen.classic.brak_modulu_sprites": "Sprites module missing",
+    "gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa": "and the weapon turned up {dumpPlace}, where [he|she] goes every day",
+    "gen.classic.a_los_narzedzia_zgadza_sie_z": "and what happened to the weapon matches the findings",
+    "gen.classic.nie_ma_alibi": "has no alibi",
+    "gen.classic.jego_jej_papiery_sa_z_innego": "[his|her] papers are from a different day, so there is no alibi",
+    "gen.classic.jego_jej_papiery_pokazuja_inne_godziny": "[his|her] papers show different times from [his|her] statement, so there is no alibi",
+    "gen.classic.jego_jej_alibi_okazalo_sie_klamstwem": "[his|her] alibi turned out to be a lie",
+    "gen.classic.byl_byla_in_we_wlasciwym_czasie": "was {in} at the right time",
+    "gen.classic.ma_klucz_do_gen": "has a key to {gen}",
+    "gen.classic.wf_regula_n": "{wf} (rule {n}).",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_t": "could have taken {acc}, but {T}, and that doesn't fit rule {n}.",
+    "gen.classic.we_wlasciwym_czasie": " at the right time",
+    "gen.classic.ma_klucz_do_gen_ale": "has a key to {gen}, but ",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_nie": "could have taken {acc}, but isn't {T} every day, and that is where {it} found (rule {n}).",
+    "gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n": "has a confirmed alibi: {alibiTxt} (rule {n}).",
+    "gen.classic.regula_n_v": "Rule {n}: {v}",
+    "gen.classic.regula_n_hint": "Rule {n}: {hint}",
+    "gen.classic.regula_n_replace": "Rule {n}: {replace}",
+    "gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot": "Rule {n}: compare where the items were found with where each person goes every day.",
+    "gen.classic.regula_n_sprawdz_w_aktach_przedmiotow": "Rule {n}: check the item files for what happened to each of them.",
+    "gen.classic.regula_n_sprawdz_kto_ma_klucze": "Rule {n}: check who has keys to which places.",
+    "gen.classic.regula_n_kto_byl_przy_przedmiocie": "Rule {n}: who was near the item at the right time but had no key?",
+    "gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi": "Rule {n}: compare when the items went missing with who was there and when.",
+    "gen.classic.regula_n_kto_ma_potwierdzone_alibi": "Rule {n}: who has a confirmed alibi for {a}–{b}?",
+    "gen.classic.jego": "his",
+    "gen.classic.jej": "her",
+    "gen.classic.zeznal": "stated",
+    "gen.classic.zeznala": "stated",
+    "gen.classic.ktory": "who",
+    "gen.classic.ktora": "who",
+    "gen.classic.widzial": "saw",
+    "gen.classic.widziala": "saw",
+    "gen.classic.stal": "stood",
+    "gen.classic.stala": "stood",
+    "gen.classic.niego": "him",
+    "gen.classic.niej": "her",
+    "gen.classic.tego_wieczoru": "That evening",
+    "gen.classic.to_falszywy_trop_nie_pasuje_do": "is a false lead. It doesn't fit the rules about where, when and by whom the weapon went missing.",
+    "gen.classic.to_falszywe_tropy_zaden_nie_pasuje": "are false leads. None of them fits the rules about where, when and by whom the weapon went missing.",
+    "gen.classic.dowod_rzeczowy": "Evidence:",
+    "gen.classic.dowody_rzeczowe": "Evidence:",
+    "gen.classic.spelnia_wszystkie_reguly_join": "fits every rule: {join}.",
+    "gen.classic.nie_ma_go_jej_w_zeszycie": "isn't in the {g:dozorca|caretaker}'s notebook",
+    "gen.classic.relacja_z_osoba_refname_what": "connection to {refName} ({what})",
+    "gen.classic.mniej": "less",
+    "gen.classic.wiecej": "more",
+    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "is in the {g:dozorca|caretaker}'s notebook: crossed the courtyard at {toHM} (rule {n}).",
+    "gen.classic.w_teczce_nie_ma_nic_co": "nothing in the file connects them (rule {n}).",
+    "gen.classic.relnoun_a_nie_relnoun2_regula_n": "{relNoun}, not {relNoun2} (rule {n}).",
+    "gen.classic.nizszy": "shorter",
+    "gen.classic.wyzszy": "taller",
+    "gen.classic.szwagrostwo": "in-laws",
+    "gen.classic.szwagierki": "sisters-in-law",
+    "gen.classic.szwagrowie": "brothers-in-law",
+    "gen.classic.sasiedzi_z_jednej_klatki": "neighbours on the same staircase",
+    "gen.classic.sasiedzi_z_klatki": "neighbours on the staircase",
+    "gen.classic.wspolpracownicy_z_jednego_zakladu": "workmates at the same plant",
+    "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papers don't always say what the suspects say. Compare the times and dates on the documents with their statements.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Evidence carries no names. Match the initials and flat numbers to the people's files.",
+    "gen.classic.nie_kazde_alibi_sie_trzyma_porownaj": "Not every alibi holds up. Compare what different people say about the same evening.",
+    "gen.classic.dowod_rzeczowy_2": "Evidence",
+    "gen.classic.przedmiot": "Item",
+    "gen.classic.gone_from_tego_dnia": "{gone} {from} that day.",
+    "gen.classic.gone_from_miedzy_tohm_a_tohm2": "{gone} {from} between {toHM} and {toHM2}.",
+    "gen.classic.zniknely": "Went missing",
+    "gen.classic.zniknelo": "Went missing",
+    "gen.classic.zniknela": "Went missing",
+    "gen.classic.zniknal": "Went missing",
+    "gen.classic.miejsce": "Place",
+    "gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl": "The door usually stands open. Anyone could walk in.",
+    "gen.classic.nikt_z_podejrzanych_nie_ma_tu": "None of the suspects has a key here. The lock is intact.",
+    "gen.classic.klucz_ma": "Key held by",
+    "gen.classic.klucze_maja": "Keys held by",
+    "gen.classic.only_zamek_nieuszkodzony": "{only} The lock is intact.",
+    "gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy": "That evening two things went missing from here: {plList}.",
+    "gen.classic.szwagier": "brother-in-law",
+    "gen.classic.szwagierka": "sister-in-law",
+    "gen.classic.byl_byla_in_v_ale_nie": "was {in}{v}, but has no key (rule {n}).",
+    "gen.classic.v_byl_byla_in_o_tohm": "{v}was {in} at {toHM}, outside the time the items went missing (rule {n}).",
+    "gen.classic.first_pick_v_zabral_zabrala_acc": "{first} {pick}. {v} [he|she] took {acc} {from} {epilogueEnd}",
+    "gen.classic.ma_cm_cm_v_niz_refname": "is {cm} cm, {v} than {refName} ({refCm} cm)",
+    "gen.classic.ma_cm_cm_a_sprawca_jest": "is {cm} cm, and the culprit is {v} than {refName} ({refCm} cm) (rule {n}).",
+    "gen.classic.v_pllist_zamek_nieuszkodzony": "{v} {plList}. The lock is intact.",
+    "gen.classic.v_pllist_others_zamek_nieuszkodzony": "{v} {plList}. {others} The lock is intact.",
+    "gen.timeline.os_czasu": "Timeline",
+    "gen.timeline.also": ". On top of that [he|she] {tw}",
+    "gen.timeline.owner_is": "{what} ({mark}) belongs to {who}",
+    "gen.timeline.nikt_nie_jest_w_dwoch_miejscach": "Nobody can be in two places at once. So who made it in time?",
+    "gen.timeline.first_pick_o_tohm_byl_byla": "{first} {pick}. At {toHM} [he|she] was still {in}, at {toHM2} already at the scene, and at {toHM3} [he|she] turned up {in2} as if nothing had happened.",
+    "gen.timeline.dowod_rzeczowy": "Evidence:",
+    "gen.timeline.dowody_rzeczowe": "Evidence:",
+    "gen.timeline.zdazyl_a_o_tb_in_dp": "made it: at {tb} [he|she] was {in}, {dp} min on foot, then at the scene from {arr} to {back}, that's {len} min inside the window ({from}–{to}); then {dq} min on foot and at {ta} [he|she] was {in2}{v}.",
+    "gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia": "could have reached the scene, but {wf} (rule {ruleNo}).",
+    "gen.timeline.nadal_tam": "still there",
+    "gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w": "couldn't have been there for a single minute of the window",
+    "gen.timeline.moglby_moglaby_tam_byc_najwyzej_od": "could have been there from {toHM} to {toHM2} at most, that's {len} min",
+    "gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
+    "gen.timeline.regula_ruleno_lc1": "Rule {ruleNo}: {lc1}",
+    "gen.timeline.dowod_rzeczowy_2": "Evidence",
+    "gen.timeline.miejsce": "Place",
+    "gen.timeline.miejsce_zdarzenia": "Scene of the crime",
+    "gen.timeline.stad_pieszo_join": "On foot from here: {join}.",
+    "gen.timeline.miejsce_zdarz": "Scene",
+    "gen.timeline.miejsce_zdarzenia_2": " (scene of the crime)",
+    "gen.timeline.tu_to_sie_stalo": "This is where it happened.",
+    "gen.timeline.tu_to_sie_stalo_where": "This is where it happened, {where}.",
+    "gen.timeline.o_tb_byl_byla_in_a": "at {tb} [he|she] was {in}, and at {ta} [he|she] was {v}. With the walk to the scene ({dp} min) and back ({dq} min), [he|she] {where}, and the culprit spent at least {stay} min there (rule {ruleNo}).",
+    "gen.solver.id_fakt_type_dotyczy_who_nie": "{id}: fact {type} concerns {who}, not the owner",
+    "gen.solver.id_znak_wskazuje_v_a_dowod": "{id}: the mark points to {v}, but the evidence belongs to {owner}",
+    "gen.solver.id_znak_kind_value_pasuje_do": "{id}: mark {kind}={value} fits {length} people",
+    "ui.game.label_city_name_year_size_seed": "{label} · {city_name}, {year} · {size} · seed {seed} · generator {caseVersion} · {st}, mistakes {wrong}, hints {hints}",
+    "ui.game.rozwiazana": "solved",
+    "ui.game.samouczek_pierwsze_uruchomienie": "Tutorial: first launch",
+    "ui.game.zapis_sprawy_z_archiwum_pominiety": "Archive case save skipped",
+    "ui.game.zapis_sprawy_dnia_pominiety": "Daily case save skipped",
+    "ui.game.sprawa_na_rozgrzewke": "Warm-up case",
+    "ui.game.sprawa_dnia": "Case of the Day",
+    "ui.game.limit_nowych_spraw_wyczerpany": "No new cases left today",
+    "ui.game.nowe_sprawy_za_v_v2_min": "New cases in {v}{v2} min, at midnight.",
+    "ui.game.zostalo": "left",
+    "ui.game.zostala": "left",
+    "ui.game.nowa_sprawa_left_daily_new_cases": "New case · {left}/{DAILY_NEW_CASES}",
+    "ui.game.nowa_sprawa": "New case",
+    "ui.game.nie_udalo_sie": "That didn't work",
+    "ui.game.wynik_jako_obrazek": "Result as an image",
+    "ui.game.udostepniono": "Shared",
+    "ui.game.brak_obrazka": "no image",
+    "ui.game.archiwum": "archive",
+    "ui.game.wsparcie_tworcy_wynik": "Support the creator: result",
+    "ui.game.blad_w_sprawie_logice": "Error in case/logic",
+    "ui.game.wynik_udostepniony": "Result shared",
+    "ui.game.wynik_skopiowany": "Result copied",
+    "ui.game.podoba_ci_sie_postaw_komisarzowi_html": "<p class=\"support-line\"><a id=\"supportLink\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Enjoying it? Buy the commissioner a coffee ☕</a></p>",
+    "ui.game.nowa_sprawa_html": "<button class=\"btn red full\" id=\"againBtn\">New case</button>",
+    "ui.game.sprawa_dnia_html": "<button class=\"btn red full\" id=\"toDailyBtn\">Case of the Day</button>",
+    "ui.game.kopiuj_wynik": "Copy result",
+    "ui.game.udostepnij": "Share",
+    "ui.game.niedomkniety": "not closed",
+    "ui.game.domkniety": "closed",
+    "ui.game.a_narzedziem_v": ", and the weapon was {v}",
+    "ui.game.byl": "was",
+    "ui.game.byla": "was",
+    "ui.game.sprawa_umorzona": "CASE DROPPED",
+    "ui.game.sprawa_zamknieta": "CASE CLOSED",
+    "ui.game.siatka_powiazan_label_city_name_year": "Siatka · {label}\n{city_name}, {year}\n{repeat}{v} {repeat2}{repeat3}\nHints: {hints} · {time}",
+    "ui.game.sprawa_dnia_2": "case of the day",
+    "ui.game.przegrana": "Lost",
+    "ui.game.wygrana": "Won",
+    "ui.game.wynik": "Result",
+    "ui.game.zostaly_left_proby": "{left} tries left.",
+    "ui.game.zostala_1_proba": "1 try left.",
+    "ui.game.podpowiedz_hints": "Hint {hints}",
+    "ui.game.podpowiedz_v": "Hint ({v})",
+    "ui.game.podpowiedz_v_max": "Hint {v}/{max}",
+    "ui.game.powiazania_html": "<p class=\"how\">Connections: {join}</p>",
+    "ui.game.wyklucz": "Rule out",
+    "ui.game.przywroc": "Restore",
+    "ui.game.przedmioty": "items",
+    "ui.game.przedmiotow": "items",
+    "ui.game.dowodow_rzeczowych": "pieces of evidence",
+    "ui.game.dowody_rzeczowe": "pieces of evidence",
+    "ui.game.dowod_rzeczowy": "piece of evidence",
+    "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Detective's notebook</h2><div class=\"kind\">Findings from forensics and the doctor</div><ol>{join}</ol>{travelTable}",
+    "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Walking times</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
+    "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Tap a pulsing pin or a photo to run a string from: {name}.",
+    "ui.game.laczenie": "Connecting",
+    "ui.game.przetnij_sznurek_html": "<path class=\"s\" data-k=\"{k}\" d=\"{d}\"/><path class=\"hit\" data-k=\"{k2}\" d=\"{d2}\"><title>Cut the string</title></path>",
+    "ui.game.name_otworz_akta": "{name}, open the file",
+    "ui.game.oskarz": "Accuse",
+    "ui.game.os_czasu_karta_wprowadzajaca": "Timeline: intro card",
+    "ui.game.nowy_typ_sprawy_os_czasu_html": "<div class=\"card tl-card\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"tlH\"><h3 id=\"tlH\">New kind of case: the timeline</h3>\n    <p>Nobody can be in two places at once. The notebook has a table of walking times, and the files say when each person was seen and where. Work out who could have walked to the scene, stayed there as long as the rule says, and got back in time.</p>\n    <table class=\"tt\"><tbody><tr><td>Kiosk ↔ Scene of the crime</td><td>10 min</td></tr><tr><td>Bar ↔ Scene of the crime</td><td>15 min</td></tr></tbody></table>\n    <p class=\"ex\">The culprit spent at least 10 min at the scene. Anna was at the kiosk at 19:00 and at the bar at 19:40. The walk there (10 min), 10 min at the scene and the walk to the bar (15 min) make 35 min. She had 40, so she could have made it. Had she been at the bar at 19:30, she couldn't.</p>\n    <p>You only accuse the culprit. No weapon this time.</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"tlGo\">Get to work</button></div></div>",
+    "ui.game.hl_cars_re": "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)",
+    "ui.game.hl_keys_re": "(?<k>(?:key|padlock|lock|alibi|witness)\\p{L}*|\\p{Lu}\\.\\p{Lu}\\.|flat (?:no\\. )?\\d+|(?:number|no\\.) \\d+)",
+    "ui.game.sprawa_dnia_v": "Case of the Day, {v}",
+    "ui.game.nowa_sprawa_na_dzis_v_left": "New case, {left} of {DAILY_NEW_CASES} {v} today",
+    "ui.game.sprawca_html": "<p>The culprit {v} {name}{v2}.</p>",
+    "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "The prosecutor throws out the indictment. The facts don't add up. {v}",
+    "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Case file</button></div>\n    {v2}",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Case file · {np} suspects · {v}{evTxt} ·{length} rules{v2}</div><p>{rich}</p>\n      <p class=\"how\">Tap a photo to read the file. Drag a string from pin to pin to connect the facts. Tap a string to cut it. The rules are in the notebook.</p>",
+    "ui.game.sprawa_porzucona_v_size_devicetype": "Case abandoned: {v} {size} ({deviceType})",
+    "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Reasoning</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Your board</div>\n    <div class=\"stat\">Strings backed by facts: {good} · unsupported: {bad}<br>Culprit's circuit ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Cases of the Day</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>streak</span></div><div><b>{best}</b><span>best</span></div><div><b>{pct}%</b><span>won</span></div><div><b>{played}</b><span>played</span></div></div>\n    <div class=\"lbl\">All cases</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>played</span></div><div><b>{pct2}%</b><span>won</span></div><div><b>{v7}</b><span>average time</span></div></div>\n    <div class=\"lbl\">Result to share</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Save image</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Something doesn't add up? Report it</button></p>\n    {v10}",
+    "ui.settings.wsparcie_tworcy_ustawienia": "Support the creator: settings",
+    "ui.settings.wibracje": "Vibration",
+    "ui.settings.spokojny_jazz_z_plyty": "Quiet jazz on vinyl",
+    "ui.settings.efekty_dzwiekowe": "Sound effects",
+    "ui.settings.osiagniecia_html": "<button class=\"pick wide set-ach\" id=\"setAch\">Achievements <small>{got}/{all}</small></button>",
+    "ui.settings.zainstaluj_gre_html": "<p class=\"set-note\"><b>Install the game:</b> {hint}</p>",
+    "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Install the game</button><p class=\"set-note\">An icon on your home screen, full screen, and it works offline.</p>",
+    "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">The game is installed on this device.</p>",
+    "ui.settings.co_nowego_wroc_html": "<h3>What's new</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Back</button></div>",
+    "ui.settings.pelny_ekran": "Full screen",
+    "ui.settings.wyjdz_z_pelnego_ekranu": "Exit full screen",
+    "ui.settings.zgloszenie_uwagi": "Feedback: ",
+    "ui.settings.przegladarka": "browser",
+    "ui.settings.aplikacja": "app",
+    "ui.settings.inna_przegladarka": "other browser",
+    "ui.settings.samsung_internet": "Samsung Internet ",
+    "ui.settings.inny_system": "other system",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu": "Click the install icon in the address bar, or the <b>⋮</b> menu → <b>“Cast, save and share”</b> → <b>“Install page as app”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b": "Tap the <b>⋮</b> menu, then <b>“Add to Home screen”</b> → <b>“Install”</b>.",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2": "Click the install icon in the address bar, or the <b>…</b> menu → <b>“Apps”</b> → <b>“Install this site as an app”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_2": "Tap the <b>…</b> menu, then <b>“Add to phone”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_3": "Tap the <b>⋮</b> menu, then <b>“Install”</b> (or “Add to Home screen”).",
+    "ui.settings.stuknij_menu_b_b_potem_b_4": "Tap the <b>☰</b> menu, then <b>“Add page to”</b> → <b>“Home screen”</b>.",
+    "ui.settings.w_safari_stuknij_b_udostepnij_b": "In Safari, tap <b>Share</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, then <b>“Add to Home Screen”</b>.",
+    "ui.settings.gra_zainstalowana": "Game installed",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick wide\" id=\"setNews\">What's new{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.cases_in_progress": "(cases: translation in progress)",
+    "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Tutorial: left the game at step {v}",
+    "ui.tutorial.samouczek_pominiety_na_kroku_v": "Tutorial skipped at step {v}",
+    "ui.tutorial.samouczek_ukonczony": "Tutorial completed",
+    "ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html": "<button class=\"btn ghost\" id=\"hwInstallBtn\">Install the game on your phone</button><small>An icon on your home screen, full screen, works offline.</small>",
+    "ui.tutorial.graj_jak_w_aplikacji_html": "<b>Play it like an app.</b> {hintHtml}",
+    "ui.tutorial.dalej": "Next",
+    "ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html": "<div class=\"hw-desk\"></div><span class=\"hw-lives\"><i></i><i></i><i></i></span>\n        <span class=\"hw-btn\">Accuse</span>\n        <div class=\"hw-acc\"><b class=\"h\">Indictment</b><span>Culprit: <b>{name}</b></span><span>Weapon: <b>{toLowerCase}</b></span>\n          <span class=\"hw-stamp\">CASE CLOSED</span><span class=\"hw-stars\">★★★</span></div>{F}",
+    "ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r": "A hint never gives the answer away. It points to a rule worth checking.",
+    "ui.tutorial.gdy_wiesz_kto_i_czym_stuknij": "Once you know who did it and with what, tap “Accuse”. You get three tries. Every mistake costs a star, and so does using a hint.",
+    "ui.tutorial.oskarzenie": "The charge",
+    "ui.tutorial.spelnia_br_wszystkie": "fits<br>all",
+    "ui.tutorial.lamie_br_3": "breaks<br>3",
+    "ui.tutorial.lamie_br_1": "breaks<br>1",
+    "ui.tutorial.alibi": "alibi",
+    "ui.tutorial.garazu": "the garage",
+    "ui.tutorial.klucz": "key",
+    "ui.tutorial.ten_kto_nie_lamie_zadnej_reguly": "Whoever breaks no rule is the culprit. Made a mistake? “Restore” undoes it.",
+    "ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika": "The culprit fits every rule in the notebook. Every innocent breaks at least one – when they do, tap “Rule out” in their file.",
+    "ui.tutorial.sznurki_to_twoje_notatki_gra_nie": "The strings are your notes. The game won't tell you which are right. It only counts them at the end.",
+    "ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki": "Drag a string from pin to pin to connect a person with a place or an item. Pins that can be connected pulse. Tap a string to cut it.",
+    "ui.tutorial.sznurek": "The string",
+    "ui.tutorial.swiadkow": "Witnesses",
+    "ui.tutorial.spal": "asleep",
+    "ui.tutorial.spala": "asleep",
+    "ui.tutorial.piwnicy": "the cellar",
+    "ui.tutorial.ja": "her",
+    "ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i": "Suspects, places and items hang on the board. A red dot on a photo means you haven't read that file yet.",
+    "ui.tutorial.codziennie_nowa_sprawa_z_lat_90": "A new case from 1990s Poland every day. Tap a photo to open the file.",
+    "ui.tutorial.notatnik_sprawca_ma_do_nie_html": "<div class=\"hw-desk\"></div>\n        <div class=\"hw-note\"><b class=\"h\">Notebook</b><ol>\n          <li class=\"q1\">The culprit has a {k} to {l}.</li>\n          <li class=\"q2\">The culprit has no {k2} between {fxT} and {fxT2}.</li>\n          <li class=\"q3\">The culprit wears glasses.</li></ol></div>\n        {join}\n        {tag}{tag2}{tag3}",
+    "ui.stats.statystyki_otwarte": "Statistics opened",
+    "ui.stats.umorzone": "dropped",
+    "ui.stats.statystyki_wyniki_w_tej_przegladarce_html": "<h3>Statistics</h3><p class=\"sub\">Results in this browser.</p>\n    <div class=\"lbl\">Cases of the Day</div>\n    <div class=\"st-grid\">\n      <div><b>{cur}</b><span>streak</span></div><div><b>{best}</b><span>best</span></div>\n      <div><b>{pct}%</b><span>won</span></div><div><b>{played}</b><span>played</span></div>\n    </div>\n    <div class=\"lbl\">Stars in Cases of the Day</div>\n    {row}{row2}{row3}{row4}\n    <div class=\"lbl\">All cases</div>\n    <div class=\"st-grid three\">\n      <div><b>{played2}</b><span>played</span></div><div><b>{pct2}%</b><span>won</span></div>\n      <div><b>{v}</b><span>average time</span></div>\n    </div>\n    <p class=\"stat\">Archive cases: solved {won} of {played3}.</p>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"statsClose\">Close</button></div>",
+    "ui.ach.osiagniecia_html": "\n  <div class=\"overlay ach-pop\" id=\"achPop\" hidden><div class=\"card\" id=\"achPopCard\" role=\"dialog\" aria-modal=\"true\" aria-live=\"assertive\"></div></div>\n  <div class=\"overlay\" id=\"achList\" hidden><div class=\"card\" id=\"achListCard\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Achievements\"></div></div>",
+    "ui.ach.osiagniecia_otwarte": "Achievements opened",
+    "ui.ach.osiagniecia_zdobyte_z_zapisane_w_html": "<h3>Achievements</h3><p class=\"sub\">Earned: {got} of {all}. Saved in this browser.</p>\n    <ul class=\"ach-list\">{rows}</ul>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"achClose\">Close</button></div>",
+    "ui.ach.nowe_osiagniecie_html": "\n    <div class=\"ach-kicker\">New achievement</div>\n    <div class=\"ach-stage\"><div class=\"ach-rays\"></div>{badge}{repeat}</div>\n    <div class=\"ach-tier t{tier}\">{tierName}</div>\n    <h3>{name}</h3>\n    <p class=\"ach-desc\">{desc}</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"achOk\">{v}</button></div>",
+    "ui.ach.osiagniecie_name": "Achievement: {name}",
+    "ui.ach.zloto": "gold",
+    "ui.ach.braz": "bronze",
+    "ui.ach.weteran": "Veteran",
+    "ui.ach.zamknij_sprawe_z_kazdego_roku_od": "Close a case from every year from 1989 to 1999.",
+    "ui.ach.cala_dekada": "The whole decade",
+    "ui.ach.rozwiaz_sprawe_dnia_30_dni_z": "Solve the Case of the Day 30 days in a row.",
+    "ui.ach.miesiac_na_sluzbie": "A month on duty",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na": "Close a case with six suspects for three stars.",
+    "ui.ach.wielka_szostka": "The big six",
+    "ui.ach.zamknij_sprawe_kazdego_z_11_typow": "Close a case of each of the 11 kinds of crime.",
+    "ui.ach.wszechstronny": "All-rounder",
+    "ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu": "Close a case in each of the seven cities.",
+    "ui.ach.delegacja": "Out of town",
+    "ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z": "Solve the Case of the Day seven days in a row.",
+    "ui.ach.tydzien_na_sluzbie": "A week on duty",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi": "Close a case with six suspects.",
+    "ui.ach.grube_akta": "A thick file",
+    "ui.ach.wygraj_z_co_najmniej_10_sznurkami": "Win with at least 10 strings backed by facts.",
+    "ui.ach.pajeczyna": "Spider's web",
+    "ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i": "Win with the culprit's circuit closed and not a single unsupported string.",
+    "ui.ach.czysta_robota": "Clean job",
+    "ui.ach.zamknij_sprawe_w_mniej_niz_dwie": "Close a case in under two minutes.",
+    "ui.ach.blyskawica": "Lightning",
+    "ui.ach.staly_bywalec": "Regular",
+    "ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z": "Solve the Case of the Day three days in a row.",
+    "ui.ach.staly_rytm": "Steady beat",
+    "ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta": "Close a case between midnight and four in the morning.",
+    "ui.ach.nocna_zmiana": "Night shift",
+    "ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn": "Rule out every innocent before you accuse.",
+    "ui.ach.sito": "Sieve",
+    "ui.ach.wygraj_przy_ostatniej_probie": "Win on your last try.",
+    "ui.ach.ostatni_naboj": "Last bullet",
+    "ui.ach.zamknij_sprawe_na_trzy_gwiazdki": "Close a case for three stars.",
+    "ui.ach.bez_pudla": "Dead on",
+    "ui.ach.zamknij_pierwsza_sprawe": "Close your first case.",
+    "ui.ach.pierwsza_sprawa": "First case",
+    "ui.share.sprawa_umorzona": "CASE DROPPED",
+    "ui.share.sprawa_zamknieta": "CASE CLOSED",
+    "ui.share.dni": "days",
+    "ui.share.dzien": "day",
+    "ui.share.seria": "streak",
+    "ui.share.podpowiedzi": "hints",
+    "ui.share.pomylki": "mistakes",
+    "ui.share.czas": "time",
+    "ui.share.siatka_powiazan": "Siatka – a Polish Crime Board",
+    "ui.track.dniach": "days",
+    "ui.track.dniu": "day",
+    "ui.track.nowy_gracz": "New player",
+    "ui.track.powrot_w_dniu_n_po_pierwszej": "Return on day {n} after first game ({device})",
+    "ui.track.powrot_po_n_v": "Return after {n} {v}",
+    "ui.game.samouczek_przycisk": "Tutorial: button",
+    "ui.game.zaznaczono_skopiuj": "Selected – copy it",
+    "ui.game.min_html": "<tr><td>{nm} ↔ {nm2}</td><td>{m} min</td></tr>",
+    "ui.settings.aplikacja_html": "<div class=\"lbl\">App</div>{app}",
+    "ui.settings.nowe_html": "<span class=\"dot\" aria-label=\"new\"></span>",
+    "ui.settings.wersja_html": "<h4>Version {v}<small>{fmtDate}</small></h4><ul>{join}</ul>",
+    "ui.tutorial.krok_html": "<button data-j=\"{j}\" aria-label=\"Step {v}: {title}\"{v2}></button>",
+    "ui.tutorial.widziano_o_ma_do_od_html": "<div class=\"hw-desk\"></div>{pol}\n        <div class=\"hw-sheet\"><b class=\"h\">{name}</b><ul>\n          <li>Seen in {l} at {fxT}.</li>\n          <li>Has a {k} to {l2}.</li>\n          <li>{v2} from {fxT2}. {k2}: none.</li></ul></div>\n        <i class=\"hw-f\" style=\"--x:53px;--y:86px\"></i>",
+    "ui.ach.zdobyte_html": "<small>{v} · earned {date}</small>",
+    "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} of 3\">{repeat}{repeat2}</div>",
+    "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} of {need}</small>",
+    "ui.game.w_trakcie": "in progress",
+    "ui.game.sprawa_z_archiwum": "Archive case",
+    "ui.game.sprawa_padstart": "Case #{padStart}",
+    "ui.game.seria_cur": "\nStreak: {cur} 🔥",
+    "ui.game.seria_cur_dni": "{cur}-day streak",
+    "ui.game.wynik_starsof_z_3_gwiazdek": "Result: {starsOf} of 3 stars",
+    "ui.game.wygrana_devicetype": "Won ({deviceType})",
+    "ui.game.wykluczony": " · ruled out",
+    "ui.game.length_miejsca": "{length} places",
+    "ui.game.pinezka_name": "Pin: {name}",
+    "ui.game.start_v_size": "Start: {v} {size}",
+    "ui.settings.co_nowego": "What's new",
+    "ui.settings.muzyka_w_tle": "Background music",
+    "ui.settings.instalacja_v_where": "Install: {v} ({where})",
+    "ui.tutorial.do_roboty": "Get to work!",
+    "ui.tutorial.krok_v_z_length": "Step {v} of {length}",
+    "ui.tutorial.ilustracja_title": "Illustration: {title}",
+    "ui.tutorial.notatnik_i_wykluczanie": "Notebook and ruling out",
+    "ui.tutorial.na_miejscu": "at the scene",
+    "ui.tutorial.tablica_i_akta": "The board and the files",
+    "ui.ach.do_akt": "File it",
+    "ui.ach.dalej_left": "Next ({left})",
+    "gen.classic.komisarz_detective": "Commissioner {detective}",
+    "gen.classic.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
+    "gen.timeline.komisarz_detective": "Commissioner {detective}",
+    "gen.timeline.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
+    "gen.timeline.name_d_min": "{name}: {d} min",
+    "ui.changelog": null // „What's new”: until translated, the Polish list is shown
+  };
+  /* END MESSAGES */
+
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("./i18n.js") : null);
+  if (I18N) I18N.register("en", { messages, grammar });
+  if (typeof module !== "undefined" && module.exports) module.exports = { messages, grammar };
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
+ * Siatka Powiązań — wybór języka interfejsu (ładuje się po wszystkich paczkach językowych, przed grą).
+ * Kolejność: ?lang=pl|en w adresie (nadpisuje i zapamiętuje, do linków z itch i Reddita) → zapamiętany wybór
+ * (localStorage "siatka-lang") → pierwsza wizyta: navigator.language (pl* → polski, reszta → angielski), też zapamiętane.
+ * Angielski jest wybieralny tylko w #dev, dopóki EN_PUBLIC jest false (angielskich treści spraw jeszcze nie ma:
+ * interfejs byłby po angielsku, a sprawa po polsku). Gdy treści data/i18n/en/ będą gotowe, ustaw EN_PUBLIC = true.
+ */
+(function (root) {
+  "use strict";
+  const I = root.SiatkaI18n;
+  if (!I) return;
+  const KEY = "siatka-lang", EN_PUBLIC = false;
+  const store = {
+    get() { try { return localStorage.getItem(KEY); } catch (_) { return null; } },
+    set(v) { try { localStorage.setItem(KEY, v); } catch (_) {} }
+  };
+  const loc = root.location || { search: "", hash: "" };
+  I.EN_PUBLIC = EN_PUBLIC;
+  /* czy angielski jest dostępny w tej sesji */
+  I.enAvailable = () => !!I.packs.en && (EN_PUBLIC || loc.hash === "#dev");
+  /* język interfejsu dla tej sesji */
+  I.pick = function () {
+    if (!I.enAvailable()) return "pl";
+    let q = null;
+    try { q = new URLSearchParams(loc.search).get("lang"); } catch (_) {}
+    q = q && q.toLowerCase();
+    if (q === "pl" || q === "en") { store.set(q); return q; }
+    const saved = store.get();
+    if (saved === "pl" || saved === "en") return saved;
+    const nav = (root.navigator && (root.navigator.languages && root.navigator.languages[0] || root.navigator.language)) || "pl";
+    const lang = /^pl/i.test(nav) ? "pl" : "en";
+    store.set(lang);
+    return lang;
+  };
+  /* <html lang> i <title> zgodne z językiem */
+  I.applyDocument = function () {
+    if (typeof document === "undefined") return;
+    document.documentElement.lang = I.lang;
+    document.title = I.t("ui.html.title");
+  };
+  /* zmiana języka z Ustawień: zapis, usunięcie ?lang z adresu (inaczej nadpisałby wybór) i przeładowanie */
+  I.setLang = function (lang) {
+    store.set(lang);
+    try {
+      const u = new URL(loc.href);
+      u.searchParams.delete("lang");
+      root.history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch (_) {}
+    root.location.reload();
+  };
+  I.use(I.pick());
+  I.applyDocument();
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
  * Siatka Powiązań — analityka (GoatCounter, bez ciasteczek i bez danych osobowych).
  * Panel: https://kurznamiotle.goatcounter.com
  * Zdarzenia to ścieżki, np. „sprawa/wygrana/daily”. Nic nie wychodzi lokalnie, z pliku ani w trybie #dev.
@@ -21642,6 +22152,12 @@ function renderNews() {
 const hapticAvailable = typeof navigator.vibrate === "function" || ios;
 const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-l">${label}</span>${sub ? `<small>${sub}</small>` : ""}</span>
   <button class="switch" id="${id}" role="switch" aria-checked="${on}" aria-label="${label}"><i></i></button></div>`;
+/* Język / Language: widoczny tylko, gdy angielski jest dostępny (#dev albo SiatkaI18n.EN_PUBLIC). Zmiana przeładowuje grę. */
+const LANG = window.SiatkaI18n;
+const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
+  : t("ui.settings.language_html", { plOn: LANG.lang === "pl" ? " on" : "", enOn: LANG.lang === "en" ? " on" : "",
+    note: LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>` });
+const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
 function render() {
   if (view === "news") return renderNews();
   let app;
@@ -21649,7 +22165,7 @@ function render() {
   else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
   else if (hint()) app = t("ui.settings.zainstaluj_gre_html", { hint: hint() });
   else app = "";
-  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", SUPPORT_URL });
+  $("menuCard").innerHTML = t("ui.settings.ustawienia_jak_grac_statystyki_co_html", { v: hasNews() ? t("ui.settings.nowe_html") : "", v2: window.SiatkaAch ? (c => t("ui.settings.osiagniecia_html", { got: c.got, all: c.all }))(window.SiatkaAch.count()) : "", sw: sw("swSfx", t("ui.settings.efekty_dzwiekowe"), !!AU.pref.sfx), sw2: sw("swMusic", t("ui.settings.muzyka_w_tle"), !!AU.pref.music, t("ui.settings.spokojny_jazz_z_plyty")), v3: hapticAvailable ? sw("swHaptic", t("ui.settings.wibracje"), !!prefs.haptic) : "", v4: app ? t("ui.settings.aplikacja_html", { app }) : "", v5: langRow(), SUPPORT_URL });
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
@@ -21661,6 +22177,7 @@ function render() {
   $("swMusic").onclick = () => { AU.setMusic(!AU.pref.music); tap(6); track(`ustawienia/muzyka-${AU.pref.music ? "wl" : "wyl"}`); render(); };
   if ($("swHaptic")) $("swHaptic").onclick = () => { prefs.haptic = !prefs.haptic; savePrefs(); tap(12); render(); };
   if ($("setInstall")) $("setInstall").onclick = () => run("ustawienia");
+  if ($("langPl")) { $("langPl").onclick = () => setLanguage("pl"); $("langEn").onclick = () => setLanguage("en"); }
 }
 function refresh() { if (!$("menu").hidden) render(); }
 function open() { view = "main"; render(); $("menu").hidden = false; AU.sfx("paper"); }

@@ -32,7 +32,8 @@ engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 087
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/i18n/            warstwa językowa (i18n): i18n.js (t, get, apply, world), pl.js (gramatyka + wszystkie teksty
                       jako klucze), pl/base.js, pl/cities.js, pl/changelog.js (treści generatora po polsku),
-                      en.js (szkielet: te same klucze, null)
+                      en.js (angielski: interfejs i teksty gen.* + gramatyka EN; treści spraw EN jeszcze nie ma),
+                      boot.js (wybór języka: ?lang, localStorage, navigator.language; <html lang>, <title>)
 data/i18n/pl/base.js  (dawniej data/base.js) warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
 data/i18n/pl/changelog.js  dziennik zmian („Co nowego” w Ustawieniach, kropka przy zębatce po nowej wersji;
@@ -41,6 +42,8 @@ data/i18n/pl/cities.js  (dawniej data/cities.js) paczki miast: Warszawa, Poznań
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
 tools/i18n-check.js   kontrola kluczy (każdy t("klucz") istnieje w pl.js, w kodzie brak polskich liter), raport en.js
 tools/i18n-skeleton.js tworzy/uzupełnia data/i18n/en.js (klucze z pl.js, null)
+tools/test-lang.js    ten sam seed w pl i en (angielskie gen.* na polskich treściach) daje tę samą strukturę sprawy
+docs/i18n-en-spec.md  specyfikacja tłumaczenia treści spraw: pola odmiany ({in}, {gen}, {from}…) i ich angielskie odpowiedniki
 tools/snapshot.js     zrzut sha1 tekstów spraw (dni 3–30.11, 4000 losowych, 1000 osi czasu, 300 z avoid) do porównania przed/po refaktorze
 tools/ui-snapshot.js  zrzut HTML 23 stanów interfejsu w headless Chrome (stała data) do porównania przed/po
 tools/generate.js     test generatora i zapis spraw do cases/generated/
@@ -72,7 +75,7 @@ Komendy:
 ## Języki (i18n)
 
 - **Kod nie ma polskich tekstów.** Gra i silnik wołają `t("klucz", { zmienne })` (przeglądarka: globalne `t`, silnik i archetypy: `Siatka.t` / `const t = Eng.t`). Klucze: `ui.*` (interfejs: `ui.game`, `ui.settings`, `ui.tutorial`, `ui.stats`, `ui.ach`, `ui.share`, `ui.track`, `ui.html`) i `gen.*` (teksty zbudowane w kodzie generatora: `gen.classic`, `gen.timeline`, `gen.solver`, `gen.size`, `gen.police_dat`). Wstawki `{nazwa}` (jeden przebieg, nieznane `{x}` zostają, więc zostają też wstawki szablonów generatora `{in}`, `{to}`). Statyczny HTML: `data-i18n="klucz"`, `data-i18n-vars`, `data-i18n-attr="atrybut:klucz"` (SiatkaI18n.apply). W `<head>` (title, meta, og) polski tekst zostaje.
-- **Paczka języka** (`SiatkaI18n.register(język, { messages, grammar, content })`): `data/i18n/pl.js` (teksty + gramatyka: `tx` czyli odmiana [m|f] i „ze”, `plural`, `list`, `slug`, `amount`, `moneyGen`), `pl/base.js` i `pl/cities.js` (treści generatora: role, cechy, alibi, sceny, dowody, reguły, podpowiedzi, epilogi, komentarze), `pl/changelog.js` (klucz `ui.changelog`). Silnik bierze gramatykę z `SiatkaI18n.grammar()` (`engine.js`: `tx`, `plural`, `plList`, `slug`, kwoty). Brak tłumaczenia (null) → tekst polski. Nowy język: `node tools/i18n-skeleton.js en`, potem tłumaczenia, gramatyka i treści generatora; `node tools/i18n-check.js` pokazuje braki. Nowy tekst w kodzie = nowy klucz w `pl.js` (nie dopisuj polskich liter do kodu: `i18n-check` w `npm test` to wyłapie).
+- **Paczka języka** (`SiatkaI18n.register(język, { messages, grammar, content })`): `data/i18n/pl.js` (teksty + gramatyka: `tx` czyli odmiana [m|f] i „ze”, `plural`, `list`, `slug`, `amount`, `moneyGen`), `pl/base.js` i `pl/cities.js` (treści generatora: role, cechy, alibi, sceny, dowody, reguły, podpowiedzi, epilogi, komentarze), `pl/changelog.js` (klucz `ui.changelog`). Silnik bierze gramatykę i teksty `gen.*` z języka GENERATORA (`SiatkaI18n.genGrammar()`, `tg()`): to język interfejsu tylko wtedy, gdy ma własne treści (`content.base`), inaczej sprawa powstaje po polsku, choć interfejs jest po angielsku (`genOverride` wymusza język w testach) (`engine.js`: `tx`, `plural`, `plList`, `slug`, kwoty). Brak tłumaczenia (null) → tekst polski. Nowy język: `node tools/i18n-skeleton.js en`, potem tłumaczenia, gramatyka i treści generatora; `node tools/i18n-check.js` pokazuje braki. Nowy tekst w kodzie = nowy klucz w `pl.js` (nie dopisuj polskich liter do kodu: `i18n-check` w `npm test` to wyłapie).
 - **Kartoteka** (słownik haseł, jeszcze nie ma): szablony przyjmą znacznik `{g:hasło}` albo `{g:hasło|tekst}`; `tx` zamienia go na `SiatkaI18n.glossary(hasło, tekst)`, a to na razie zwraca sam tekst. Żadnych znaczników w treściach jeszcze nie ma.
 - **Zamrożone wersje generatora** (`engine/versions/*`) są samowystarczalne i zostają bez i18n. Nowe zamrożenie (`freeze-version.js`) bierze też pliki `data/i18n/*` (każdy ma `(typeof window … globalThis)`, a `window.t` ustawia tylko wtedy, gdy go nie ma).
 - **Refaktor bez zmiany zachowania:** `node tools/snapshot.js zrzut.json` przed i po musi dać identyczne pliki, a `node tools/ui-snapshot.js <katalog> zrzut.json` (np. `git worktree` ze starym kodem) identyczne stany interfejsu. Zrzutów nie trzymamy w repozytorium.
@@ -225,3 +228,10 @@ Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `
 - Klimat: retro noir, pixel art, korek, polaroidy, maszynopis. Fonty: Pixelify Sans, Special Elite, Courier Prime.
 - Mobile first, pionowy ekran, duże strefy dotyku dla pinezek.
 - Teksty dla gracza: krótkie zdania, konkretne godziny i szczegóły z epoki.
+
+## Język interfejsu (EN)
+
+- Wybór języka (`data/i18n/boot.js`): `?lang=pl|en` w adresie (nadpisuje i zapamiętuje) → zapamiętany wybór (`siatka-lang`) → pierwsza wizyta: `navigator.language` (pl* → polski, reszta → angielski). `<html lang>` i `<title>` zmieniają się z językiem. Zmiana w Ustawieniach (`Język / Language`) zapisuje wybór i przeładowuje grę.
+- **Angielski jest ukryty za #dev** (`EN_PUBLIC = false` w `boot.js`): poza #dev zawsze polski, bez przełącznika, `?lang` i język przeglądarki są ignorowane. Przy English w Ustawieniach jest dopisek „(cases: translation in progress)”. Gdy treści `data/i18n/en/` będą gotowe: `EN_PUBLIC = true`, usunąć dopisek (warunek: brak `content.base`).
+- Test dymny z angielskim: `node tools/smoke.js --lang=en` (część `npm test`).
+- Kolejna praca: treści spraw EN wg `docs/i18n-en-spec.md`. Listy w `en/base.js` muszą mieć te same długości i kolejność co polskie, żeby ten sam seed dawał tę samą sprawę w obu językach (`tools/test-lang.js`).

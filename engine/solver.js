@@ -14,7 +14,7 @@
  * żeby znak pasował do dokładnie jednej osoby i żeby była to osoba z faktu.
  */
 (function (root) {
-  const t = (key, vars) => root.SiatkaI18n.t(key, vars);
+  const t = (key, vars) => root.SiatkaI18n.tg(key, vars);
   const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 
   function indexFacts(c, skip) {
@@ -23,7 +23,7 @@
       if (skip && skip(f)) continue;
       if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
       else if (f.type === "presence") ix.pres.push(f);
-      else if (f.type === t("gen.solver.alibi")) (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
+      else if (f.type === "alibi") (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
       else if (f.type === "trait") (ix.trait[f.who] = ix.trait[f.who] || {})[f.trait] = f.value;
       else if (f.type === "item_origin") ix.origin[f.what] = f.where;
       else if (f.type === "item_moved") ix.moved[f.what] = f;
