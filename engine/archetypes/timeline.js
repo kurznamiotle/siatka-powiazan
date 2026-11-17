@@ -216,12 +216,34 @@
     const nodes = [], usedLines = new Set();
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx);
     const flavorPool = R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx)));
+    /* Zdania obserwacji z kotwicami czasu. Kotwica miejsca (anc: close, lunch, break) najwyżej raz na miejsce,
+       kotwica ogólna (radio, bells, watch, clock) najwyżej raz na sprawę. Po zamknięciu sklepu (close) o T
+       nie ma już świadków, którzy zakładają, że jest otwarty (open:true): zostają świadkowie z zewnątrz. */
+    const PLACE_ANC = ["close", "lunch", "break"], obsText = new Map(), placeUsed = new Set(), genUsed = new Set(), closedAt = {}, lastOpen = {};
+    const allObs = [];
+    persons.forEach(Pp => { for (const o of Pp.s.obs) if (!evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) allObs.push({ Pp, o }); });
+    allObs.sort((x, y) => x.o.t - y.o.t);
+    for (const { Pp, o } of allObs) {
+      const loc = LOCS[o.w], meta = new Map(), pool = [];
+      for (const e of TL.obsTpl) {
+        if (!fitsAt(e, loc.pt)) continue;
+        const m = typeof e === "string" ? {} : e, str = typeof e === "string" ? e : e.t;
+        if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
+        if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
+        if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
+        meta.set(str, m); pool.push(str);
+      }
+      const pickedT = pickU(pool), m = meta.get(pickedT);
+      if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
+      if (m.anc) {
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && loc.pt === "shop") closedAt[o.w] = o.t; }
+        else genUsed.add(m.anc);
+      }
+      obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
+    }
     persons.forEach(Pp => {
       const s = Pp.s, g = s.g, text = [];
-      for (const o of s.obs) {
-        if (evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) continue;
-        text.push(T(pickU(atTexts(TL.obsTpl, LOCS[o.w].pt)).replace("{in}", LOCS[o.w].in).replace("{t}", toHM(o.t)), g));
-      }
+      for (const o of s.obs) if (obsText.has(o)) text.push(obsText.get(o));
       for (const r of tRules) {
         const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
         text.push(T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: s.traits[r.trait], cm: Pp.cm }));

@@ -197,7 +197,29 @@ function timelineCheck(c) {
   if (open < 2) bad("oś czasu: trasę ma tylko sprawca");
   if (!r.stay || !/co najmniej \d+ minut/.test(r.text)) bad("oś czasu: reguła bez minimalnego pobytu");
   if (/od (\d+:\d\d) do \1/.test(c.why.map(w => w.join(" ")).join(" "))) bad("oś czasu: zerowy pobyt w wyjaśnieniu");
+  anchorCheck(c, bad);
 }
+/* Kotwice czasu w zdaniach świadków osi czasu: kotwica miejsca (zamykał okienko, wołano na obiad, zaczynała się
+   przerwa) najwyżej raz na miejsce, ogólna (sygnał czasu, dzwony, zegarek, zegar) najwyżej raz na sprawę.
+   Po zamknięciu okienka o T nikt, kto zakłada otwarty sklep (klient, kolejka, obsługa), nie widzi nikogo po T. */
+const GEN_ANCHORS = { radio: /sygnał czasu/, bells: /biły dzwony/, watch: /zegar(ek|ku)\b/, clock: /zegar nad/ };
+const PLACE_ANCHORS = { close: /zamykał okienko/, lunch: /wołano na obiad/, break: /zaczynała się przerwa/ };
+function anchorCheck(c, bad) {
+  const locs = c.nodes.filter(n => n.type === "location").map(n => ({ id: n.id, in: n.forms && n.forms[1] })).filter(l => l.in);
+  const texts = [];
+  for (const p of c.nodes.filter(n => n.type === "person")) for (const s of p.text) {
+    const m = /(\d\d):(\d\d)/.exec(s); if (!m) continue;
+    const loc = locs.filter(l => s.includes(l.in)).sort((x, y) => y.in.length - x.in.length)[0];
+    texts.push({ s, t: +m[1] * 60 + +m[2], loc: loc && loc.id });
+  }
+  for (const [k, re] of Object.entries(GEN_ANCHORS)) { const n = texts.filter(x => re.test(x.s)).length; if (n > 1) bad(`kotwica ogólna „${k}” ${n} razy w jednej sprawie`); }
+  const perPlace = {};
+  for (const x of texts) for (const [k, re] of Object.entries(PLACE_ANCHORS)) if (re.test(x.s)) perPlace[x.loc] = (perPlace[x.loc] || 0) + 1;
+  for (const [l, n] of Object.entries(perPlace)) if (n > 1) bad(`kotwica miejsca ${n} razy przy miejscu ${l}`);
+  for (const cl of texts.filter(x => PLACE_ANCHORS.close.test(x.s)))
+    for (const x of texts) if (x.loc === cl.loc && x !== cl && x.t >= cl.t && /w kolejce|z kolejki|Obsługa|Klient/.test(x.s)) bad(`świadek z otwartego sklepu po zamknięciu o ${cl.t}: ${x.s}`);
+}
+
 function coherence(c) {
   noDoubleBooking(c); coherence2(c); timelineCheck(c);
   // testament na kogoś innego niż sprawca nie idzie w parze z epilogiem o spadku albo mieszkaniu po ofierze

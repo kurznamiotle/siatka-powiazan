@@ -64,6 +64,11 @@ if (V221) {
     jobs.push({ get: () => S.generateCase(WORLD, `review221-${crime}`, { archetype: "classic", crime, size: ["M", "L", "XL"][k % 3] }) });
   for (let k = 0; k < 3; k++) jobs.push({ get: () => S.generateCase(WORLD, `review221-tl-${k}`, { archetype: "timeline", size: ["M", "L", "XL"][k] }) });
 }
+/* daily RRRR-MM-DD: sprawa dnia z tej daty (wersja generatora z jej dnia) */
+if (crimeArgs[0] === "daily") {
+  const [y, m, d] = crimeArgs[1].split("-").map(Number);
+  jobs.length = 0; jobs.push({ get: () => S.dailyCase(WORLD, new Date(y, m - 1, d, 12)) });
+}
 const out = [];
 const line = (s = "") => out.push(s);
 jobs.forEach((job, k) => {

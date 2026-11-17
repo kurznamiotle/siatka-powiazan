@@ -1996,12 +1996,34 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const nodes = [], usedLines = new Set();
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx);
     const flavorPool = R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx)));
+    /* Zdania obserwacji z kotwicami czasu. Kotwica miejsca (anc: close, lunch, break) najwyżej raz na miejsce,
+       kotwica ogólna (radio, bells, watch, clock) najwyżej raz na sprawę. Po zamknięciu sklepu (close) o T
+       nie ma już świadków, którzy zakładają, że jest otwarty (open:true): zostają świadkowie z zewnątrz. */
+    const PLACE_ANC = ["close", "lunch", "break"], obsText = new Map(), placeUsed = new Set(), genUsed = new Set(), closedAt = {}, lastOpen = {};
+    const allObs = [];
+    persons.forEach(Pp => { for (const o of Pp.s.obs) if (!evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) allObs.push({ Pp, o }); });
+    allObs.sort((x, y) => x.o.t - y.o.t);
+    for (const { Pp, o } of allObs) {
+      const loc = LOCS[o.w], meta = new Map(), pool = [];
+      for (const e of TL.obsTpl) {
+        if (!fitsAt(e, loc.pt)) continue;
+        const m = typeof e === "string" ? {} : e, str = typeof e === "string" ? e : e.t;
+        if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
+        if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
+        if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
+        meta.set(str, m); pool.push(str);
+      }
+      const pickedT = pickU(pool), m = meta.get(pickedT);
+      if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
+      if (m.anc) {
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && loc.pt === "shop") closedAt[o.w] = o.t; }
+        else genUsed.add(m.anc);
+      }
+      obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
+    }
     persons.forEach(Pp => {
       const s = Pp.s, g = s.g, text = [];
-      for (const o of s.obs) {
-        if (evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) continue;
-        text.push(T(pickU(atTexts(TL.obsTpl, LOCS[o.w].pt)).replace("{in}", LOCS[o.w].in).replace("{t}", toHM(o.t)), g));
-      }
+      for (const o of s.obs) if (obsText.has(o)) text.push(obsText.get(o));
       for (const r of tRules) {
         const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
         text.push(T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: s.traits[r.trait], cm: Pp.cm }));
@@ -17175,19 +17197,19 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       obsTpl:[{t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","yard","field","shop","stair","cellar"]},"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.",
               {t:"Listonosz minął [go|ją] {in} o {t}.", at:["street","yard","shop","field"]},
               {t:"Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.", at:["yard","cellar","stair"]},{t:"O {t} [rozmawiał|rozmawiała] z kimś {in}, jak mówi sąsiadka z okna.", at:["street","yard"]},
-              {t:"Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat spojrzała na zegar nad kredensem.", at:["yard"]},
-              {t:"O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu i sprawdzał godzinę na zegarku.", at:["street","yard","shop","field"]},
-              {t:"Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy w radiu nadawali sygnał czasu.", at:["street","yard"]},
-              {t:"Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.", at:["street","yard"]},
+              {t:"Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat spojrzała na zegar nad kredensem.", at:["yard"], anc:"clock"},
+              {t:"O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu i sprawdzał godzinę na zegarku.", at:["street","yard","shop","field"], anc:"watch"},
+              {t:"Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy w radiu nadawali sygnał czasu.", at:["street","yard"], anc:"radio"},
+              {t:"Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.", at:["street","yard"], anc:"bells"},
               {t:"O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.", at:["street","yard"]},
-              {t:"Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.", at:["street","shop"]},
+              {t:"Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.", at:["street","shop"], anc:"close", open:true},
               {t:"Dzielnicowy zanotował w notesie: {t}, {in}.", at:["street","yard","shop","field"]},
-              {t:"Ktoś z załogi widział [go|ją] {in} o {t}, bo akurat spojrzał na zegar nad drzwiami.", at:["work"]},
+              {t:"Ktoś z załogi widział [go|ją] {in} o {t}, bo akurat spojrzał na zegar nad drzwiami.", at:["work"], anc:"clock"},
               {t:"Szef zmiany zanotował: {t}, {in}.", at:["work"]},
-              {t:"Kolega z zakładu pamięta, że o {t} [był|była] {in}, bo właśnie zaczynała się przerwa.", at:["work"]},
-              {t:"Klient w kolejce widział [go|ją] {in} o {t}, bo właśnie patrzył na zegarek.", at:["shop"]},
-              {t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} punktualnie o {t}, bo wołano na obiad.", at:["field"]},
-              {t:"Lokator z piętra schodził po rzeczy i widział [go|ją] {in} o {t}, zerknął wtedy na zegarek.", at:["cellar"]}],
+              {t:"Kolega z zakładu pamięta, że o {t} [był|była] {in}, bo właśnie zaczynała się przerwa.", at:["work"], anc:"break"},
+              {t:"Klient w kolejce widział [go|ją] {in} o {t}, bo właśnie patrzył na zegarek.", at:["shop"], anc:"watch", open:true},
+              {t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} punktualnie o {t}, bo wołano na obiad.", at:["field"], anc:"lunch"},
+              {t:"Lokator z piętra schodził po rzeczy i widział [go|ją] {in} o {t}, zerknął wtedy na zegarek.", at:["cellar"], anc:"watch"}],
       evidence:[{ label:"Kwit", name:"Kwit z godziną", icon:"receipt", text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis: {ini}."] },
                 { label:"Książka", name:"Książka wejść", icon:"notebook", at:["work","shop"], text:["Książka wejść prowadzona przez portiera {in}.","Wpis: «{t} — {ini}, wejście»."] },
                 { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", at:["street","shop"], text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, zamówiona na: {ini}.»"] },
