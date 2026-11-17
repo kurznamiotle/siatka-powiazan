@@ -244,7 +244,7 @@
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
     { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
     { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
-    { id: "2.2.1", from: "2026-11-17" }                                    // bieżący kod; data = północ po wdrożeniu w poniedziałek 16.11
+    { id: "2.2.1", from: "2026-11-18" }                                    // bieżący kod; data = północ po wdrożeniu we wtorek 17.11
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {

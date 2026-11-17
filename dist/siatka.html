@@ -820,7 +820,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
     { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
     { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
-    { id: "2.2.1", from: "2026-11-17" }                                    // bieżący kod; data = północ po wdrożeniu w poniedziałek 16.11
+    { id: "2.2.1", from: "2026-11-18" }                                    // bieżący kod; data = północ po wdrożeniu we wtorek 17.11
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
@@ -19141,7 +19141,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
  */
 (typeof window !== "undefined" ? window : globalThis).SIATKA_CHANGELOG = [
-  { v: "2.2.1", date: "2026-11-17", items: [
+  { v: "2.2.1", date: "2026-11-18", items: [
     "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
     "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",
     "Godziny zbrodni zależą od sceny: targ, sklep, apteka i poczta wtedy, kiedy są czynne albo zaraz po zamknięciu.",
