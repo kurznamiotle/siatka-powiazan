@@ -5,6 +5,10 @@
  *   2. Polskie klucze, których nic nie używa (ostrzeżenie; klucze wołane dynamicznie są na liście DYNAMIC).
  *   3. Kod gry i silnika nie ma polskich liter poza komentarzami (lista wyjątków: EXPECT).
  *   4. en.js (szkielet angielski) ma te same klucze co pl.js: raport braków (wartość null = jeszcze nieprzetłumaczone).
+ *   5. Treści generatora EN (data/i18n/en/base.js, cities.js) mają ten sam kształt co polskie: te same klucze w tej samej
+ *      kolejności, długości list, typy i wartości nietekstowe; pola logiki (id, tagi, k, vt, roles, at, time…) identyczne,
+ *      a w tekstach te same zbiory wstawek {nazwa} (bez znaczników Kartoteki {g:…}). To samo dla wstawek w kluczach en.js.
+ *      Każda różnica to błąd ze ścieżką, np. base.crimes.kradziez.scenes[3].intro.
  *   node tools/i18n-check.js [--strict]   (--strict: braki w en.js też są błędem)
  */
 const fs = require("fs"), path = require("path");
@@ -41,5 +45,48 @@ if (enMsgs) {
   if (extra.length) warn(`en.js ma ${extra.length} kluczy, których nie ma w pl.js: ${extra.slice(0, 5).join(", ")}`);
   if (strict && nul.length) err(`en.js: ${nul.length} kluczy bez tłumaczenia`);
 }
+
+/* 5. kształt treści EN = kształt treści PL */
+const STRUCT = new Set(["id", "age", "ages", "access", "shape", "no", "pt", "icon", "g", "tags", "origins", "k", "at", "anc", "values",
+  "ruleValues", "roles", "keyBookLocs", "vt", "subtags", "time", "vg", "vage", "exclude", "placeTypes", "placeTypeDefault", "need", "trait",
+  "cm", "outfit", "headwear", "hair"]);
+// klucz logiki (np. roles:["worker"]) bywa też nazwą listy treści (base.roles = lista ról z tekstami): lista obiektów to treść
+const isStruct = (k, v) => STRUCT.has(k) && !(Array.isArray(v) && v.some(x => x && typeof x === "object")) && k !== "months";
+const holes = str => [...String(str).replace(/\{g:[^{}]*\}/g, "").matchAll(/\{(\w+)\}/g)].map(m => m[1]).sort().join(" ");
+let shapeDiffs = 0;
+const diff = (p, m) => { shapeDiffs++; err(`kształt EN ≠ PL: ${p}: ${m}`); };
+function same(a, b, p, struct) {
+  if (Array.isArray(a) !== Array.isArray(b) || typeof a !== typeof b || (a === null) !== (b === null)) return diff(p, `typ ${Array.isArray(a) ? "lista" : a === null ? "null" : typeof a} / ${Array.isArray(b) ? "lista" : b === null ? "null" : typeof b}`);
+  if (Array.isArray(a)) { if (a.length !== b.length) diff(p, `długość ${a.length} / ${b.length}`); for (let i = 0; i < Math.min(a.length, b.length); i++) same(a[i], b[i], `${p}[${i}]`, struct); return; }
+  if (a && typeof a === "object") {
+    const ka = Object.keys(a), kb = Object.keys(b);
+    const miss = ka.filter(k => !(k in b)), more = kb.filter(k => !(k in a));
+    if (miss.length || more.length) diff(p, `klucze: brak w EN [${miss.join(", ")}], nadmiar w EN [${more.join(", ")}]`);
+    else if (ka.join("") !== kb.join("")) diff(p, "inna kolejność kluczy");
+    for (const k of ka) if (k in b) same(a[k], b[k], `${p}.${k}`, struct || isStruct(k, a[k]));
+    return;
+  }
+  if (typeof a === "string") {
+    if (struct) { if (a !== b) diff(p, `pole logiki: „${a}” / „${b}”`); }
+    else if (holes(a) !== holes(b)) diff(p, `wstawki {${holes(a)}} / {${holes(b)}}`);
+    return;
+  }
+  if (a !== b) diff(p, `wartość ${a} / ${b}`);
+}
+let enContent = null;
+try {
+  require(path.join(root, "data/i18n/pl/base.js")); require(path.join(root, "data/i18n/pl/cities.js"));
+  if (fs.existsSync(path.join(root, "data/i18n/en/base.js"))) { require(path.join(root, "data/i18n/en/base.js")); require(path.join(root, "data/i18n/en/cities.js")); enContent = I.packs.en && I.packs.en.content; }
+} catch (e) { err("treści EN się nie wczytały: " + e.message); }
+if (enContent) {
+  const plc = I.packs.pl.content;
+  same(plc.base, enContent.base, "base", false); same(plc.cities, enContent.cities, "cities", false);
+  console.log(`treści EN: ${shapeDiffs ? shapeDiffs + " różnic kształtu" : "kształt = PL (klucze, kolejność, długości, typy, pola logiki, wstawki)"}`);
+}
+// wyjątki: *_re to wyrażenia regularne ({L} = klasa znaków), {v} w samouczku to polski zaimek „go”/„ją” (po angielsku zbędny)
+const HOLE_EXCEPT = { "ui.tutorial.widziano_o_ma_do_od_html": ["v"] };
+const holesExcept = (k, str) => holes(str).split(" ").filter(h => !(HOLE_EXCEPT[k] || []).includes(h)).join(" ");
+if (enMsgs) for (const k of Object.keys(pl)) if (!/_re$/.test(k) && typeof pl[k] === "string" && typeof enMsgs[k] === "string" && holesExcept(k, pl[k]) !== holes(enMsgs[k])) err(`en.js ${k}: wstawki {${holes(pl[k])}} / {${holes(enMsgs[k])}}`);
+
 console.log(errors ? `i18n: ${errors} błędów` : `i18n: ${Object.keys(pl).length} kluczy, wszystkie użyte klucze istnieją, w kodzie brak polskiego tekstu${warns ? ` (uwag: ${warns})` : ""}`);
 process.exit(errors ? 1 : 0);
