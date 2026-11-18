@@ -144,7 +144,12 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   if (hasSwitch !== (LANG === "en")) fail(LANG === "en" ? "w #dev brak przełącznika języka w Ustawieniach" : "przełącznik języka widoczny poza #dev");
   const doc = await ev(`({ lang: document.documentElement.lang, title: document.title, i18n: SiatkaI18n.lang })`);
   if (doc.lang !== LANG || doc.i18n !== LANG || doc.title !== await tl("ui.html.title")) fail(`język strony: ${JSON.stringify(doc)}, a powinno być ${LANG}`);
-  if (LANG === "en" && !/translation in progress/.test(await ev(`document.getElementById("menuCard").innerText`))) fail("przy English brak dopisku o tłumaczeniu spraw");
+  // dopisek „(cases: translation in progress)” tylko wtedy, gdy angielski nie ma własnych treści spraw (data/i18n/en/)
+  if (LANG === "en") {
+    const st = await ev(`({ content: !!(SiatkaI18n.packs.en.content && SiatkaI18n.packs.en.content.base), gen: SiatkaI18n.genLang(), note: /translation in progress/.test(document.getElementById("menuCard").innerText) })`);
+    if (st.note === st.content) fail(st.content ? "dopisek o tłumaczeniu spraw mimo treści EN" : "przy English brak dopisku o tłumaczeniu spraw");
+    if (st.content && st.gen !== "en") fail("treści EN są, a sprawy powstają w języku " + st.gen);
+  }
   ok(`język ${LANG}: <html lang>, <title>${hasSwitch ? ", przełącznik w Ustawieniach" : ", bez przełącznika poza #dev"}`);
   await click("setHowto");
   await waitFor(visible("howto"), "„Jak grać” nie otworzyło samouczka");

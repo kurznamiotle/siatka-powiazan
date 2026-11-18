@@ -2,9 +2,9 @@
  * Pliki gry: najpierw sieć (świeża wersja po każdym deployu), a gdy jej nie ma albo odpowiada dłużej niż 3 s, kopia z cache.
  * Fonty Google: najpierw cache (nie zmieniają się).
  * Nowy plik gry? Dopisz go do SHELL i podbij VERSION. */
-const VERSION = "siatka-v17";
+const VERSION = "siatka-v18";
 const SHELL = ["./", "index.html", "js/game.js", "js/audio.js", "js/tutorial.js", "js/track.js", "js/stats.js", "js/history.js", "js/achievements.js", "js/settings.js", "js/shareimg.js", "engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/archetypes/timeline.js", "engine/versions/v2_0.js", "engine/versions/v2_1.js", "engine/versions/v2_1_1.js", "engine/versions/v2_1_2.js", "engine/versions/v2_2.js", "engine/sprites.js",
-  "data/i18n/i18n.js", "data/i18n/pl.js", "data/i18n/pl/base.js", "data/i18n/pl/cities.js", "data/i18n/pl/changelog.js", "data/i18n/en.js", "data/i18n/boot.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
+  "data/i18n/i18n.js", "data/i18n/pl.js", "data/i18n/pl/base.js", "data/i18n/pl/cities.js", "data/i18n/pl/changelog.js", "data/i18n/en.js", "data/i18n/en/base.js", "data/i18n/en/cities.js", "data/i18n/boot.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 const FONTS = "siatka-fonts";
 
 self.addEventListener("install", e => {
