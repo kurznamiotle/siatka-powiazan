@@ -11,6 +11,7 @@
  *      Każda różnica to błąd ze ścieżką, np. base.crimes.kradziez.scenes[3].intro.
  *   6. Równość tekstów PL ⇔ EN (etykiety i nazwy dowodów, zdania) i trafienia base.textRe w obu językach.
  *   7. Kartoteka: każde id ze znacznika {g:id} ma hasło w data/i18n/pl/glossary.js i en/glossary.js.
+ *   8. „Co nowego”: en/changelog.js ma tyle wpisów co pl/changelog.js, te same v i daty i tyle samo punktów w każdym wpisie.
  *   node tools/i18n-check.js [--strict]   (--strict: braki w en.js też są błędem)
  */
 const fs = require("fs"), path = require("path");
@@ -18,7 +19,7 @@ const root = path.join(__dirname, "..");
 require(path.join(root, "data/i18n/pl.js")); require(path.join(root, "data/i18n/pl/changelog.js"));
 const I = require(path.join(root, "data/i18n/i18n.js"));
 const pl = I.packs.pl.messages;
-let enMsgs = null; try { require(path.join(root, "data/i18n/en.js")); enMsgs = I.packs.en.messages; } catch (_) {}
+let enMsgs = null; try { require(path.join(root, "data/i18n/en.js")); if (fs.existsSync(path.join(root, "data/i18n/en/changelog.js"))) require(path.join(root, "data/i18n/en/changelog.js")); enMsgs = I.packs.en.messages; } catch (_) {}
 const strict = process.argv.includes("--strict");
 const CODE = ["engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/archetypes/timeline.js", "js/game.js", "js/settings.js", "js/tutorial.js", "js/stats.js", "js/achievements.js", "js/history.js", "js/shareimg.js", "js/track.js", "js/audio.js"];
 const DYNAMIC = [/^gen\.size\./, /^gen\.police_dat\./, /^ui\.changelog$/];
@@ -126,6 +127,20 @@ const HOLE_EXCEPT = { "ui.tutorial.widziano_o_ma_do_od_html": ["v"] };
 const holesExcept = (k, str) => holes(str).split(" ").filter(h => !(HOLE_EXCEPT[k] || []).includes(h)).join(" ");
 if (enMsgs) for (const k of Object.keys(pl)) if (!/_re$/.test(k) && typeof pl[k] === "string" && typeof enMsgs[k] === "string" && holesExcept(k, pl[k]) !== holes(enMsgs[k])) err(`en.js ${k}: wstawki {${holes(pl[k])}} / {${holes(enMsgs[k])}}`);
 
+/* 8. „Co nowego” (ui.changelog): ta sama lista wydań w obu językach */
+{
+  const pc = pl["ui.changelog"], ec = enMsgs && enMsgs["ui.changelog"];
+  if (!Array.isArray(ec)) err("„Co nowego”: brak tłumaczenia ui.changelog (data/i18n/en/changelog.js)");
+  else {
+    const e0 = errors;
+    if (ec.length !== pc.length) err(`„Co nowego”: ${pc.length} wpisów po polsku, ${ec.length} po angielsku`);
+    pc.forEach((p, i) => { const e = ec[i]; if (!e) return;
+      if (e.v !== p.v) err(`„Co nowego”: wpis ${i + 1} ma v „${p.v}” po polsku i „${e.v}” po angielsku`);
+      if (e.date !== p.date) err(`„Co nowego” ${p.v}: data ${p.date} / ${e.date}`);
+      if ((e.items || []).length !== p.items.length) err(`„Co nowego” ${p.v}: ${p.items.length} punktów po polsku, ${(e.items || []).length} po angielsku`); });
+    if (errors === e0) console.log(`„Co nowego”: ${pc.length} wpisów, v, daty i liczba punktów jak w PL`);
+  }
+}
 /* 7. Kartoteka: każde id ze znacznika {g:id} albo {g:id|tekst} w treściach i tekstach (każdy język) ma hasło w pl i en */
 try {
   require(path.join(root, "data/i18n/pl/glossary.js"));

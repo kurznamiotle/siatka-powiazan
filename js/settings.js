@@ -101,9 +101,7 @@ $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 paintFs();
 
 /* ---------- „Co nowego”: dziennik zmian (klucz ui.changelog w data/i18n/pl.js), kropka przy zębatce po nowej wersji ---------- */
-/* bez własnego tłumaczenia (np. en: null) pokazujemy polską listę, ale tylko NEWS_FALLBACK najnowszych wpisów */
-const NEWS_FALLBACK = 3, ownNews = (SiatkaI18n.packs[SiatkaI18n.lang] || { messages: {} }).messages["ui.changelog"] != null;
-const NEWS = (SiatkaI18n.get("ui.changelog") || []).slice(0, ownNews ? undefined : NEWS_FALLBACK), NKEY = "siatka-news-seen";
+const NEWS = SiatkaI18n.get("ui.changelog") || [], NKEY = "siatka-news-seen";
 const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
 const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
 function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }

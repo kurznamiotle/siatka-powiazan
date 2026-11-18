@@ -424,7 +424,7 @@
     "gen.timeline.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
     "gen.timeline.label_split_re": " (?:on|at|in|of|by|from|outside|near|behind|under|beside) ",
     "gen.timeline.name_d_min": "{name}: {d} min",
-    "ui.changelog": null // „What's new”: until translated, the Polish list is shown
+    "ui.changelog": null // „What's new”: the list is in data/i18n/en/changelog.js (null here never overrides it)
   };
   /* END MESSAGES */
 

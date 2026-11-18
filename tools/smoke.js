@@ -149,6 +149,8 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
     const st = await ev(`({ content: !!(SiatkaI18n.packs.en.content && SiatkaI18n.packs.en.content.base), gen: SiatkaI18n.genLang(), note: /translation in progress/.test(document.getElementById("menuCard").innerText) })`);
     if (st.note === st.content) fail(st.content ? "dopisek o tłumaczeniu spraw mimo treści EN" : "przy English brak dopisku o tłumaczeniu spraw");
     if (st.content && st.gen !== "en") fail("treści EN są, a sprawy powstają w języku " + st.gen);
+    const cl = await ev(`(() => { const e = SiatkaI18n.get("ui.changelog", "en"), p = SiatkaI18n.packs.pl.messages["ui.changelog"]; return { ok: Array.isArray(e) && e.length === p.length && e[0].items[0] !== p[0].items[0] }; })()`);
+    if (!cl.ok) fail("„Co nowego” po angielsku: brak pełnej listy z en/changelog.js");
   }
   ok(`język ${LANG}: <html lang>, <title>${hasSwitch ? ", przełącznik w Ustawieniach" : ", bez przełącznika poza #dev"}`);
   await click("setHowto");

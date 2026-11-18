@@ -383,7 +383,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     packs: {},
     register(lang, pack) {
       const p = this.packs[lang] || (this.packs[lang] = { messages: {} });
-      if (pack.messages) Object.assign(p.messages, pack.messages);
+      // null = „jeszcze nieprzetłumaczone”: nie nadpisuje wartości z innego pliku tego języka (np. en/changelog.js przed en.js)
+      if (pack.messages) for (const k in pack.messages) if (pack.messages[k] != null || !(k in p.messages)) p.messages[k] = pack.messages[k];
       if (pack.grammar) p.grammar = pack.grammar;
       if (pack.content) p.content = Object.assign(p.content || {}, pack.content);
     },
@@ -20255,7 +20256,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.timeline.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
     "gen.timeline.label_split_re": " (?:on|at|in|of|by|from|outside|near|behind|under|beside) ",
     "gen.timeline.name_d_min": "{name}: {d} min",
-    "ui.changelog": null // „What's new”: until translated, the Polish list is shown
+    "ui.changelog": null // „What's new”: the list is in data/i18n/en/changelog.js (null here never overrides it)
   };
   /* END MESSAGES */
 
@@ -23078,6 +23079,47 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 </script>
 <script>
 /*
+ * Siatka – a Polish Crime Board — changelog ("What's new" in Settings), English.
+ * Newest first. Same structure and order as data/i18n/pl/changelog.js. `v` = generator version.
+ * New release = new entry on top, in BOTH files.
+ */
+(function (root) {
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { messages: { "ui.changelog": [
+    { v: "2.2.1", date: "2026-11-18", items: [
+      "Motives fit the victim: a feud with the estate office only when something breaks in the building, a rival only when it's someone's business, barking only when there's a dog.",
+      "Witnesses fit the place: children playing bottle caps in the courtyard, not in the spinning mill; at the works, it's the crew who give statements.",
+      "The time of the crime depends on the scene: the market, shops, pharmacy and post office are hit while they're open or just after closing.",
+      "Clearer relations in the explanation: “Piotr Kowal and Alicja Baran: in-laws, not neighbours from the staircase”.",
+      "The commissioner's remarks follow the seasons, and the nineties details are more accurate (TV series, phones, pagers, cars, newspapers)."
+    ] },
+    { v: "2.2", date: "2026-11-15", items: [
+      "New kinds of clues in the notebook: height comparisons, suspects' ties to other people, the caretaker's notebook, and traces that tell you what wasn't there.",
+      "New case type: the timeline. Nobody can be in two places at once. Use the walking-time table and the times in the files to work out who could have reached the scene.",
+      "Nineties prices are closer to the truth: parking for a few złoty, car insurance for a few hundred."
+    ] },
+    { v: "2.1.2", date: "2026-11-11", items: [
+      "Bug fixed: a suspect is no longer in two places at the same time, or somewhere else during their own alibi.",
+      "Rules about missing items are clearer: “The culprit personally took… at exactly the time it went missing. Nobody handed it over.”",
+      "Portraits no longer give away notebook traits: only some smokers have a cigarette, and glasses vanish from photos when a rule is about them.",
+      "Shorter tutorial: 4 steps, an easier-to-find “Skip”, and “How to play” is always in Settings.",
+      "Tutorial fixed."
+    ] },
+    { v: "2.1.1", date: "2026-11-06", items: [
+      "11 kinds of crime instead of 4: theft, animal poisoning, arson, blackmail, forgery, sabotage, robbery, vandalism, dognapping and poisoning.",
+      "220 scenes, new roles, places and items with icons, and more varied sentences in the files.",
+      "More accurate nineties details: ration coupons, prices, names and dates."
+    ] },
+    { v: "2.1", date: "2026-11-05", items: [
+      "Physical evidence: polaroids of items and documents that you link to suspects by initials or flat number.",
+      "Names fit the characters' ages, and the game avoids repeating names and scenes from recent cases."
+    ] }
+  ] } });
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
  * Siatka Powiązań — wybór języka interfejsu (ładuje się po wszystkich paczkach językowych, przed grą).
  * Kolejność: ?lang=pl|en w adresie (nadpisuje i zapamiętuje, do linków z itch i Reddita) → zapamiętany wybór
  * (localStorage "siatka-lang") → pierwsza wizyta: navigator.language (pl* → polski, reszta → angielski), też zapamiętane.
@@ -25044,9 +25086,7 @@ $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 paintFs();
 
 /* ---------- „Co nowego”: dziennik zmian (klucz ui.changelog w data/i18n/pl.js), kropka przy zębatce po nowej wersji ---------- */
-/* bez własnego tłumaczenia (np. en: null) pokazujemy polską listę, ale tylko NEWS_FALLBACK najnowszych wpisów */
-const NEWS_FALLBACK = 3, ownNews = (SiatkaI18n.packs[SiatkaI18n.lang] || { messages: {} }).messages["ui.changelog"] != null;
-const NEWS = (SiatkaI18n.get("ui.changelog") || []).slice(0, ownNews ? undefined : NEWS_FALLBACK), NKEY = "siatka-news-seen";
+const NEWS = SiatkaI18n.get("ui.changelog") || [], NKEY = "siatka-news-seen";
 const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
 const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
 function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }

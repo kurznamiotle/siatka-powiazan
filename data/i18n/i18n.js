@@ -18,7 +18,8 @@
     packs: {},
     register(lang, pack) {
       const p = this.packs[lang] || (this.packs[lang] = { messages: {} });
-      if (pack.messages) Object.assign(p.messages, pack.messages);
+      // null = „jeszcze nieprzetłumaczone”: nie nadpisuje wartości z innego pliku tego języka (np. en/changelog.js przed en.js)
+      if (pack.messages) for (const k in pack.messages) if (pack.messages[k] != null || !(k in p.messages)) p.messages[k] = pack.messages[k];
       if (pack.grammar) p.grammar = pack.grammar;
       if (pack.content) p.content = Object.assign(p.content || {}, pack.content);
     },

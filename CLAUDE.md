@@ -37,7 +37,7 @@ data/i18n/            warstwa językowa (i18n): i18n.js (t, get, apply, world), 
 data/i18n/pl/base.js  (dawniej data/base.js) warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
 data/i18n/pl/changelog.js  dziennik zmian („Co nowego” w Ustawieniach, kropka przy zębatce po nowej wersji;
-                      nowe wydanie = nowy wpis na górze)
+                      nowe wydanie = nowy wpis na górze, także w data/i18n/en/changelog.js)
 data/i18n/pl/cities.js  (dawniej data/cities.js) paczki miast: Warszawa, Poznań, Kraków, Łódź, Gdańsk,
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
 tools/i18n-check.js   kontrola kluczy (każdy t("klucz") istnieje w pl.js, w kodzie brak polskich liter), raport en.js
@@ -241,5 +241,5 @@ Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `
   - pilnują tego `tools/i18n-check.js` (kształt, wstawki, równość tekstów, `textRe`) i `tools/test-lang.js` (struktura spraw).
 - Gramatyka języka może mieć `decimal` (1,72 / 1.72) i `itemRef` (przedmiot w liście w zdaniu; EN: `acc` z przedimkiem). Polska ich nie potrzebuje albo daje dotychczasowy wynik.
 - Znaczniki Kartoteki `{g:…}` w nazwach i etykietach (które nie przechodzą przez `tx`) rozwiązuje `glossaryPass` na końcu `generateCase` (pomija `used` i `facts`). Hasła Kartoteki (59, źródło `docs/kartoteka-hasla.md`): `data/i18n/pl/glossary.js` i `en/glossary.js` (`{ term, text, note? }`), odczyt `SiatkaI18n.glossaryEntry(id)`; `glossary()` dalej zwraca sam tekst (interfejsu Kartoteki jeszcze nie ma). `i18n-check` wymaga hasła w obu językach dla każdego użytego `{g:id}`.
-- „Co nowego” bez własnego tłumaczenia (`ui.changelog: null`): polska lista, tylko 3 najnowsze wpisy (`NEWS_FALLBACK` w `js/settings.js`).
+- **„Co nowego”: każdy nowy wpis idzie do obu plików**, `data/i18n/pl/changelog.js` i `data/i18n/en/changelog.js` (ten sam `v`, data i liczba punktów; `i18n-check` to sprawdza). `null` w paczce języka nigdy nie nadpisuje wartości z innego pliku tego języka (`register` w `i18n.js`).
 - Zmiany odłożone do następnej wersji generatora: `docs/todo-generator.md`.
