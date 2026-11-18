@@ -67,7 +67,8 @@ function same(a, b, p, struct) {
     return;
   }
   if (typeof a === "string") {
-    if (struct) { if (a !== b) diff(p, `pole logiki: „${a}” / „${b}”`); }
+    // pole logiki to id, tag albo godzina (bez spacji); zdanie pod kluczem logiki (traits.known.facts.no) to treść
+    if (struct && !/\s/.test(a)) { if (a !== b) diff(p, `pole logiki: „${a}” / „${b}”`); }
     else if (holes(a) !== holes(b)) diff(p, `wstawki {${holes(a)}} / {${holes(b)}}`);
     return;
   }
