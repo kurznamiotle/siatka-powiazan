@@ -41,11 +41,18 @@ const out = `/*
 ${body}
 
   const world = { base: fake.SIATKA_BASE, cities: fake.SIATKA_CITIES };
-  const E = fake.Siatka;
+  const E = fake.Siatka, I = fake.SiatkaI18n;
+  /* lang: język treści (od wersji z data/i18n/en/). Bez treści tego języka w zamrożonym pliku albo dla pl: dane polskie. */
+  const inLang = (lang, f) => {
+    const p = I && lang && lang !== "pl" && I.packs[lang];
+    if (!(p && p.content && p.content.base)) return f(world);
+    const prev = I.genOverride; I.genOverride = lang;
+    try { return f(I.world(lang)); } finally { I.genOverride = prev; }
+  };
   const gen = {
     id: ${JSON.stringify(id)}, commit: ${JSON.stringify(sha)},
-    generateCase: (seed, opts) => E.generateCase(world, seed, opts),
-    dailyCase: date => E.dailyCase(world, date),
+    generateCase: (seed, opts, lang) => inLang(lang, w => E.generateCase(w, seed, opts)),
+    dailyCase: (date, lang) => inLang(lang, w => E.dailyCase(w, date)),
     solve: c => E.solve(c)
   };
   (root.SiatkaLegacy = root.SiatkaLegacy || {})[${JSON.stringify(id)}] = gen;

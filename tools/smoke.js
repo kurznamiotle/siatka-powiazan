@@ -167,12 +167,18 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   await waitFor(`document.querySelector("#board .node") && /·/.test(document.getElementById("caseLine").textContent)`, "sprawa dnia się nie wczytała");
   const line = await ev(`document.getElementById("caseLine").textContent.trim()`);
   // oś czasu: jednorazowa karta „Nowy typ sprawy” (pojawia się 400 ms po wczytaniu) zasłania tablicę i zakładki
-  for (let t = 0; t < 1500 && !await ev(`!!document.getElementById("tlGo")`); t += 100) await sleep(100);
-  if (await ev(`!!document.getElementById("tlGo")`)) {
-    await click("tlGo");
-    if (await ev(`!!document.getElementById("tlGo")`)) fail("karta „Nowy typ sprawy: oś czasu” się nie zamknęła");
-    ok("karta „Nowy typ sprawy: oś czasu” zamknięta");
-  }
+  const dismissTimeline = async () => {
+    for (let t = 0; t < 1500 && !await ev(`!!document.getElementById("tlGo")`); t += 100) await sleep(100);
+    if (await ev(`!!document.getElementById("tlGo")`)) {
+      await click("tlGo");
+      if (await ev(`!!document.getElementById("tlGo")`)) fail("karta „Nowy typ sprawy: oś czasu” się nie zamknęła");
+      ok("karta „Nowy typ sprawy: oś czasu” zamknięta");
+    }
+  };
+  await dismissTimeline();
+  // nagłówek akt: liczniki w liczbie mnogiej języka (bez „rulesy”, „5 miejsca”)
+  const head = await ev(`document.getElementById("sheet").innerText`);
+  if (LANG === "en" ? !/\b\d+ rules?\b/i.test(head) || /rules[yi]|\d+ (?:przedmiot|regu|miejsc)/i.test(head) : /\b[5-9] miejsca\b/i.test(head)) fail("nagłówek akt: zła liczba mnoga: " + head.split("\n").slice(0, 2).join(" "));
   await tapSel("#board .node", "pierwszego zdjęcia na tablicy");
   const akta = await ev(`document.getElementById("sheet").innerText`);
   if (!akta || akta.length < 60) fail("akta pierwszego zdjęcia są puste");
@@ -181,6 +187,50 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   if (!notes || notes.length < 60 || notes === akta) fail("notatnik się nie otworzył");
   if (/undefined|NaN|object Object/.test(akta + notes)) fail("„undefined”/„NaN”/„object Object” w aktach albo notatniku");
   ok(`sprawa dnia (${line.replace(/\s+/g, " ")}): akta i notatnik`);
+
+  if (LANG === "en") {
+    /* 5. EN: sprawa dnia i sprawa z „New case” bez polskich słów (całe słowa, poza tekstem w cudzysłowach: tytuły, nazwy) */
+    const PL_WORDS = ["przy", "się", "jest", "nikt", "ulic", "ulicy", "że", "nie", "był", "była", "było", "tego", "wieczoru", "sprawca", "sprawcy",
+      "został", "została", "który", "która", "oraz", "gdzie", "kiedy", "bardzo", "albo", "tylko", "jego", "jej"];
+    const polishIn = kind => ev(`(() => {
+      const sv = JSON.parse(localStorage.getItem("siatka-save-${kind}") || "null");
+      if (!sv || !sv.case) return "brak zapisu siatka-save-${kind}";
+      const re = new RegExp(${JSON.stringify("(?<!\\p{L})(" + PL_WORDS.join("|") + ")(?!\\p{L})")}, "iu"), hits = [];
+      (function w(v, k) {
+        if (k === "used" || k === "facts") return;
+        if (typeof v === "string") { const m = v.replace(/[„“"«][^„“”"«»]*[”“"»]/g, "").match(re); if (m) hits.push(m[1] + ": " + v.slice(0, 80)); return; }
+        if (v && typeof v === "object") for (const kk in v) w(v[kk], kk);
+      })(sv.case, "");
+      return hits.slice(0, 3).join(" | ");
+    })()`);
+    await sleep(600);
+    let bad = await polishIn("daily");
+    if (bad) fail("sprawa dnia w EN ma polskie słowa: " + bad);
+    await click("newBtn");
+    await waitFor(visible("newCase") + ` || document.querySelector("#board .node")`, "„New case” się nie otworzyło");
+    if (await ev(visible("newCase"))) await click("newGo");
+    await waitFor(`document.querySelector("#board .node") && /·/.test(document.getElementById("caseLine").textContent)`, "sprawa z „New case” się nie wczytała");
+    await dismissTimeline();
+    await tapSel("#board .node", "pierwszego zdjęcia nowej sprawy");
+    await sleep(600);
+    bad = await polishIn("random");
+    if (bad) fail("sprawa z „New case” w EN ma polskie słowa: " + bad);
+    ok("sprawa dnia i „New case” po angielsku, bez polskich słów z listy kontrolnej");
+
+    /* 6. zapis sprawy dnia w innym języku: ta sama sprawa od nowa z danych bieżącego języka, postęp (po id) zostaje */
+    const prep = await ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-daily")); const id = sv.read[0], title = sv.case.title;
+      sv.lang = "pl"; sv.case.title = "STARY ZAPIS"; sv.hints = 1; localStorage.setItem("siatka-save-daily", JSON.stringify(sv)); return { id, title }; })()`);
+    await C("Page.navigate", { url: URL });
+    await waitFor(`document.readyState === "complete" && document.querySelector("#board .node")`, "gra nie wstała po przeładowaniu", 15000);
+    await click("dailyBtn");
+    await waitFor(`/·/.test(document.getElementById("caseLine").textContent) && !/STARY ZAPIS/.test(document.body.innerText)`, "sprawa dnia z zapisu w innym języku nie powstała od nowa");
+    await dismissTimeline();
+    await tapSel("#board .node", "zdjęcia po zmianie języka");
+    await sleep(600);
+    const after = await ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-daily")); return { lang: sv.lang, title: sv.case.title, hints: sv.hints, read: sv.read }; })()`);
+    if (after.lang !== "en" || after.title !== prep.title || after.hints !== 1 || !after.read.includes(prep.id)) fail("zmiana języka: sprawa albo postęp się nie zgadza: " + JSON.stringify({ prep, after }));
+    ok("zapis sprawy dnia z innego języka: ta sama sprawa po angielsku, postęp zachowany");
+  }
 
   await sleep(500);
   if (errors.length) fail(`${errors.length} błędów w konsoli`);

@@ -278,7 +278,8 @@
     const n = dailyNumber(date), ver = versionFor(date);
     if (ver !== GEN_VERSION) {
       const L = legacy(ver);
-      if (L) { const c = L.dailyCase(date); c.gen = ver; return c; }
+      // język generatora idzie do zamrożonej wersji; wersje sprzed treści EN (2.0–2.2) go pomijają i dają sprawę po polsku
+      if (L) { const c = L.dailyCase(date, I18N() ? I18N().genLang() : "pl"); c.gen = ver; return c; }
       // brak zamrożonej wersji (np. plik się nie wczytał): lepsza inna sprawa niż wywalona gra
       if (typeof console !== "undefined") console.warn("Missing generator version " + ver + ", daily case from version " + GEN_VERSION);
     }

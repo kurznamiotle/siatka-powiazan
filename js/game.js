@@ -4,6 +4,7 @@
  */
 (() => {
 const WORLD = SiatkaI18n.world();
+let caseLang = SiatkaI18n.genLang(); // język treści bieżącej sprawy (do zapisu): z zapisu, gdy sprawa z niego pochodzi
 SiatkaI18n.apply(document); // statyczne teksty index.html (data-i18n)
 const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
@@ -65,7 +66,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -162,6 +163,7 @@ function load(c, label, meta, saved) {
   abandonCheck(c);
   if (window.SiatkaSprites.tidyPortraits) window.SiatkaSprites.tidyPortraits(c);
   CASE = c; META = meta;
+  caseLang = saved && saved.case === c ? (saved.lang || "pl") : SiatkaI18n.genLang();
   byId = Object.fromEntries(c.nodes.map(n => [n.id, n]));
   supportedSet = new Set(c.supported_connections.map(([a, b]) => key(a, b)));
   chainKeys = c.culprit_chain.map(([a, b]) => key(a, b));
@@ -446,8 +448,10 @@ function renderSheet(keep) {
   }
   if (!S.sel) {
     const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
-    const evTxt = ne ? ` · ${ne} ${ne === 1 ? t("ui.game.dowod_rzeczowy") : ne < 5 ? t("ui.game.dowody_rzeczowe") : t("ui.game.dowodow_rzeczowych")}` : "";
-    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? `${ni} ${ni > 4 ? t("ui.game.przedmiotow") : t("ui.game.przedmioty")}` : t("ui.game.length_miejsca", { length: CASE.nodes.filter(n => n.type === "location").length }), evTxt, length: CASE.rules.length, v2: CASE.rules.length < 5 ? "y" : "", rich: rich(CASE.intro) });
+    // liczba mnoga wg gramatyki języka interfejsu (pl: 1 / 2–4 / 5+, en: 1 / inne)
+    const count = (n, k) => `${n} ${SiatkaI18n.grammar().plural(n, t(k + "_1"), t(k + "_2"), t(k + "_5"))}`, nl = CASE.nodes.filter(n => n.type === "location").length;
+    const evTxt = ne ? ` · ${count(ne, "ui.game.n_dowod")}` : "";
+    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? count(ni, "ui.game.n_przedmiot") : count(nl, "ui.game.n_miejsce"), evTxt, rules: count(CASE.rules.length, "ui.game.n_regula"), rich: rich(CASE.intro) });
     return;
   }
   const n = byId[S.sel];
@@ -712,7 +716,9 @@ function dailyCase() {
   const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
-    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
+    /* zapis w innym języku (zmiana w Ustawieniach): ta sama sprawa (numer i wersja z todaySave) od nowa z danych bieżącego
+       języka; postęp jest zapisany po id węzłów, więc przechodzi bez zmian */
+    try { return load(sv.lang === SiatkaI18n.genLang() || (!sv.lang && SiatkaI18n.genLang() === "pl") ? sv.case : Siatka.dailyCase(WORLD), label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
   }
   // brak pasującego zapisu: świeża sprawa; rozegrana już (wg statystyk) wraca od razu zamknięta
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" }, closed || undefined);

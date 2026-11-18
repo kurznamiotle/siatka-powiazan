@@ -690,11 +690,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.powiazania_html": "<p class=\"how\">Powiązania: {join}</p>",
     "ui.game.wyklucz": "Wyklucz",
     "ui.game.przywroc": "Przywróć",
-    "ui.game.przedmioty": "przedmioty",
-    "ui.game.przedmiotow": "przedmiotów",
-    "ui.game.dowodow_rzeczowych": "dowodów rzeczowych",
-    "ui.game.dowody_rzeczowe": "dowody rzeczowe",
-    "ui.game.dowod_rzeczowy": "dowód rzeczowy",
     "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Notatnik detektywa</h2><div class=\"kind\">Ustalenia techników i lekarza</div><ol>{join}</ol>{travelTable}",
     "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Czasy dojścia pieszo</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
     "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Stuknij pulsującą pinezkę albo zdjęcie, żeby przeciągnąć sznurek od: {name}.",
@@ -711,7 +706,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.sprawca_html": "<p>Sprawcą {v} {name}{v2}.</p>",
     "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "Prokurator odrzuca akt oskarżenia. Fakty się nie spinają. {v}",
     "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Akta sprawy</button></div>\n    {v2}",
-    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Akta sprawy · {np} podejrzanych · {v}{evTxt} ·{length} reguł{v2}</div><p>{rich}</p>\n      <p class=\"how\">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Akta sprawy · {np} podejrzanych · {v}{evTxt} · {rules}</div><p>{rich}</p>\n      <p class=\"how\">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>",
     "ui.game.sprawa_porzucona_v_size_devicetype": "Sprawa porzucona: {v} {size} ({deviceType})",
     "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Rozumowanie</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Twoja tablica</div>\n    <div class=\"stat\">Sznurki zgodne z faktami: {good} · bez pokrycia: {bad}<br>Obwód sprawcy ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Sprawy dnia</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>seria</span></div><div><b>{best}</b><span>rekord</span></div><div><b>{pct}%</b><span>wygrane</span></div><div><b>{played}</b><span>rozegrane</span></div></div>\n    <div class=\"lbl\">Wszystkie sprawy</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>rozegrane</span></div><div><b>{pct2}%</b><span>wygrane</span></div><div><b>{v7}</b><span>średni czas</span></div></div>\n    <div class=\"lbl\">Wynik do udostępnienia</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Zapisz obrazek</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Coś się nie zgadza? Zgłoś uwagę</button></p>\n    {v10}",
     "ui.settings.wsparcie_tworcy_ustawienia": "Wsparcie twórcy: ustawienia",
@@ -840,6 +835,18 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.ach.zdobyte_html": "<small>{v} · zdobyte {date}</small>",
     "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} z 3\">{repeat}{repeat2}</div>",
     "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} z {need}</small>",
+    "ui.game.n_dowod_1": "dowód rzeczowy",
+    "ui.game.n_dowod_2": "dowody rzeczowe",
+    "ui.game.n_dowod_5": "dowodów rzeczowych",
+    "ui.game.n_przedmiot_1": "przedmiot",
+    "ui.game.n_przedmiot_2": "przedmioty",
+    "ui.game.n_przedmiot_5": "przedmiotów",
+    "ui.game.n_miejsce_1": "miejsce",
+    "ui.game.n_miejsce_2": "miejsca",
+    "ui.game.n_miejsce_5": "miejsc",
+    "ui.game.n_regula_1": "reguła",
+    "ui.game.n_regula_2": "reguły",
+    "ui.game.n_regula_5": "reguł",
     "ui.game.w_trakcie": "w trakcie",
     "ui.game.sprawa_z_archiwum": "Sprawa z archiwum",
     "ui.game.sprawa_padstart": "Sprawa #{padStart}",
@@ -848,7 +855,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.wynik_starsof_z_3_gwiazdek": "Wynik: {starsOf} z 3 gwiazdek",
     "ui.game.wygrana_devicetype": "Wygrana ({deviceType})",
     "ui.game.wykluczony": " · wykluczony",
-    "ui.game.length_miejsca": "{length} miejsca",
     "ui.game.pinezka_name": "Pinezka: {name}",
     "ui.game.start_v_size": "Start: {v} {size}",
     "ui.settings.co_nowego": "Co nowego",
@@ -1372,7 +1378,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const n = dailyNumber(date), ver = versionFor(date);
     if (ver !== GEN_VERSION) {
       const L = legacy(ver);
-      if (L) { const c = L.dailyCase(date); c.gen = ver; return c; }
+      // język generatora idzie do zamrożonej wersji; wersje sprzed treści EN (2.0–2.2) go pomijają i dają sprawę po polsku
+      if (L) { const c = L.dailyCase(date, I18N() ? I18N().genLang() : "pl"); c.gen = ver; return c; }
       // brak zamrożonej wersji (np. plik się nie wczytał): lepsza inna sprawa niż wywalona gra
       if (typeof console !== "undefined") console.warn("Missing generator version " + ver + ", daily case from version " + GEN_VERSION);
     }
@@ -20078,11 +20085,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.powiazania_html": "<p class=\"how\">Connections: {join}</p>",
     "ui.game.wyklucz": "Rule out",
     "ui.game.przywroc": "Restore",
-    "ui.game.przedmioty": "items",
-    "ui.game.przedmiotow": "items",
-    "ui.game.dowodow_rzeczowych": "pieces of evidence",
-    "ui.game.dowody_rzeczowe": "pieces of evidence",
-    "ui.game.dowod_rzeczowy": "piece of evidence",
     "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Detective's notebook</h2><div class=\"kind\">Findings from forensics and the doctor</div><ol>{join}</ol>{travelTable}",
     "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Walking times</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
     "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Tap a pulsing pin or a photo to run a string from: {name}.",
@@ -20099,7 +20101,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.sprawca_html": "<p>The culprit {v} {name}{v2}.</p>",
     "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "The prosecutor throws out the indictment. The facts don't add up. {v}",
     "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Case file</button></div>\n    {v2}",
-    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Case file · {np} suspects · {v}{evTxt} ·{length} rules{v2}</div><p>{rich}</p>\n      <p class=\"how\">Tap a photo to read the file. Drag a string from pin to pin to connect the facts. Tap a string to cut it. The rules are in the notebook.</p>",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Case file · {np} suspects · {v}{evTxt} · {rules}</div><p>{rich}</p>\n      <p class=\"how\">Tap a photo to read the file. Drag a string from pin to pin to connect the facts. Tap a string to cut it. The rules are in the notebook.</p>",
     "ui.game.sprawa_porzucona_v_size_devicetype": "Case abandoned: {v} {size} ({deviceType})",
     "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Reasoning</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Your board</div>\n    <div class=\"stat\">Strings backed by facts: {good} · unsupported: {bad}<br>Culprit's circuit ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Cases of the Day</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>streak</span></div><div><b>{best}</b><span>best</span></div><div><b>{pct}%</b><span>won</span></div><div><b>{played}</b><span>played</span></div></div>\n    <div class=\"lbl\">All cases</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>played</span></div><div><b>{pct2}%</b><span>won</span></div><div><b>{v7}</b><span>average time</span></div></div>\n    <div class=\"lbl\">Result to share</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Save image</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Something doesn't add up? Report it</button></p>\n    {v10}",
     "ui.settings.wsparcie_tworcy_ustawienia": "Support the creator: settings",
@@ -20228,6 +20230,18 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.ach.zdobyte_html": "<small>{v} · earned {date}</small>",
     "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} of 3\">{repeat}{repeat2}</div>",
     "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} of {need}</small>",
+    "ui.game.n_dowod_1": "piece of evidence",
+    "ui.game.n_dowod_2": "pieces of evidence",
+    "ui.game.n_dowod_5": "pieces of evidence",
+    "ui.game.n_przedmiot_1": "item",
+    "ui.game.n_przedmiot_2": "items",
+    "ui.game.n_przedmiot_5": "items",
+    "ui.game.n_miejsce_1": "place",
+    "ui.game.n_miejsce_2": "places",
+    "ui.game.n_miejsce_5": "places",
+    "ui.game.n_regula_1": "rule",
+    "ui.game.n_regula_2": "rules",
+    "ui.game.n_regula_5": "rules",
     "ui.game.w_trakcie": "in progress",
     "ui.game.sprawa_z_archiwum": "Archive case",
     "ui.game.sprawa_padstart": "Case #{padStart}",
@@ -20236,7 +20250,6 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.game.wynik_starsof_z_3_gwiazdek": "Result: {starsOf} of 3 stars",
     "ui.game.wygrana_devicetype": "Won ({deviceType})",
     "ui.game.wykluczony": " · ruled out",
-    "ui.game.length_miejsca": "{length} places",
     "ui.game.pinezka_name": "Pin: {name}",
     "ui.game.start_v_size": "Start: {v} {size}",
     "ui.settings.co_nowego": "What's new",
@@ -23766,6 +23779,7 @@ window.SiatkaHistory = { record, has, dailyResult, summary, gamesDone, data, fro
  */
 (() => {
 const WORLD = SiatkaI18n.world();
+let caseLang = SiatkaI18n.genLang(); // język treści bieżącej sprawy (do zapisu): z zapisu, gdy sprawa z niego pochodzi
 SiatkaI18n.apply(document); // statyczne teksty index.html (data-i18n)
 const { svg: sprite } = window.SiatkaSprites;
 const $ = id => document.getElementById(id);
@@ -23827,7 +23841,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -23924,6 +23938,7 @@ function load(c, label, meta, saved) {
   abandonCheck(c);
   if (window.SiatkaSprites.tidyPortraits) window.SiatkaSprites.tidyPortraits(c);
   CASE = c; META = meta;
+  caseLang = saved && saved.case === c ? (saved.lang || "pl") : SiatkaI18n.genLang();
   byId = Object.fromEntries(c.nodes.map(n => [n.id, n]));
   supportedSet = new Set(c.supported_connections.map(([a, b]) => key(a, b)));
   chainKeys = c.culprit_chain.map(([a, b]) => key(a, b));
@@ -24208,8 +24223,10 @@ function renderSheet(keep) {
   }
   if (!S.sel) {
     const np = CASE.nodes.filter(n => n.type === "person").length, ni = CASE.nodes.filter(n => n.type === "item").length, ne = CASE.nodes.filter(n => n.type === "evidence").length;
-    const evTxt = ne ? ` · ${ne} ${ne === 1 ? t("ui.game.dowod_rzeczowy") : ne < 5 ? t("ui.game.dowody_rzeczowe") : t("ui.game.dowodow_rzeczowych")}` : "";
-    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? `${ni} ${ni > 4 ? t("ui.game.przedmiotow") : t("ui.game.przedmioty")}` : t("ui.game.length_miejsca", { length: CASE.nodes.filter(n => n.type === "location").length }), evTxt, length: CASE.rules.length, v2: CASE.rules.length < 5 ? "y" : "", rich: rich(CASE.intro) });
+    // liczba mnoga wg gramatyki języka interfejsu (pl: 1 / 2–4 / 5+, en: 1 / inne)
+    const count = (n, k) => `${n} ${SiatkaI18n.grammar().plural(n, t(k + "_1"), t(k + "_2"), t(k + "_5"))}`, nl = CASE.nodes.filter(n => n.type === "location").length;
+    const evTxt = ne ? ` · ${count(ne, "ui.game.n_dowod")}` : "";
+    sheet.innerHTML = t("ui.game.akta_sprawy_podejrzanych_regul_stuknij_html", { title: CASE.title, np, v: ni ? count(ni, "ui.game.n_przedmiot") : count(nl, "ui.game.n_miejsce"), evTxt, rules: count(CASE.rules.length, "ui.game.n_regula"), rich: rich(CASE.intro) });
     return;
   }
   const n = byId[S.sel];
@@ -24474,7 +24491,9 @@ function dailyCase() {
   const closed = st && { done: true, win: !!st.win, elapsed: st.ms || 0, hints: st.hints || 0, wrong: st.wrong || 0 };
   if (sv) {
     if (closed && !sv.done) Object.assign(sv, closed);
-    try { return load(sv.case, label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
+    /* zapis w innym języku (zmiana w Ustawieniach): ta sama sprawa (numer i wersja z todaySave) od nowa z danych bieżącego
+       języka; postęp jest zapisany po id węzłów, więc przechodzi bez zmian */
+    try { return load(sv.lang === SiatkaI18n.genLang() || (!sv.lang && SiatkaI18n.genLang() === "pl") ? sv.case : Siatka.dailyCase(WORLD), label, { kind: "daily" }, sv); } catch (e) { console.warn(t("ui.game.zapis_sprawy_dnia_pominiety"), e); }
   }
   // brak pasującego zapisu: świeża sprawa; rozegrana już (wg statystyk) wraca od razu zamknięta
   load(Siatka.dailyCase(WORLD), label, { kind: "daily" }, closed || undefined);
