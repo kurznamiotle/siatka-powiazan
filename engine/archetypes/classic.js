@@ -373,7 +373,7 @@
        Osobny strumień losowań, żeby dowody nie przestawiały reszty sprawy. */
     const RE = Eng.util.makeRng(seed + "/ev");
     /* 2.2: przy regule z zeszytem dozorcy jedynym źródłem wiedzy dozorcy jest ten zeszyt: bez dowodów i świadków-dozorców */
-    const noJanitor = list => absentRule ? list.filter(x => !/dozorc/i.test(typeof x === "string" ? x : x.name + " " + x.text.join(" "))) : list;
+    const noJanitor = list => absentRule ? list.filter(x => !new RegExp(B.textRe.janitor, "i").test(typeof x === "string" ? x : x.name + " " + x.text.join(" "))) : list;
     const ini = Pp => `${Pp.first.charAt(0)}.${Pp.last.charAt(0)}.`;
     const evs = [];
     {
@@ -437,11 +437,11 @@
       // albo zostaje niepotwierdzony, a dokument jest z innego dnia; teczka podaje godziny z zeznania
       for (const c of evs.filter(c => c.lie)) {
         c.claim = { from: c.f.from, to: c.f.to };
-        c.lie = !/tamt/i.test(c.def.text.join(" ")) && RE.chance(.4) ? "day" : "hours";
+        c.lie = !new RegExp(B.textRe.thatEvening, "i").test(c.def.text.join(" ")) && RE.chance(.4) ? "day" : "hours";
         if (c.lie === "hours") {
           const [a, b] = crimeWin, span = RE.int(6, 14) * 5;
           // „ostatni seans”, „nocna zmiana”: godziny po zbrodni, bo przed nią brzmiałyby nieprawdopodobnie
-          const late = /ostatni|nocn/.test(c.def.text.join(" ") + c.def.alibi.text);
+          const late = new RegExp(B.textRe.lateDoc).test(c.def.text.join(" ") + c.def.alibi.text);
           const early = () => a - RE.int(2, 6) * 5 - span, after = () => b + RE.int(1, 4) * 5;
           // 2.1.2: dokument nie obejmuje czasu, w którym ta osoba ma obecność gdzie indziej
           const hit = from => [...c.Pp.s.pres, ...(c.Pp.s.yard != null ? [{ t: c.Pp.s.yard }] : [])].some(p => p.t >= from - 5 && p.t <= from + span + 5);

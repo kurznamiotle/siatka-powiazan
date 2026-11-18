@@ -415,6 +415,7 @@
     "gen.classic.porucznik_detective_z_mo": "Porucznik {detective} z MO",
     "gen.timeline.komisarz_detective": "Komisarz {detective}",
     "gen.timeline.porucznik_detective_z_mo": "Porucznik {detective} z MO",
+    "gen.timeline.label_split_re": " (?:z|ze|przy|w|na|u|pod|nad|obok|do) ",
     "gen.timeline.name_d_min": "{name}: {d} min"
   };
   /* END MESSAGES */

@@ -10,8 +10,6 @@
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
   const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
-  /* 2.2.1: rodzaj miejsca zdarzenia z nazwy (pt jak w data/base.js): dobiera pasujących świadków i dowody */
-  const placeType = (n, TL) => { const hit = TL.placeTypes.find(([, re]) => re.test(n)); return hit ? hit[0] : TL.placeTypeDefault; };
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -51,9 +49,11 @@
     const others = R.sample(pool, NLOC[sizeKey] - 1);
     const X = Object.assign({ desc: [scene.where ? t("gen.timeline.tu_to_sie_stalo_where", { where: scene.where }) : t("gen.timeline.tu_to_sie_stalo")] }, TL.scene);
     // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
-    X.name = T((TL.places && TL.places[scene.title]) || scene.title);
-    X.label = X.name.split(/ (?:z|ze|przy|w|na|u|pod|nad|obok|do) /)[0];
-    X.pt = placeType(X.name, TL);
+    // nazwa i rodzaj miejsca (pt: dobiera pasujących świadków i dowody) po indeksie sceny, więc tak samo w każdym języku
+    const P = TL.places[crimeId][crime.scenes.indexOf(scene)];
+    X.name = T(P.name);
+    X.label = X.name.split(new RegExp(t("gen.timeline.label_split_re")))[0];
+    X.pt = P.pt;
     if (others.some(o => o.name === X.name)) X.name += t("gen.timeline.miejsce_zdarzenia_2");
     if (others.some(o => o.label === X.label)) X.label = t("gen.timeline.miejsce_zdarz");
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia

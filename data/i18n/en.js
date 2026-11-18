@@ -421,6 +421,7 @@
     "gen.classic.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
     "gen.timeline.komisarz_detective": "Commissioner {detective}",
     "gen.timeline.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
+    "gen.timeline.label_split_re": " (?:on|at|in|of|by|from|outside|near|behind|under|beside) ",
     "gen.timeline.name_d_min": "{name}: {d} min",
     "ui.changelog": null // „What's new”: until translated, the Polish list is shown
   };

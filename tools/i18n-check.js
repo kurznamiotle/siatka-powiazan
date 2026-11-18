@@ -48,7 +48,7 @@ if (enMsgs) {
 
 /* 5. kształt treści EN = kształt treści PL */
 const STRUCT = new Set(["id", "age", "ages", "access", "shape", "no", "pt", "icon", "g", "tags", "origins", "k", "at", "anc", "values",
-  "ruleValues", "roles", "keyBookLocs", "vt", "subtags", "time", "vg", "vage", "exclude", "placeTypes", "placeTypeDefault", "need", "trait",
+  "ruleValues", "roles", "keyBookLocs", "vt", "subtags", "time", "vg", "vage", "exclude", "need", "trait",
   "cm", "outfit", "headwear", "hair"]);
 // klucz logiki (np. roles:["worker"]) bywa też nazwą listy treści (base.roles = lista ról z tekstami): lista obiektów to treść
 const isStruct = (k, v) => STRUCT.has(k) && !(Array.isArray(v) && v.some(x => x && typeof x === "object")) && k !== "months";
@@ -83,6 +83,41 @@ if (enContent) {
   const plc = I.packs.pl.content;
   same(plc.base, enContent.base, "base", false); same(plc.cities, enContent.cities, "cities", false);
   console.log(`treści EN: ${shapeDiffs ? shapeDiffs + " różnic kształtu" : "kształt = PL (klucze, kolejność, długości, typy, pola logiki, wstawki)"}`);
+  /* 6. Silnik porównuje niektóre teksty: etykiety i nazwy dowodów muszą być w sprawie różne, pickU nie daje dwa razy tego
+     samego zdania, textRe rozpoznaje treść. Żeby ten sam seed dawał tę samą sprawę, równość tekstów musi być taka sama
+     w obu językach: dwa wpisy mają równy tekst po polsku wtedy i tylko wtedy, gdy mają równy po angielsku. */
+  const partition = (name, list) => {
+    let bad = 0;
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const [pi, a1, b1] = list[i], [pj, a2, b2] = list[j];
+      if ((a1 === a2) !== (b1 === b2)) { bad++; if (bad <= 10) err(`${name}: ${pi} i ${pj}: po polsku ${a1 === a2 ? "równe" : "różne"} („${a1}”, „${a2}”), po angielsku ${b1 === b2 ? "równe" : "różne"} („${b1}”, „${b2}”)`); }
+    }
+    return bad;
+  };
+  const evDefs = B => { const o = []; const add = (arr, p) => (arr || []).forEach((d, i) => d && d.label != null && o.push([`${p}[${i}]`, d]));
+    add(B.evidence.presence, "evidence.presence"); add(B.evidence.keys, "evidence.keys"); B.alibiConfirmed.forEach((a, i) => a.doc && o.push([`alibiConfirmed[${i}].doc`, a.doc]));
+    for (const [k, tr] of Object.entries(B.traits)) add(tr.evidence, `traits.${k}.evidence`); for (const [k, cr] of Object.entries(B.crimes)) add(cr.letters, `crimes.${k}.letters`);
+    add((B.timeline || {}).evidence, "timeline.evidence"); return o; };
+  const pd = evDefs(plc.base), ed = evDefs(enContent.base);
+  let pBad = partition("etykiety dowodów", pd.map(([p, d], i) => [p, d.label, ed[i][1].label])) + partition("nazwy dowodów", pd.map(([p, d], i) => [p, d.name, ed[i][1].name]));
+  const sentences = [];
+  (function walk(a, b, p) {
+    if (Array.isArray(a)) return a.forEach((x, i) => walk(x, b[i], `${p}[${i}]`));
+    if (a && typeof a === "object") return Object.keys(a).forEach(k => walk(a[k], b[k], `${p}.${k}`));
+    if (typeof a === "string" && a.length > 25 && /\s/.test(a) && !/\.(title|name|label|m|f)$/.test(p) && !/places/.test(p)) sentences.push([p, a, b]);
+  })(plc, enContent, "");
+  // grupy zamiast par: zdań są tysiące
+  const grp = new Map(); sentences.forEach(([p, a, b]) => { (grp.get(a) || grp.set(a, []).get(a)).push([p, a, b]); });
+  const grpEn = new Map(); sentences.forEach(([p, a, b]) => { (grpEn.get(b) || grpEn.set(b, []).get(b)).push([p, a, b]); });
+  for (const g of [...grp.values(), ...grpEn.values()]) if (g.length > 1) pBad += partition("zdania", g);
+  // textRe: wyrażenie z danych języka trafia w te same wpisy
+  const P = plc.base, E = enContent.base, txt = x => typeof x === "string" ? x : (x.t != null ? x.t : `${x.name || ""} ${(x.text || []).join(" ")}`);
+  const reCheck = (name, re1, re2, flags, items) => items.forEach(([p, a, b]) => { if (new RegExp(re1, flags).test(a) !== new RegExp(re2, flags).test(b)) { pBad++; err(`textRe.${name}: ${p} trafia tylko w jednym języku`); } });
+  reCheck("janitor", P.textRe.janitor, E.textRe.janitor, "i", [["evidence.presence", P.evidence.presence, E.evidence.presence], ["presenceTpl", P.presenceTpl, E.presenceTpl], ["claimFrame", P.claimFrame, E.claimFrame]].flatMap(([n, a, b]) => a.map((x, i) => [`${n}[${i}]`, txt(x), txt(b[i])])));
+  const docs = P.alibiConfirmed.map((a, i) => [a, E.alibiConfirmed[i], i]).filter(([a]) => a.doc);
+  reCheck("thatEvening", P.textRe.thatEvening, E.textRe.thatEvening, "i", docs.map(([a, b, i]) => [`alibiConfirmed[${i}].doc`, a.doc.text.join(" "), b.doc.text.join(" ")]));
+  reCheck("lateDoc", P.textRe.lateDoc, E.textRe.lateDoc, "", docs.map(([a, b, i]) => [`alibiConfirmed[${i}].doc`, a.doc.text.join(" ") + a.text, b.doc.text.join(" ") + b.text]));
+  console.log(`treści EN: ${pBad ? pBad + " rozbieżności w równości tekstów" : "równość etykiet, nazw dowodów i zdań oraz trafienia textRe jak w PL"}`);
 }
 // wyjątki: *_re to wyrażenia regularne ({L} = klasa znaków), {v} w samouczku to polski zaimek „go”/„ją” (po angielsku zbędny)
 const HOLE_EXCEPT = { "ui.tutorial.widziano_o_ma_do_od_html": ["v"] };
