@@ -1,0 +1,71 @@
+/*
+ * Siatka Powiązań — Kartoteka (słownik haseł) po polsku. Źródło: docs/kartoteka-hasla.md.
+ * id = znacznik {g:id} albo {g:id|tekst} w treściach; term = hasło, text = objaśnienie (1 zdanie), note = lata albo region.
+ * Każde id użyte w treściach musi mieć hasło w obu językach (tools/i18n-check.js).
+ */
+(function (root) {
+  const GLOSSARY = {
+    mo: { term:"MO (Milicja Obywatelska)", note:"do V 1990", text:"Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja." },
+    dzielnicowy: { term:"Dzielnicowy", note:"cały okres", text:"Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca." },
+    dozorca: { term:"Dozorca / dozorczyni", note:"cały okres", text:"Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki." },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", note:"cały okres", text:"Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku." },
+    komitet: { term:"Komitet kolejkowy", note:"do ok. 1990", text:"Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności." },
+    inkasent: { term:"Inkasent gazowni", note:"cały okres", text:"Chodził po domach, spisywał liczniki i pobierał opłaty." },
+    spolem: { term:"Społem", text:"Sieć spółdzielczych sklepów spożywczych, obecna w każdej dzielnicy." },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"Zielone kioski z gazetami, papierosami i biletami." },
+    pewex: { term:"Pewex", note:"do ok. połowy lat 90.", text:"Sklep z zachodnimi towarami za dolary i bony." },
+    cpn: { term:"CPN", text:"Państwowe stacje benzynowe, do połowy lat 90. jedyne w kraju." },
+    pzu: { term:"PZU", text:"Państwowy ubezpieczyciel, u którego obowiązkowo ubezpieczało się auta." },
+    pko: { term:"PKO", text:"Państwowy bank oszczędnościowy, u którego trzymało się książeczki i oszczędności." },
+    mpo: { term:"MPO", text:"Miejskie służby oczyszczania, czyli śmieciarze." },
+    mpk: { term:"MPK", text:"Miejskie tramwaje i autobusy." },
+    pkp: { term:"PKP", text:"Polskie Koleje Państwowe." },
+    wopr: { term:"WOPR", text:"Ratownicy wodni na plażach i kąpieliskach." },
+    talon: { term:"Talon", note:"do ok. 1990", text:"Przydział na towar, którego nie dało się po prostu kupić, np. auto." },
+    szczeka: { term:"Szczęka", text:"Blaszany rozkładany stragan na bazarze." },
+    saksy: { term:"Saksy", text:"Wyjazd do pracy na Zachód, zwykle do Niemiec, „na czarno”." },
+    cinkciarz: { term:"Cinkciarz", note:"do ok. 1990", text:"Uliczny handlarz walutą. Zaczepiał hasłem „change money?”." },
+    totek: { term:"Totek / Lotto", text:"Gry liczbowe Totalizatora Sportowego. Skreślanie w środy i soboty." },
+    pekin: { term:"Pekin", note:"Warszawa", text:"Potoczna nazwa Pałacu Kultury i Nauki." },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"Melodia grana co godzinę z wieży Mariackiej, urwana w połowie." },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"Główny targ Bałut: budki, handel i ciasno." },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"Fabryka przędzy. Łódź była polskim zagłębiem włókienniczym." },
+    familok: { term:"Familok", note:"Śląsk", text:"Ceglany dom robotniczy na Śląsku, jak na Nikiszowcu." },
+    lampownia: { term:"Lampownia", note:"Śląsk", text:"Pomieszczenie w kopalni, gdzie górnicy pobierali lampy przed zjazdem." },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Wielki letni jarmark w Gdańsku, od średniowiecza." },
+    szychta: { term:"Szychta", note:"Śląsk", text:"Zmiana w kopalni lub hucie." },
+    barborka: { term:"Barbórka", note:"Śląsk, 4 grudnia", text:"Święto górników w dzień świętej Barbary, z orkiestrami i galowymi mundurami." },
+    fajrant: { term:"Fajrant", text:"Koniec pracy." },
+    kamrat: { term:"Kamrat", note:"Śląsk", text:"Kolega z pracy, kumpel." },
+    gryfnie: { term:"Gryfnie", note:"Śląsk", text:"Ładnie, fajnie." },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"Powiedzonko z gwary lwowskiej, przywiezione do Wrocławia po wojnie." },
+    mankut: { term:"Mańkut", text:"Osoba leworęczna." },
+    matura: { term:"Matura", text:"Egzamin na koniec liceum, przepustka na studia." },
+    ortalion: { term:"Ortalion", text:"Szeleszcząca nylonowa kurtka, hit lat 80. i 90." },
+    relaks: { term:"Relaks", text:"Popularne polskie buty, zwłaszcza zimowe." },
+    mebloscianka: { term:"Meblościanka", text:"Rząd szafek na całą ścianę, w każdym mieszkaniu." },
+    kredens: { term:"Kredens", text:"Stara szafa kuchenna na naczynia i „specjalne okazje”." },
+    trzepak: { term:"Trzepak", text:"Metalowa rama na podwórku do trzepania dywanów, a dla dzieci plac zabaw." },
+    lucznik: { term:"Łucznik", text:"Polska maszyna do pisania z Radomia." },
+    zenit: { term:"Zenit", text:"Radziecki aparat fotograficzny, ciężki i niezniszczalny." },
+    pegasus: { term:"Pegasus", note:"od ok. 1993", text:"Bazarowa konsola do gier, podróbka Nintendo." },
+    wigry: { term:"Wigry", text:"Polski składany rower, w każdej piwnicy." },
+    polsilver: { term:"Polsilver", text:"Polskie żyletki." },
+    denaturat: { term:"Denaturat", text:"Fioletowy, skażony spirytus do czyszczenia. „Nie do picia”, ale bywało różnie." },
+    luminal: { term:"Luminal", text:"Silny lek nasenny z dawnych aptek." },
+    maluch: { term:"Maluch (Fiat 126p)", text:"Najmniejsze i najpopularniejsze auto w Polsce." },
+    polonez: { term:"Polonez", text:"Większe polskie auto z FSO, marzenie wielu rodzin." },
+    syrenka: { term:"Syrenka", text:"Stare polskie auto, produkowane do 1983 roku. W latach 90. już zabytek." },
+    zuk: { term:"Żuk", text:"Polski dostawczak: do sklepu, przeprowadzki i na budowę." },
+    cinquecento: { term:"Cinquecento", note:"od 1991", text:"Mały Fiat produkowany w Tychach, następca Malucha." },
+    tico: { term:"Daewoo Tico", note:"od ok. 1996", text:"Małe koreańskie auto, popularne pod koniec lat 90." },
+    sygnal: { term:"Sygnał czasu", text:"Piknięcia w Polskim Radiu o pełnej godzinie." },
+    trojka: { term:"Trójka", text:"Program Trzeci Polskiego Radia, kultowa stacja z muzyką." },
+    discopolo: { term:"Disco polo", note:"lata 90.", text:"Prosta muzyka taneczna, sprzedawana na kasetach z bazaru." },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"od V 1989", text:"Pierwszy niezależny dziennik, założony przed wyborami w 1989 roku." },
+    sporty: { term:"Sporty", text:"Najtańsze polskie papierosy bez filtra." }
+  };
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { glossary: GLOSSARY } });
+  if (typeof module !== "undefined" && module.exports) module.exports = GLOSSARY;
+})(typeof window !== "undefined" ? window : globalThis);

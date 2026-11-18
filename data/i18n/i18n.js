@@ -61,6 +61,11 @@
     },
     /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
     glossary(id, label) { return label != null ? label : id; },
+    /* hasło Kartoteki { term, text, note? } w bieżącym języku, a gdy go brak, po polsku (data/i18n/<język>/glossary.js) */
+    glossaryEntry(id, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl, g = p => p && p.content && p.content.glossary;
+      return (g(cur) && g(cur)[id]) || (g(pl) && g(pl)[id]) || null;
+    },
     grammar(lang) { const p = this.packs[lang || this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
     genGrammar() { return this.grammar(this.genLang()); },
     /* treści generatora bieżącego języka: { base, cities } */

@@ -9,6 +9,8 @@
  *      kolejności, długości list, typy i wartości nietekstowe; pola logiki (id, tagi, k, vt, roles, at, time…) identyczne,
  *      a w tekstach te same zbiory wstawek {nazwa} (bez znaczników Kartoteki {g:…}). To samo dla wstawek w kluczach en.js.
  *      Każda różnica to błąd ze ścieżką, np. base.crimes.kradziez.scenes[3].intro.
+ *   6. Równość tekstów PL ⇔ EN (etykiety i nazwy dowodów, zdania) i trafienia base.textRe w obu językach.
+ *   7. Kartoteka: każde id ze znacznika {g:id} ma hasło w data/i18n/pl/glossary.js i en/glossary.js.
  *   node tools/i18n-check.js [--strict]   (--strict: braki w en.js też są błędem)
  */
 const fs = require("fs"), path = require("path");
@@ -123,6 +125,27 @@ if (enContent) {
 const HOLE_EXCEPT = { "ui.tutorial.widziano_o_ma_do_od_html": ["v"] };
 const holesExcept = (k, str) => holes(str).split(" ").filter(h => !(HOLE_EXCEPT[k] || []).includes(h)).join(" ");
 if (enMsgs) for (const k of Object.keys(pl)) if (!/_re$/.test(k) && typeof pl[k] === "string" && typeof enMsgs[k] === "string" && holesExcept(k, pl[k]) !== holes(enMsgs[k])) err(`en.js ${k}: wstawki {${holes(pl[k])}} / {${holes(enMsgs[k])}}`);
+
+/* 7. Kartoteka: każde id ze znacznika {g:id} albo {g:id|tekst} w treściach i tekstach (każdy język) ma hasło w pl i en */
+try {
+  require(path.join(root, "data/i18n/pl/glossary.js"));
+  if (fs.existsSync(path.join(root, "data/i18n/en/glossary.js"))) require(path.join(root, "data/i18n/en/glossary.js"));
+  const gl = l => (I.packs[l] && I.packs[l].content && I.packs[l].content.glossary) || {};
+  const usedG = new Map();
+  const scan = (v, where) => {
+    if (typeof v === "string") { for (const m of v.matchAll(/\{g:([\w-]+)(?:\|[^{}]*)?\}/g)) if (!usedG.has(m[1])) usedG.set(m[1], where); return; }
+    if (Array.isArray(v)) return v.forEach(x => scan(x, where));
+    if (v && typeof v === "object") for (const k in v) scan(v[k], where);
+  };
+  for (const l of Object.keys(I.packs)) { scan(I.packs[l].messages, `${l}.js`); const c = I.packs[l].content || {}; scan(c.base, `${l}/base.js`); scan(c.cities, `${l}/cities.js`); }
+  let missG = 0;
+  for (const [id, where] of usedG) for (const l of ["pl", "en"]) { const e = gl(l)[id]; if (!e || !e.term || !e.text) { missG++; err(`Kartoteka: {g:${id}} (${where}) nie ma hasła w ${l}/glossary.js`); } }
+  const pk = Object.keys(gl("pl")).sort().join(), ek = Object.keys(gl("en")).sort().join();
+  if (pk !== ek) err("Kartoteka: pl/glossary.js i en/glossary.js mają różne zestawy haseł");
+  const unusedG = Object.keys(gl("pl")).filter(id => !usedG.has(id));
+  if (unusedG.length) warn(`Kartoteka: ${unusedG.length} haseł bez użycia: ${unusedG.join(", ")}`);
+  console.log(`Kartoteka: ${usedG.size} użytych haseł, ${missG ? missG + " braków" : "wszystkie mają opis w pl i en"} (haseł: ${Object.keys(gl("pl")).length})`);
+} catch (e) { err("Kartoteka się nie wczytała: " + e.message); }
 
 console.log(errors ? `i18n: ${errors} błędów` : `i18n: ${Object.keys(pl).length} kluczy, wszystkie użyte klucze istnieją, w kodzie brak polskiego tekstu${warns ? ` (uwag: ${warns})` : ""}`);
 process.exit(errors ? 1 : 0);
