@@ -148,6 +148,13 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   await click("dailyBtn");
   await waitFor(`document.querySelector("#board .node") && /Sprawa/.test(document.getElementById("caseLine").textContent)`, "sprawa dnia się nie wczytała");
   const line = await ev(`document.getElementById("caseLine").textContent.trim()`);
+  // oś czasu: jednorazowa karta „Nowy typ sprawy” (pojawia się 400 ms po wczytaniu) zasłania tablicę i zakładki
+  for (let t = 0; t < 1500 && !await ev(`!!document.getElementById("tlGo")`); t += 100) await sleep(100);
+  if (await ev(`!!document.getElementById("tlGo")`)) {
+    await click("tlGo");
+    if (await ev(`!!document.getElementById("tlGo")`)) fail("karta „Nowy typ sprawy: oś czasu” się nie zamknęła");
+    ok("karta „Nowy typ sprawy: oś czasu” zamknięta");
+  }
   await tapSel("#board .node", "pierwszego zdjęcia na tablicy");
   const akta = await ev(`document.getElementById("sheet").innerText`);
   if (!akta || akta.length < 60) fail("akta pierwszego zdjęcia są puste");
