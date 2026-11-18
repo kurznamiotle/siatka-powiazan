@@ -139,7 +139,8 @@ const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-
 const LANG = window.SiatkaI18n;
 const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
   : t("ui.settings.language_html", { plOn: LANG.lang === "pl" ? " on" : "", enOn: LANG.lang === "en" ? " on" : "",
-    note: LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>` });
+    note: (LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>`)
+      + (window.SiatkaGame && window.SiatkaGame.caseInOtherLang && window.SiatkaGame.caseInOtherLang() ? `<small class="set-note" id="langNext">${t("ui.settings.case_lang_next")}</small>` : "") });
 const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
 function render() {
   if (view === "news") return renderNews();

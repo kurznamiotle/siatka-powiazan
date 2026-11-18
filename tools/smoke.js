@@ -230,6 +230,36 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
     const after = await ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-daily")); return { lang: sv.lang, title: sv.case.title, hints: sv.hints, read: sv.read }; })()`);
     if (after.lang !== "en" || after.title !== prep.title || after.hints !== 1 || !after.read.includes(prep.id)) fail("zmiana języka: sprawa albo postęp się nie zgadza: " + JSON.stringify({ prep, after }));
     ok("zapis sprawy dnia z innego języka: ta sama sprawa po angielsku, postęp zachowany");
+
+    /* 7. „New case”: zmiana języka w trakcie sprawy w obie strony (en → pl → en): ten sam seed, tekst w nowym języku, postęp zostaje */
+    const rs = () => ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-random") || "null"); return sv && { seed: sv.case.seed, intro: sv.case.intro, lang: sv.lang, opts: !!sv.opts, hints: sv.hints, read: sv.read }; })()`);
+    const r0 = await rs();
+    if (!r0 || !r0.opts || r0.lang !== "en") fail("zapis sprawy z „New case” bez opcji generowania albo nie po angielsku: " + JSON.stringify(r0));
+    const goRandom = async (lang, setup) => {
+      // gra zapisuje się na pagehide (i ustawia siatka-last na bieżącą sprawę), więc nasz stan wpisujemy po niej, w późniejszym pagehide
+      await ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-random")); ${setup || ""}; const s = JSON.stringify(sv);
+        const put = () => { localStorage.setItem("siatka-save-random", s); localStorage.setItem("siatka-last", JSON.stringify("random")); };
+        addEventListener("pagehide", put); document.addEventListener("visibilitychange", put); put(); })()`);
+      await C("Page.navigate", { url: URL.replace("lang=en", "lang=" + lang) });
+      await waitFor(`document.readyState === "complete" && document.querySelector("#board .node") && SiatkaI18n.lang === ${JSON.stringify(lang)}`, `gra nie wstała po przełączeniu na ${lang}`, 15000);
+      await dismissTimeline();
+      await tapSel("#board .node", "zdjęcia po zmianie języka");
+      await sleep(600);
+      return rs();
+    };
+    const r1 = await goRandom("pl", "sv.hints = 2");
+    if (r1.seed !== r0.seed || r1.lang !== "pl" || r1.intro === r0.intro || r1.hints !== 2 || !r1.read.includes(r0.read[0])) fail("„New case” en → pl: " + JSON.stringify({ r0, r1 }));
+    const r2 = await goRandom("en");
+    if (r2.seed !== r0.seed || r2.lang !== "en" || r2.intro !== r0.intro || r2.hints !== 2 || !r2.read.includes(r0.read[0])) fail("„New case” pl → en: " + JSON.stringify({ r0, r2 }));
+    ok("„New case”: zmiana języka w obie strony, ta sama sprawa z danych nowego języka, postęp zachowany");
+
+    /* 8. stary zapis bez opcji generowania: sprawa zostaje w swoim języku do następnej, w Ustawieniach informacja */
+    // stary zapis angielskiej sprawy (bez opts) w sesji polskiej: przeładowanie na inny adres (lang=pl), więc to prawdziwy start gry
+    const r3 = await goRandom("pl", `delete sv.opts; sv.lang = "en"; sv.case.intro = "STARY ZAPIS"`);
+    if (r3.intro !== "STARY ZAPIS" || r3.lang !== "en") fail("stary zapis bez opcji powinien zostać w swoim języku: " + JSON.stringify(r3));
+    await click("menuBtn");
+    await waitFor(visible("menu") + ` && document.getElementById("langNext")`, "w Ustawieniach brak informacji, że sprawa zostaje w swoim języku");
+    ok("stary zapis bez opcji: sprawa w swoim języku, informacja w Ustawieniach");
   }
 
   await sleep(500);

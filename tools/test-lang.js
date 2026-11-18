@@ -52,5 +52,20 @@ for (let i = 0; i < N; i++) {
   const etext = [e.title, e.intro, e.epilogue, ...e.hints, ...e.why.flat(), ...e.rules.map(r => r.text), ...e.nodes.flatMap(n => [n.name, n.label, ...n.text])].join(" ");
   if (/\{[a-zA-Z_:]+[|}]|\[[^\]]*\|[^\]]*\]|undefined|NaN/.test(etext)) fail(`${seed}: nierozwiązana wstawka, nawias albo undefined w sprawie EN: ${(etext.match(/.{0,40}(\{[a-zA-Z_:]+[|}]|\[[^\]]*\|[^\]]*\]|undefined|NaN).{0,40}/) || [""])[0]}`);
 }
-console.log(bad ? `Test języków: ${bad} błędów` : `Test języków: ${N} spraw, struktura pl = en (gen.* EN na treściach PL i ${full} spraw z treściami EN)`);
+/* (3) avoid niezależny od języka: ostatnie sprawy zapisane jako ścieżki w danych (encodeUsed), następna sprawa
+   z avoid odczytanym w PL i w EN ma tę samą strukturę; zakodowanie i odczytanie w tym samym języku nic nie gubi */
+const NA = Math.max(60, Math.round(N / 3));
+let avoidOk = 0;
+for (let i = 0; i < NA; i++) {
+  const prev = [0, 1, 2, 3].map(k => gen("pl", `lang-av-${i}-${k}`, kinds[(i + k) % kinds.length]));
+  const keys = S.avoidFrom(prev.map(c => S.encodeUsed(W, c.used)));
+  for (const c of prev) { const back = S.decodeAvoid(W, S.encodeUsed(W, c.used)); for (const k of ["scenes", "quips", "flavor", "alibi"]) for (const x of c.used[k] || []) if (!back[k].includes(x)) fail(`lang-av-${i}: tekst z used.${k} zgubiony przy kodowaniu: ${x}`); }
+  const opts = Object.assign({}, kinds[i % kinds.length], { avoid: S.decodeAvoid(W, keys) });
+  const a = gen("pl", `lang-av-${i}`, opts), e = gen("en", `lang-av-${i}`, Object.assign({}, kinds[i % kinds.length], { avoid: S.decodeAvoid(WEN, keys) }), WEN);
+  // kontrola: avoid z tekstów (jak przed zmianą) daje w PL tę samą sprawę co avoid ze ścieżek
+  const old = gen("pl", `lang-av-${i}`, Object.assign({}, kinds[i % kinds.length], { avoid: S.avoidFrom(prev.map(c => c.used)) }));
+  if (JSON.stringify(old) !== JSON.stringify(a)) fail(`lang-av-${i}: avoid ze ścieżek zmienia sprawę PL`);
+  if (skeleton(a, W) !== skeleton(e, WEN)) fail(`lang-av-${i}: z tym samym avoid struktura pl ≠ en`); else avoidOk++;
+}
+console.log(bad ? `Test języków: ${bad} błędów` : `Test języków: ${N} spraw, struktura pl = en (gen.* EN na treściach PL i ${full} spraw z treściami EN; ${avoidOk} spraw z avoid ze ścieżek)`);
 process.exit(bad ? 1 : 0);

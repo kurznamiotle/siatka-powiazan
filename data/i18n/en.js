@@ -292,6 +292,7 @@
     "ui.settings.gra_zainstalowana": "Game installed",
     "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick wide\" id=\"setNews\">What's new{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "This case stays in the language it was started in. The new language applies from the next case.",
     "ui.settings.cases_in_progress": "(cases: translation in progress)",
     "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Tutorial: left the game at step {v}",
     "ui.tutorial.samouczek_pominiety_na_kroku_v": "Tutorial skipped at step {v}",

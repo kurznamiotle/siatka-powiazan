@@ -736,6 +736,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.gra_zainstalowana": "Gra zainstalowana",
     "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "Ta sprawa zostaje w języku, w którym ją zaczęto. Nowy język obowiązuje od następnej sprawy.",
     "ui.settings.cases_in_progress": "(sprawy: tłumaczenie w toku)",
     "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Samouczek: wyjście z gry na kroku {v}",
     "ui.tutorial.samouczek_pominiety_na_kroku_v": "Samouczek pominięty na kroku {v}",
@@ -1398,9 +1399,39 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     return out;
   }
 
+  /* avoid niezależny od języka: teksty z `used` (sceny, komentarze, smaczki, alibi) jako ścieżki w danych
+     („b.crimes.kradziez.scenes.3.title”), bo dane PL i EN mają ten sam kształt. Imiona, nazwiska i role są wspólne.
+     Gra trzyma ostatnie sprawy i opcje sprawy z archiwum w tej postaci, a generatorowi podaje teksty bieżącego języka
+     (decodeAvoid), więc generator porównuje teksty jak dotąd. Tekst z kilku miejsc koduje się na wszystkie te ścieżki. */
+  const AVOID_TEXT = ["scenes", "quips", "flavor", "alibi"];
+  const textIx = new WeakMap();
+  function textIndex(world) {
+    let ix = textIx.get(world);
+    if (ix) return ix;
+    const byText = new Map(), byPath = new Map();
+    const walk = (v, p) => {
+      if (typeof v === "string") { (byText.get(v) || byText.set(v, []).get(v)).push(p); byPath.set(p, v); return; }
+      if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${p}.${i}`));
+      else if (v && typeof v === "object") for (const k in v) walk(v[k], `${p}.${k}`);
+    };
+    walk(world.base, "b"); walk(world.cities, "c");
+    textIx.set(world, ix = { byText, byPath });
+    return ix;
+  }
+  function encodeUsed(world, used) {
+    const ix = textIndex(world), out = {};
+    for (const key in used || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((used[key] || []).flatMap(s => ix.byText.get(s) || []))] : used[key];
+    return out;
+  }
+  function decodeAvoid(world, keys) {
+    const ix = textIndex(world), out = {};
+    for (const key in keys || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((keys[key] || []).map(p => ix.byPath.get(p)).filter(s => s != null))] : keys[key];
+    return out;
+  }
+
   const util = { itemRef, decimal, fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
-    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM };
+    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
@@ -20131,6 +20162,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.gra_zainstalowana": "Game installed",
     "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick wide\" id=\"setNews\">What's new{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "This case stays in the language it was started in. The new language applies from the next case.",
     "ui.settings.cases_in_progress": "(cases: translation in progress)",
     "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Tutorial: left the game at step {v}",
     "ui.tutorial.samouczek_pominiety_na_kroku_v": "Tutorial skipped at step {v}",
@@ -23807,13 +23839,22 @@ const SAVE = { daily: "siatka-save-daily", random: "siatka-save-random", last: "
 /* Ostatnio użyte imiona, role, sceny i smaczki (pole `used` z ostatnich spraw). Sprawy z archiwum
    i rozgrzewka dostają je jako opts.avoid, żeby się nie powtarzały. Sprawa dnia nigdy, bo ma być wspólna. */
 const RECENT_KEY = "siatka-recent";
+/* Trzymamy je niezależnie od języka (ścieżki w danych, Siatka.encodeUsed; enc: 1), a generatorowi podajemy teksty
+   bieżącego języka. Starsze wpisy (same teksty, bez enc) były polskie, więc kodujemy je z danych polskich. */
 function rememberUsed(c) {
   if (!c.used) return;
   const list = (ls.get(RECENT_KEY) || []).filter(x => x && x.seed !== c.seed);
-  list.push(Object.assign({ seed: c.seed }, c.used));
+  list.push(Object.assign({ seed: c.seed, enc: 1 }, Siatka.encodeUsed(SiatkaI18n.world(caseLang), c.used)));
   ls.set(RECENT_KEY, list.slice(-Siatka.RECENT));
 }
-const recentAvoid = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).map(({ seed, ...u }) => u));
+const recentKeys = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).filter(Boolean).map(({ seed, enc, ...u }) => enc ? u : Siatka.encodeUsed(SiatkaI18n.world("pl"), u)));
+/* sprawa z archiwum albo rozgrzewka: opcje generowania (z avoid jako ścieżkami) idą do zapisu, żeby po zmianie
+   języka zbudować tę samą sprawę z danych nowego języka */
+const genOpts = o => Object.assign({}, o, { avoid: Siatka.decodeAvoid(WORLD, o.avoid) });
+function loadRandom(seed, opts, label) {
+  const gen = Object.assign({ seed }, opts, { avoid: recentKeys() });
+  load(Siatka.generateCase(WORLD, seed, genOpts(gen)), label, { kind: "random", gen });
+}
 /* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
    pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
    starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
@@ -23841,7 +23882,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, opts: META.gen, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -24466,7 +24507,7 @@ const WARMUP = t("ui.game.sprawa_na_rozgrzewke");
 function warmupCase() {
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
   if (todaySave()) return false; // sprawa dnia już zaczęta
-  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S", avoid: recentAvoid() }), WARMUP, { kind: "random" });
+  loadRandom("rozgrzewka-" + Date.now().toString(36), { size: "S" }, WARMUP);
   return true;
 }
 
@@ -24479,7 +24520,7 @@ function newCase() {
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
-  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), t("ui.game.sprawa_z_archiwum"), { kind: "random" });
+  loadRandom(seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }, t("ui.game.sprawa_z_archiwum"));
   paintQuota();
 }
 function dailyCase() {
@@ -24501,7 +24542,12 @@ function dailyCase() {
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
   if (!saveOk(sv) || sv.done) return false;
-  try { load(sv.case, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random" }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
+  /* zapis w innym języku: z opcjami generowania ta sama sprawa od nowa z danych bieżącego języka (postęp po id);
+     starszy zapis bez opcji zostaje w swoim języku do następnej sprawy (informacja w Ustawieniach) */
+  const lang = sv.lang || "pl", other = lang !== SiatkaI18n.genLang();
+  let c = sv.case;
+  if (other && sv.opts && sv.opts.seed === sv.case.seed && Siatka.caseVersion(sv.case) === Siatka.GEN_VERSION) try { c = Siatka.generateCase(WORLD, sv.opts.seed, genOpts(sv.opts)); } catch (e) { c = sv.case; }
+  try { load(c, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random", gen: sv.opts }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
 $("newBtn").onclick = openNewCase;
@@ -24537,7 +24583,8 @@ function caseInfo() {
   const st = S.done ? (S.win ? t("ui.game.rozwiazana") : "umorzona") : t("ui.game.w_trakcie");
   return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
+/* caseInOtherLang: dla Ustawień, bieżąca sprawa została w języku, w którym ją zaczęto (stary zapis bez opcji generowania) */
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
 })();
 
 </script>
@@ -25143,7 +25190,8 @@ const sw = (id, label, on, sub) => `<div class="set-row"><span><span class="set-
 const LANG = window.SiatkaI18n;
 const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
   : t("ui.settings.language_html", { plOn: LANG.lang === "pl" ? " on" : "", enOn: LANG.lang === "en" ? " on" : "",
-    note: LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>` });
+    note: (LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>`)
+      + (window.SiatkaGame && window.SiatkaGame.caseInOtherLang && window.SiatkaGame.caseInOtherLang() ? `<small class="set-note" id="langNext">${t("ui.settings.case_lang_next")}</small>` : "") });
 const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
 function render() {
   if (view === "news") return renderNews();

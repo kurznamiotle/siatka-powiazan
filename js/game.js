@@ -32,13 +32,22 @@ const SAVE = { daily: "siatka-save-daily", random: "siatka-save-random", last: "
 /* Ostatnio użyte imiona, role, sceny i smaczki (pole `used` z ostatnich spraw). Sprawy z archiwum
    i rozgrzewka dostają je jako opts.avoid, żeby się nie powtarzały. Sprawa dnia nigdy, bo ma być wspólna. */
 const RECENT_KEY = "siatka-recent";
+/* Trzymamy je niezależnie od języka (ścieżki w danych, Siatka.encodeUsed; enc: 1), a generatorowi podajemy teksty
+   bieżącego języka. Starsze wpisy (same teksty, bez enc) były polskie, więc kodujemy je z danych polskich. */
 function rememberUsed(c) {
   if (!c.used) return;
   const list = (ls.get(RECENT_KEY) || []).filter(x => x && x.seed !== c.seed);
-  list.push(Object.assign({ seed: c.seed }, c.used));
+  list.push(Object.assign({ seed: c.seed, enc: 1 }, Siatka.encodeUsed(SiatkaI18n.world(caseLang), c.used)));
   ls.set(RECENT_KEY, list.slice(-Siatka.RECENT));
 }
-const recentAvoid = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).map(({ seed, ...u }) => u));
+const recentKeys = () => Siatka.avoidFrom((ls.get(RECENT_KEY) || []).filter(Boolean).map(({ seed, enc, ...u }) => enc ? u : Siatka.encodeUsed(SiatkaI18n.world("pl"), u)));
+/* sprawa z archiwum albo rozgrzewka: opcje generowania (z avoid jako ścieżkami) idą do zapisu, żeby po zmianie
+   języka zbudować tę samą sprawę z danych nowego języka */
+const genOpts = o => Object.assign({}, o, { avoid: Siatka.decodeAvoid(WORLD, o.avoid) });
+function loadRandom(seed, opts, label) {
+  const gen = Object.assign({ seed }, opts, { avoid: recentKeys() });
+  load(Siatka.generateCase(WORLD, seed, genOpts(gen)), label, { kind: "random", gen });
+}
 /* Ta sama sprawa może być otwarta w dwóch miejscach naraz (karta w Chrome i zainstalowana gra dzielą
    pamięć na Androidzie). Kopia, która jeszcze nie wie o rozwiązaniu, nie może nadpisać wyniku swoim
    starym stanem: zamiast tego przejmuje zamkniętą sprawę. */
@@ -66,7 +75,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, opts: META.gen, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -691,7 +700,7 @@ const WARMUP = t("ui.game.sprawa_na_rozgrzewke");
 function warmupCase() {
   if (gamesDone() > 0 || !["L", "XL"].includes(Siatka.dailySize())) return false;
   if (todaySave()) return false; // sprawa dnia już zaczęta
-  load(Siatka.generateCase(WORLD, "rozgrzewka-" + Date.now().toString(36), { size: "S", avoid: recentAvoid() }), WARMUP, { kind: "random" });
+  loadRandom("rozgrzewka-" + Date.now().toString(36), { size: "S" }, WARMUP);
   return true;
 }
 
@@ -704,7 +713,7 @@ function newCase() {
   const o = DEV() ? OPT : { size: rampSize() };
   if (DEV()) ls.set("siatka-opts", OPT);
   AU.sfx("page");
-  load(Siatka.generateCase(WORLD, seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined, avoid: recentAvoid() }), t("ui.game.sprawa_z_archiwum"), { kind: "random" });
+  loadRandom(seed, { city: o.city || undefined, year: o.year ? +o.year : undefined, size: o.size || undefined }, t("ui.game.sprawa_z_archiwum"));
   paintQuota();
 }
 function dailyCase() {
@@ -726,7 +735,12 @@ function dailyCase() {
 function resumeRandom() {
   const sv = ls.get(SAVE.random);
   if (!saveOk(sv) || sv.done) return false;
-  try { load(sv.case, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random" }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
+  /* zapis w innym języku: z opcjami generowania ta sama sprawa od nowa z danych bieżącego języka (postęp po id);
+     starszy zapis bez opcji zostaje w swoim języku do następnej sprawy (informacja w Ustawieniach) */
+  const lang = sv.lang || "pl", other = lang !== SiatkaI18n.genLang();
+  let c = sv.case;
+  if (other && sv.opts && sv.opts.seed === sv.case.seed && Siatka.caseVersion(sv.case) === Siatka.GEN_VERSION) try { c = Siatka.generateCase(WORLD, sv.opts.seed, genOpts(sv.opts)); } catch (e) { c = sv.case; }
+  try { load(c, sv.label || t("ui.game.sprawa_z_archiwum"), { kind: "random", gen: sv.opts }, sv); return true; } catch (e) { console.warn(t("ui.game.zapis_sprawy_z_archiwum_pominiety"), e); return false; }
 }
 $("dailyBtn").onclick = () => { saveNow(); AU.sfx("page"); dailyCase(); };
 $("newBtn").onclick = openNewCase;
@@ -762,5 +776,6 @@ function caseInfo() {
   const st = S.done ? (S.win ? t("ui.game.rozwiazana") : "umorzona") : t("ui.game.w_trakcie");
   return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo };
+/* caseInOtherLang: dla Ustawień, bieżąca sprawa została w języku, w którym ją zaczęto (stary zapis bez opcji generowania) */
+window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
 })();

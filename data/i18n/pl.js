@@ -285,6 +285,7 @@
     "ui.settings.gra_zainstalowana": "Gra zainstalowana",
     "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "Ta sprawa zostaje w języku, w którym ją zaczęto. Nowy język obowiązuje od następnej sprawy.",
     "ui.settings.cases_in_progress": "(sprawy: tłumaczenie w toku)",
     "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Samouczek: wyjście z gry na kroku {v}",
     "ui.tutorial.samouczek_pominiety_na_kroku_v": "Samouczek pominięty na kroku {v}",

@@ -298,9 +298,39 @@
     return out;
   }
 
+  /* avoid niezależny od języka: teksty z `used` (sceny, komentarze, smaczki, alibi) jako ścieżki w danych
+     („b.crimes.kradziez.scenes.3.title”), bo dane PL i EN mają ten sam kształt. Imiona, nazwiska i role są wspólne.
+     Gra trzyma ostatnie sprawy i opcje sprawy z archiwum w tej postaci, a generatorowi podaje teksty bieżącego języka
+     (decodeAvoid), więc generator porównuje teksty jak dotąd. Tekst z kilku miejsc koduje się na wszystkie te ścieżki. */
+  const AVOID_TEXT = ["scenes", "quips", "flavor", "alibi"];
+  const textIx = new WeakMap();
+  function textIndex(world) {
+    let ix = textIx.get(world);
+    if (ix) return ix;
+    const byText = new Map(), byPath = new Map();
+    const walk = (v, p) => {
+      if (typeof v === "string") { (byText.get(v) || byText.set(v, []).get(v)).push(p); byPath.set(p, v); return; }
+      if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${p}.${i}`));
+      else if (v && typeof v === "object") for (const k in v) walk(v[k], `${p}.${k}`);
+    };
+    walk(world.base, "b"); walk(world.cities, "c");
+    textIx.set(world, ix = { byText, byPath });
+    return ix;
+  }
+  function encodeUsed(world, used) {
+    const ix = textIndex(world), out = {};
+    for (const key in used || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((used[key] || []).flatMap(s => ix.byText.get(s) || []))] : used[key];
+    return out;
+  }
+  function decodeAvoid(world, keys) {
+    const ix = textIndex(world), out = {};
+    for (const key in keys || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((keys[key] || []).map(p => ix.byPath.get(p)).filter(s => s != null))] : keys[key];
+    return out;
+  }
+
   const util = { itemRef, decimal, fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
-    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM };
+    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
   root.Siatka = api;
   if (typeof module !== "undefined" && module.exports) {
     module.exports = api;
