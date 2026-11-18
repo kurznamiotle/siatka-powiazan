@@ -32,7 +32,7 @@ engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 087
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/i18n/            warstwa językowa (i18n): i18n.js (t, get, apply, world), pl.js (gramatyka + wszystkie teksty
                       jako klucze), pl/base.js, pl/cities.js, pl/changelog.js (treści generatora po polsku),
-                      en.js (angielski: interfejs i teksty gen.* + gramatyka EN; treści spraw EN jeszcze nie ma),
+                      en.js (angielski: interfejs i teksty gen.* + gramatyka EN), en/base.js i en/cities.js (treści spraw EN),
                       boot.js (wybór języka: ?lang, localStorage, navigator.language; <html lang>, <title>)
 data/i18n/pl/base.js  (dawniej data/base.js) warstwa epoki 1989–1999: imiona, role, miejsca, przedmioty,
                       cechy, alibi, realia lat, typy zbrodni, sceny, komentarze
@@ -42,7 +42,7 @@ data/i18n/pl/cities.js  (dawniej data/cities.js) paczki miast: Warszawa, Poznań
                       Katowice, Wrocław (dzielnica, ulice, targ, kino, drużyna…)
 tools/i18n-check.js   kontrola kluczy (każdy t("klucz") istnieje w pl.js, w kodzie brak polskich liter), raport en.js
 tools/i18n-skeleton.js tworzy/uzupełnia data/i18n/en.js (klucze z pl.js, null)
-tools/test-lang.js    ten sam seed w pl i en (angielskie gen.* na polskich treściach) daje tę samą strukturę sprawy
+tools/test-lang.js    ten sam seed w pl i en daje tę samą strukturę sprawy: (1) angielskie gen.* na polskich treściach, (2) pełne treści EN
 docs/i18n-en-spec.md  specyfikacja tłumaczenia treści spraw: pola odmiany ({in}, {gen}, {from}…) i ich angielskie odpowiedniki
 tools/snapshot.js     zrzut sha1 tekstów spraw (dni 3–30.11, 4000 losowych, 1000 osi czasu, 300 z avoid) do porównania przed/po refaktorze
 tools/ui-snapshot.js  zrzut HTML 23 stanów interfejsu w headless Chrome (stała data) do porównania przed/po
@@ -58,7 +58,7 @@ Komendy:
 - `node tools/generate.js 2000` — generuje 2000 spraw (wszystkie miasta, lata i wielkości), każda sprawdzona solverem; raport + wyłapuje niewypełnione wstawki i podwójne kropki w tekście. Raportuje też archetypy, rodzaje dowodów rzeczowych, ich liczbę na wielkość, odsetek spraw, które bez dowodów tracą jedno rozwiązanie, i powtórki imion, ról i scen z `avoid` i bez. Raportuje udział dokumentów, które obalają alibi, i kończy się błędem, gdy w sprawie z dowodami żaden dowód nie dotyczy niewinnego. Sprawdza też spójność treści: reguła o oknie bez informacji o czasie, cudze alibi zawodowe, zdanie niepasujące do wieku, dokument „z innego dnia” mówiący o „tamtym wieczorze”. Raportuje rozkład typów zbrodni i scen. Kończy się błędem przy niespójności albo poniżej progów (średnio < 1 dowód, XL < 3, dowód potrzebny w < 60% spraw, `avoid` nie zmniejsza powtórek, od 1000 spraw: typ zbrodni dalej niż 3 p.p. od równego udziału albo scena powyżej 2%).
   Od 2.1.1 sprawdza też role, wiek i cechy: zdanie z tagiem nie u tej osoby (`fitsWho`), słowa zakazane dla roli (`ROLE_FORBID`: licealista bez długów, zwolnień i auta, student bez pracy i zwolnień (też bez klucza „razem z pracą”, `keyTpl` z tagiem `job`), weterynarz bez lęku przed psami, emeryt bez pracy), smaczek cudzej roli, rola niezgodna z `need`, list z motywem i motyw w epilogu nie dla sprawcy, liczbę mnogą przedmiotów i dwa dowody z jednego szablonu. Drukuje rozkład szablonów dowodów i kończy się błędem, gdy któryś rodzaj dowodu ma mniej niż 3 szablony.
 - `node tools/generate.js 12 out [miasto] [rok] [S|M|L|XL]` — zapisuje sprawy do `cases/generated/` do przeczytania, np. `12 out poznan 1993 XL`.
-- `node tools/review.js [plik] [typy…]` — sprawy do przeglądu jako tekst (domyślnie 7 typów z 2.1.1 do `cases/generated/review-2.1.1.txt`).
+- `node tools/review.js [plik] [typy…]` — sprawy do przeglądu jako tekst (domyślnie 7 typów z 2.1.1 do `cases/generated/review-2.1.1.txt`). `dailies RRRR-MM-DD N` = N kolejnych spraw dnia, `--lang en` = po angielsku (np. `node tools/review.js review-en.txt dailies 2026-11-18 30 --lang en`).
 - `node tools/test-grammar.js` — test liczby mnogiej przedmiotów (część `npm test`).
 - `node tools/test-realia.js` — test miesięcy (`months`: kartki tylko styczeń–lipiec 1989, wybory czerwcowe od lipca 1989, talony tylko jako wspomnienie) i kwot w dopełniaczu (część `npm test`).
 - `node tools/bundle.js` — buduje `dist/siatka.html`.
@@ -232,6 +232,12 @@ Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `
 ## Język interfejsu (EN)
 
 - Wybór języka (`data/i18n/boot.js`): `?lang=pl|en` w adresie (nadpisuje i zapamiętuje) → zapamiętany wybór (`siatka-lang`) → pierwsza wizyta: `navigator.language` (pl* → polski, reszta → angielski). `<html lang>` i `<title>` zmieniają się z językiem. Zmiana w Ustawieniach (`Język / Language`) zapisuje wybór i przeładowuje grę.
-- **Angielski jest ukryty za #dev** (`EN_PUBLIC = false` w `boot.js`): poza #dev zawsze polski, bez przełącznika, `?lang` i język przeglądarki są ignorowane. Przy English w Ustawieniach jest dopisek „(cases: translation in progress)”. Gdy treści `data/i18n/en/` będą gotowe: `EN_PUBLIC = true`, usunąć dopisek (warunek: brak `content.base`).
-- Test dymny z angielskim: `node tools/smoke.js --lang=en` (część `npm test`).
-- Kolejna praca: treści spraw EN wg `docs/i18n-en-spec.md`. Listy w `en/base.js` muszą mieć te same długości i kolejność co polskie, żeby ten sam seed dawał tę samą sprawę w obu językach (`tools/test-lang.js`).
+- **Angielski jest ukryty za #dev** (`EN_PUBLIC = false` w `boot.js`): poza #dev zawsze polski, bez przełącznika, `?lang` i język przeglądarki są ignorowane. Treści spraw EN są w `data/i18n/en/` (sprawy w #dev z English powstają po angielsku, dopisek „translation in progress” znika sam, gdy jest `content.base`). Publiczne wydanie EN: `EN_PUBLIC = true`.
+- Test dymny z angielskim: `node tools/smoke.js --lang=en` (część `npm test`; sprawdza też, że sprawy powstają po angielsku).
+- **Ten sam seed = ta sama sprawa w obu językach.** `en/base.js` i `en/cities.js` mają ten sam kształt co polskie (klucze, kolejność, długości list, pola logiki), a różnią się tylko teksty. Silnik porównuje jednak niektóre teksty, więc:
+  - równość tekstów musi być taka sama w obu językach: etykiety i nazwy dowodów (muszą być w sprawie różne) oraz zdania (`pickU` nie daje dwa razy tego samego zdania); dwa wpisy mają równy tekst po polsku wtedy i tylko wtedy, gdy po angielsku,
+  - wyrażenia rozpoznające treść są w danych języka (`base.textRe`: `janitor` dla `noJanitor`, `thatEvening` = dokument o „tamtym wieczorze” bez kłamstwa „inny dzień”, `lateDoc` = późne godziny dokumentu) i muszą trafiać w te same wpisy,
+  - oś czasu bierze nazwę i rodzaj miejsca zbrodni z `timeline.places.<typ>[indeks sceny]` (`{ name, pt }`), nie z tytułu sceny,
+  - pilnują tego `tools/i18n-check.js` (kształt, wstawki, równość tekstów, `textRe`) i `tools/test-lang.js` (struktura spraw).
+- Gramatyka języka może mieć `decimal` (1,72 / 1.72) i `itemRef` (przedmiot w liście w zdaniu; EN: `acc` z przedimkiem). Polska ich nie potrzebuje albo daje dotychczasowy wynik.
+- Znaczniki Kartoteki `{g:…}` w nazwach i etykietach (które nie przechodzą przez `tx`) rozwiązuje `glossaryPass` na końcu `generateCase` (pomija `used` i `facts`). Hasła Kartoteki: jeszcze ich nie ma (lista identyfikatorów użytych w treściach EN: `grep -oh "{g:[a-z_-]*" data/i18n/en`).
