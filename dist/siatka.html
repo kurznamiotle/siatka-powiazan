@@ -426,6 +426,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     },
     /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
     glossary(id, label) { return label != null ? label : id; },
+    /* hasło Kartoteki { term, text, note? } w bieżącym języku, a gdy go brak, po polsku (data/i18n/<język>/glossary.js) */
+    glossaryEntry(id, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl, g = p => p && p.content && p.content.glossary;
+      return (g(cur) && g(cur)[id]) || (g(pl) && g(pl)[id]) || null;
+    },
     grammar(lang) { const p = this.packs[lang || this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
     genGrammar() { return this.grammar(this.genLang()); },
     /* treści generatora bieżącego języka: { base, cities } */
@@ -19751,6 +19756,80 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 </script>
 <script>
 /*
+ * Siatka Powiązań — Kartoteka (słownik haseł) po polsku. Źródło: docs/kartoteka-hasla.md.
+ * id = znacznik {g:id} albo {g:id|tekst} w treściach; term = hasło, text = objaśnienie (1 zdanie), note = lata albo region.
+ * Każde id użyte w treściach musi mieć hasło w obu językach (tools/i18n-check.js).
+ */
+(function (root) {
+  const GLOSSARY = {
+    mo: { term:"MO (Milicja Obywatelska)", note:"do V 1990", text:"Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja." },
+    dzielnicowy: { term:"Dzielnicowy", note:"cały okres", text:"Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca." },
+    dozorca: { term:"Dozorca / dozorczyni", note:"cały okres", text:"Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki." },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", note:"cały okres", text:"Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku." },
+    komitet: { term:"Komitet kolejkowy", note:"do ok. 1990", text:"Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności." },
+    inkasent: { term:"Inkasent gazowni", note:"cały okres", text:"Chodził po domach, spisywał liczniki i pobierał opłaty." },
+    spolem: { term:"Społem", text:"Sieć spółdzielczych sklepów spożywczych, obecna w każdej dzielnicy." },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"Zielone kioski z gazetami, papierosami i biletami." },
+    pewex: { term:"Pewex", note:"do ok. połowy lat 90.", text:"Sklep z zachodnimi towarami za dolary i bony." },
+    cpn: { term:"CPN", text:"Państwowe stacje benzynowe, do połowy lat 90. jedyne w kraju." },
+    pzu: { term:"PZU", text:"Państwowy ubezpieczyciel, u którego obowiązkowo ubezpieczało się auta." },
+    pko: { term:"PKO", text:"Państwowy bank oszczędnościowy, u którego trzymało się książeczki i oszczędności." },
+    mpo: { term:"MPO", text:"Miejskie służby oczyszczania, czyli śmieciarze." },
+    mpk: { term:"MPK", text:"Miejskie tramwaje i autobusy." },
+    pkp: { term:"PKP", text:"Polskie Koleje Państwowe." },
+    wopr: { term:"WOPR", text:"Ratownicy wodni na plażach i kąpieliskach." },
+    talon: { term:"Talon", note:"do ok. 1990", text:"Przydział na towar, którego nie dało się po prostu kupić, np. auto." },
+    szczeka: { term:"Szczęka", text:"Blaszany rozkładany stragan na bazarze." },
+    saksy: { term:"Saksy", text:"Wyjazd do pracy na Zachód, zwykle do Niemiec, „na czarno”." },
+    cinkciarz: { term:"Cinkciarz", note:"do ok. 1990", text:"Uliczny handlarz walutą. Zaczepiał hasłem „change money?”." },
+    totek: { term:"Totek / Lotto", text:"Gry liczbowe Totalizatora Sportowego. Skreślanie w środy i soboty." },
+    pekin: { term:"Pekin", note:"Warszawa", text:"Potoczna nazwa Pałacu Kultury i Nauki." },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"Melodia grana co godzinę z wieży Mariackiej, urwana w połowie." },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"Główny targ Bałut: budki, handel i ciasno." },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"Fabryka przędzy. Łódź była polskim zagłębiem włókienniczym." },
+    familok: { term:"Familok", note:"Śląsk", text:"Ceglany dom robotniczy na Śląsku, jak na Nikiszowcu." },
+    lampownia: { term:"Lampownia", note:"Śląsk", text:"Pomieszczenie w kopalni, gdzie górnicy pobierali lampy przed zjazdem." },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Wielki letni jarmark w Gdańsku, od średniowiecza." },
+    szychta: { term:"Szychta", note:"Śląsk", text:"Zmiana w kopalni lub hucie." },
+    barborka: { term:"Barbórka", note:"Śląsk, 4 grudnia", text:"Święto górników w dzień świętej Barbary, z orkiestrami i galowymi mundurami." },
+    fajrant: { term:"Fajrant", text:"Koniec pracy." },
+    kamrat: { term:"Kamrat", note:"Śląsk", text:"Kolega z pracy, kumpel." },
+    gryfnie: { term:"Gryfnie", note:"Śląsk", text:"Ładnie, fajnie." },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"Powiedzonko z gwary lwowskiej, przywiezione do Wrocławia po wojnie." },
+    mankut: { term:"Mańkut", text:"Osoba leworęczna." },
+    matura: { term:"Matura", text:"Egzamin na koniec liceum, przepustka na studia." },
+    ortalion: { term:"Ortalion", text:"Szeleszcząca nylonowa kurtka, hit lat 80. i 90." },
+    relaks: { term:"Relaks", text:"Popularne polskie buty, zwłaszcza zimowe." },
+    mebloscianka: { term:"Meblościanka", text:"Rząd szafek na całą ścianę, w każdym mieszkaniu." },
+    kredens: { term:"Kredens", text:"Stara szafa kuchenna na naczynia i „specjalne okazje”." },
+    trzepak: { term:"Trzepak", text:"Metalowa rama na podwórku do trzepania dywanów, a dla dzieci plac zabaw." },
+    lucznik: { term:"Łucznik", text:"Polska maszyna do pisania z Radomia." },
+    zenit: { term:"Zenit", text:"Radziecki aparat fotograficzny, ciężki i niezniszczalny." },
+    pegasus: { term:"Pegasus", note:"od ok. 1993", text:"Bazarowa konsola do gier, podróbka Nintendo." },
+    wigry: { term:"Wigry", text:"Polski składany rower, w każdej piwnicy." },
+    polsilver: { term:"Polsilver", text:"Polskie żyletki." },
+    denaturat: { term:"Denaturat", text:"Fioletowy, skażony spirytus do czyszczenia. „Nie do picia”, ale bywało różnie." },
+    luminal: { term:"Luminal", text:"Silny lek nasenny z dawnych aptek." },
+    maluch: { term:"Maluch (Fiat 126p)", text:"Najmniejsze i najpopularniejsze auto w Polsce." },
+    polonez: { term:"Polonez", text:"Większe polskie auto z FSO, marzenie wielu rodzin." },
+    syrenka: { term:"Syrenka", text:"Stare polskie auto, produkowane do 1983 roku. W latach 90. już zabytek." },
+    zuk: { term:"Żuk", text:"Polski dostawczak: do sklepu, przeprowadzki i na budowę." },
+    cinquecento: { term:"Cinquecento", note:"od 1991", text:"Mały Fiat produkowany w Tychach, następca Malucha." },
+    tico: { term:"Daewoo Tico", note:"od ok. 1996", text:"Małe koreańskie auto, popularne pod koniec lat 90." },
+    sygnal: { term:"Sygnał czasu", text:"Piknięcia w Polskim Radiu o pełnej godzinie." },
+    trojka: { term:"Trójka", text:"Program Trzeci Polskiego Radia, kultowa stacja z muzyką." },
+    discopolo: { term:"Disco polo", note:"lata 90.", text:"Prosta muzyka taneczna, sprzedawana na kasetach z bazaru." },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"od V 1989", text:"Pierwszy niezależny dziennik, założony przed wyborami w 1989 roku." },
+    sporty: { term:"Sporty", text:"Najtańsze polskie papierosy bez filtra." }
+  };
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { glossary: GLOSSARY } });
+  if (typeof module !== "undefined" && module.exports) module.exports = GLOSSARY;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
  * Siatka – a Polish Crime Board — English: grammar for the template engine and all UI/generator strings (key → text).
  *
  * Style: British English, dry noir tone. Polish names, places, brands and untranslatable terms stay Polish
@@ -22926,6 +23005,79 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 </script>
 <script>
 /*
+ * Siatka Powiązań — Kartoteka (glossary) in English. Source: docs/kartoteka-hasla.md.
+ * Same ids as data/i18n/pl/glossary.js; term stays Polish (it is the word the player meets in the files), text explains it.
+ */
+(function (root) {
+  const GLOSSARY = {
+    mo: { term:"MO (Milicja Obywatelska)", text:"The Citizens' Militia, communist Poland's police force. In May 1990 it was replaced by the Policja." },
+    dzielnicowy: { term:"Dzielnicowy", text:"The neighbourhood beat officer, assigned to a few streets and expected to know every face on them." },
+    dozorca: { term:"Dozorca / dozorczyni", text:"Building caretaker. Kept the keys, swept the yard, and knew everyone's business." },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", text:"A savings book for a cooperative flat. People paid in for decades and many never got the keys." },
+    komitet: { term:"Komitet kolejkowy", text:"A queue run by the people in it. You got a number and had to turn up for roll call, sometimes for days." },
+    inkasent: { term:"Inkasent gazowni", text:"The gas board's meter man, who went door to door reading meters and collecting money. He saw inside every flat." },
+    spolem: { term:"Społem", text:"The cooperative grocery chain. Every neighbourhood had one, with the same scales, the same smell, the same queue." },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"The green newspaper kiosks. Papers, cigarettes, tram tickets, and a kiosk lady who saw everything." },
+    pewex: { term:"Pewex", text:"Hard-currency shops selling Western goods (jeans, chocolate, whisky) for dollars or vouchers, never złoty." },
+    cpn: { term:"CPN", text:"The state petrol stations, for years the only ones in the country. Look for the orange sign." },
+    pzu: { term:"PZU", text:"The state insurer. Compulsory car insurance meant a trip to PZU and a stamped policy." },
+    pko: { term:"PKO", text:"The state savings bank. Your savings book, your pension and your patience all lived there." },
+    mpo: { term:"MPO", text:"The municipal sanitation company. The binmen in orange." },
+    mpk: { term:"MPK", text:"The municipal transport company: trams, buses and tickets punched by hand." },
+    pkp: { term:"PKP", text:"Polish State Railways. Conductors with ticket punches and timetables nobody fully trusted." },
+    wopr: { term:"WOPR", text:"The volunteer lifeguard service, the people in red at every beach and river bathing spot." },
+    talon: { term:"Talon", text:"An allocation voucher for things you couldn't simply buy, like a car. Often worth more than the car." },
+    szczeka: { term:"Szczęka", text:"A folding tin market stall, nicknamed \"the jaw\" for the way it opened. Half of Poland's new businesses started in one." },
+    saksy: { term:"Saksy", text:"Going to work in the West, usually Germany, often off the books. Came back with marks and a used car." },
+    cinkciarz: { term:"Cinkciarz", text:"A black-market money changer, named after his whispered \"change money?\". Better rates than the bank, and a fair chance of being cheated." },
+    totek: { term:"Totek / Lotto", text:"The state lottery. Numbers ticked every Wednesday and Saturday, and dreams of a Polonez." },
+    pekin: { term:"Pekin", text:"Locals' nickname for the Palace of Culture and Science, Stalin's \"gift\" towering over Warsaw." },
+    hejnal: { term:"Hejnał", text:"The bugle call played every hour from St Mary's tower, broken off mid-note, as it has been for centuries." },
+    baluckirynek: { term:"Bałucki Rynek", text:"The market at the heart of Bałuty, a crush of stalls and traders." },
+    przedzalnia: { term:"Przędzalnia", text:"A spinning mill. Łódź was Poland's textile city, and in the nineties its mills were closing one by one." },
+    familok: { term:"Familok", text:"A red-brick Silesian miners' tenement. Nikiszowiec is built entirely of them." },
+    lampownia: { term:"Lampownia", text:"The lamp room at a coal mine, where miners collected their lamps before going down. Every lamp counted back in." },
+    jarmark: { term:"Jarmark Dominikański", text:"Gdańsk's great summer fair, running since the Middle Ages. Every August the whole city goes." },
+    szychta: { term:"Szychta", text:"A shift at the mine or steelworks." },
+    barborka: { term:"Barbórka", text:"The miners' feast on St Barbara's Day, 4 December. Brass bands, dress uniforms, and nobody sober by evening." },
+    fajrant: { term:"Fajrant", text:"Clocking-off time." },
+    kamrat: { term:"Kamrat", text:"Workmate, mate." },
+    gryfnie: { term:"Gryfnie", text:"Nice, lovely, in Silesian dialect." },
+    tajoj: { term:"„Ta joj”", text:"A Lwów expression brought to Wrocław by families resettled after the war. Roughly \"oh, come on\"." },
+    mankut: { term:"Mańkut", text:"A left-hander. In school they tied your hand to the desk. It rarely worked." },
+    matura: { term:"Matura", text:"The school-leaving exam, the ticket to university and the subject of every family's anxiety." },
+    ortalion: { term:"Ortalion", text:"A rustling nylon jacket, the uniform of the eighties and nineties. You heard it before you saw it." },
+    relaks: { term:"Relaks", text:"A popular Polish shoe brand. Everyone had a pair of winter boots from it." },
+    mebloscianka: { term:"Meblościanka", text:"The wall unit: one long row of cabinets, glass shelves for the good crystal, in every flat in the country." },
+    kredens: { term:"Kredens", text:"The kitchen dresser, home of the best plates and the chocolates saved for guests." },
+    trzepak: { term:"Trzepak", text:"A metal frame in the courtyard for beating carpets. For kids, a climbing frame. For pensioners, an observation post." },
+    lucznik: { term:"Łucznik", text:"The Polish typewriter, made in Radom. Every office had one, and every one had a wonky letter." },
+    zenit: { term:"Zenit", text:"A Soviet film camera, heavy and indestructible." },
+    pegasus: { term:"Pegasus", text:"The bazaar clone of the Nintendo. Every boy in the block had one, and a cartridge with \"9999 in 1\" games." },
+    wigry: { term:"Wigry", text:"The Polish folding bicycle. Every cellar had one, usually with a flat tyre." },
+    polsilver: { term:"Polsilver", text:"Polish razor blades, in a little cardboard sleeve." },
+    denaturat: { term:"Denaturat", text:"Purple methylated spirits for cleaning. \"Not for drinking\", the label said. Not everyone listened." },
+    luminal: { term:"Luminal", text:"A strong barbiturate sleeping pill from the old pharmacies." },
+    maluch: { term:"Maluch (Fiat 126p)", text:"The tiny Fiat 126p, Poland's people's car. Families of four went on holiday in one." },
+    polonez: { term:"Polonez", text:"The bigger Polish car, built by FSO in Warsaw. Every family dreamt of one." },
+    syrenka: { term:"Syrenka", text:"An old Polish car, made until 1983. By the nineties, a museum piece still clattering around the courtyards." },
+    zuk: { term:"Żuk", text:"The Polish delivery van: groceries, house moves, building sites, and the occasional getaway." },
+    cinquecento: { term:"Cinquecento", text:"The small Fiat built in Tychy, the Maluch's successor." },
+    tico: { term:"Daewoo Tico", text:"A small Korean car that flooded Polish streets in the late nineties." },
+    sygnal: { term:"Sygnał czasu", text:"The pips on Polish Radio marking the full hour. The whole country set its watches by them." },
+    trojka: { term:"Trójka", text:"Polish Radio Three, the cult music station. Its chart show was a national ritual." },
+    discopolo: { term:"Disco polo", text:"Cheesy Polish dance pop sold on bazaar cassettes. Mocked by everyone, danced to by everyone." },
+    wyborcza: { term:"„Gazeta Wyborcza”", text:"The first independent daily newspaper, founded just before the 1989 elections." },
+    sporty: { term:"Sporty", text:"The cheapest Polish cigarettes, unfiltered and unforgiving." }
+  };
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { content: { glossary: GLOSSARY } });
+  if (typeof module !== "undefined" && module.exports) module.exports = GLOSSARY;
+})(typeof window !== "undefined" ? window : globalThis);
+
+</script>
+<script>
+/*
  * Siatka Powiązań — wybór języka interfejsu (ładuje się po wszystkich paczkach językowych, przed grą).
  * Kolejność: ?lang=pl|en w adresie (nadpisuje i zapamiętuje, do linków z itch i Reddita) → zapamiętany wybór
  * (localStorage "siatka-lang") → pierwsza wizyta: navigator.language (pl* → polski, reszta → angielski), też zapamiętane.
@@ -24892,7 +25044,9 @@ $("fsBtn").onclick = () => { tap(6); toggleFs(); };
 paintFs();
 
 /* ---------- „Co nowego”: dziennik zmian (klucz ui.changelog w data/i18n/pl.js), kropka przy zębatce po nowej wersji ---------- */
-const NEWS = SiatkaI18n.get("ui.changelog") || [], NKEY = "siatka-news-seen";
+/* bez własnego tłumaczenia (np. en: null) pokazujemy polską listę, ale tylko NEWS_FALLBACK najnowszych wpisów */
+const NEWS_FALLBACK = 3, ownNews = (SiatkaI18n.packs[SiatkaI18n.lang] || { messages: {} }).messages["ui.changelog"] != null;
+const NEWS = (SiatkaI18n.get("ui.changelog") || []).slice(0, ownNews ? undefined : NEWS_FALLBACK), NKEY = "siatka-news-seen";
 const newsSeen = () => { try { return localStorage.getItem(NKEY); } catch (_) { return null; } };
 const hasNews = () => !!NEWS[0] && newsSeen() !== NEWS[0].v;
 function paintDot() { const b = $("menuBtn"); if (b) b.classList.toggle("has-dot", hasNews()); }
