@@ -192,6 +192,20 @@
     return solver().solve(c, A, opts);
   }
 
+  /* Znaczniki Kartoteki {g:hasło|tekst} w tekstach, które nie przeszły przez tx (nazwy i etykiety miejsc, przedmiotów,
+     dowodów i to, co z nich złożono), rozwiązuje SiatkaI18n.glossary. Pomijamy `used` (porównywane z surowymi danymi
+     przy unikaniu powtórek) i `facts`. Polskie treści nie mają znaczników, więc sprawy PL się nie zmieniają. */
+  const GLOSS = /\{g:([\w-]+)(?:\|([^{}]*))?\}/g;
+  function glossaryPass(c) {
+    const I = I18N(), fix = s => s.indexOf("{g:") < 0 ? s : s.replace(GLOSS, (m, id, label) => (I && I.glossary ? I.glossary(id, label) : (label != null ? label : id)));
+    const walk = v => {
+      if (typeof v === "string") return fix(v);
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = walk(v[i]); return v; }
+      if (v && typeof v === "object") for (const k of Object.keys(v)) if (k !== "used" && k !== "facts") v[k] = walk(v[k]);
+      return v;
+    };
+    return walk(c);
+  }
   function generateCase(world, seed, opts = {}) {
     // miasto, rok i wielkość losujemy raz, żeby ponowne próby nie zmieniały proporcji
     const R0 = makeRng(seed + "/opts");
@@ -212,7 +226,7 @@
       if (d.reject) { depthRejects++; continue; }
       c.seed = String(seed); c.verify = { solutions: res.solutions.length, necessary: res.necessary, tries: attempt + 1, depthRejects,
         depth: { minFacts: d.minFacts, strongRule: d.strongRule, strongFact: d.strongFact } };
-      return c;
+      return glossaryPass(c);
     }
     throw new Error("Could not generate a valid case for seed " + seed);
   }

@@ -916,7 +916,7 @@
                     "Doesn't smoke and has no matches in the kitchen either: cooks on an electric stove."] },
         rule:{ yes:["The culprit left a fresh cigarette butt at the scene.","Smoke from the culprit's cigarette still hung in the air."] },
         hint:"Who doesn't smoke?",
-        why:{ yes:"pali" },
+        why:{ yes:"smokes" },
         whyFail:{ yes:"doesn't smoke" }
       },
       car: {
@@ -1392,7 +1392,7 @@
        shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala) */
     presenceTpl: [
       {t:"A neighbour saw [him|her] {in} at {t}.", at:["street","yard","field","shop","stair","cellar"]},
-      "Admits [himself|herself] that at {t} [he|she] was {in}.",
+      "Admits that at {t} [he|she] was {in}.",
       {t:"Around {t} [he|she] was {in}. Children playing bottle-cap races saw [him|her].", at:["street","yard"]},
       {t:"The postman passed [him|her] {in} at {t}.", at:["street","yard","shop","field"]},
       {t:"The {g:dozorca|dozorca} wrote in the notebook that at {t} [he|she] was {in}.", at:["yard","cellar","stair"]},
@@ -1404,7 +1404,7 @@
       {t:"The pensioner on the ground floor saw [him|her] {in} at {t}, while looking out to see if the postman was coming.", at:["street","yard"]},
       {t:"Around {t} [he|she] was {in}, according to the {g:dozorca|dozorca}'s wife, who was sweeping the courtyard.", at:["yard","cellar"]},
       {t:"A woman with a pram passed [him|her] {in} at {t}.", at:["street","yard"]},
-      "Says [himself|herself] that around {t} [he|she] was {in}, but only for a moment.",
+      "Says that around {t} [he|she] was {in}, but only for a moment.",
       {t:"At {t} [he|she] was {in}. A mechanic pushing a {g:maluch|Maluch} uphill saw [him|her].", at:["street","yard"]},
       {t:"Someone from the crew saw [him|her] {in} at {t}.", at:["work"]},
       {t:"A colleague from the works remembers that around {t} [he|she] was {in}.", at:["work"]},
