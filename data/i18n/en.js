@@ -43,7 +43,8 @@
     throw new Error("Unknown amount unit: " + unit);
   }
   const moneyGen = s => s;
-  const grammar = { tx, plural, list, slug, amount, moneyGen };
+  const decimal = s => s; // decimal point: 1.72
+  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal };
 
   /* BEGIN MESSAGES */
   const messages = {

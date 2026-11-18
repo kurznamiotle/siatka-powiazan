@@ -8,7 +8,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -517,7 +517,7 @@
       }
       else text.push(T(pickU(noJanitor(forP(B.claimFrame, Pp))).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
       for (const r of rules.filter(r => r.type === "trait")) if (!evOf(Pp, "trait:" + r.trait)) text.push(traitFact(B, crime, pickU, r.trait, s.traits[r.trait], Pp, year, T, monthIdx));
-      if (cmpRule) text.push(T(pickU(forP(B.rules2.heightCm, Pp)), g, { cm: Pp.cm, cmm: (Pp.cm / 100).toFixed(2).replace(".", ",") }));
+      if (cmpRule) text.push(T(pickU(forP(B.rules2.heightCm, Pp)), g, { cm: Pp.cm, cmm: decimal(Pp.cm / 100, 2) }));
       if (Pp.rel) text.push(T(pickU(forP(B.rules2.relation[Pp.rel].fact, Pp)), g, { ref: relRule.refName, szw: relRule.refG === "f" ? t("gen.classic.szwagierka") : t("gen.classic.szwagier") }));
       if (s.yard != null) text.push(T(pickU(B.rules2.absent.fact), g, { t: toHM(s.yard) }));
       if (hasD || R.chance(.25)) text.push(T(pickU(forP(B.habits[s.traits.habit], Pp)), g));
@@ -661,7 +661,7 @@
     if (r.type === "fate") return T(B.fates[r.value].rule, "m");
     if (r.type === "dump") return pickL(B.dumpRule);
     const f = r.refG === "f";
-    if (r.type === "cmp") return T(pickL(B.rules2.cmp.rule[r.dir]), "m", { ref: r.refName, refm: (r.refCm / 100).toFixed(2).replace(".", ","), ref_od: f ? t("gen.classic.niej") : t("gen.classic.niego"),
+    if (r.type === "cmp") return T(pickL(B.rules2.cmp.rule[r.dir]), "m", { ref: r.refName, refm: decimal(r.refCm / 100, 2), ref_od: f ? t("gen.classic.niej") : t("gen.classic.niego"),
       stal: f ? t("gen.classic.stala") : t("gen.classic.stal"), widzial: f ? t("gen.classic.widziala") : t("gen.classic.widzial"), ktory: f ? t("gen.classic.ktora") : t("gen.classic.ktory") });
     if (r.type === "relation") return T(pickL(B.rules2.relation[r.rel].rule), "m", { ref: r.refName, zeznal: f ? t("gen.classic.zeznala") : t("gen.classic.zeznal"), ref_jego: f ? t("gen.classic.jej") : t("gen.classic.jego") });
     if (r.type === "absent") return T(pickL(B.rules2.absent.rule), "m", { a: toHM(r.a), b: toHM(r.b) });
@@ -686,7 +686,7 @@
     if (r.type === "key") return hasW ? t("gen.classic.regula_n_kto_byl_przy_przedmiocie", { n }) : t("gen.classic.regula_n_sprawdz_kto_ma_klucze", { n });
     if (r.type === "fate") return t("gen.classic.regula_n_sprawdz_w_aktach_przedmiotow", { n });
     if (r.type === "dump") return t("gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot", { n });
-    if (r.type === "cmp") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.cmp.hint.replace("{ref}", r.refName).replace("{refm}", (r.refCm / 100).toFixed(2).replace(".", ",")) });
+    if (r.type === "cmp") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.cmp.hint.replace("{ref}", r.refName).replace("{refm}", decimal(r.refCm / 100, 2)) });
     if (r.type === "relation") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.relation.hint.replace("{ref}", r.refName) });
     if (r.type === "absent") return t("gen.classic.regula_n_hint", { n, hint: B.rules2.absent.hint });
     const h = B.traits[r.trait].hint; return t("gen.classic.regula_n_v", { n, v: h.charAt(0).toLowerCase() + h.slice(1) });

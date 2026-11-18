@@ -36,7 +36,9 @@
   }
   /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
   const moneyGen = s => s.replace(/ (tysiące|tysiąc|miliony|milion)(?= )/, (_, w) => w[0] === "t" ? " tysięcy" : " milionów");
-  const grammar = { tx, plural, list, slug, amount, moneyGen };
+  /* przecinek dziesiętny: „1.72” → „1,72” */
+  const decimal = s => s.replace(".", ",");
+  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal };
 
   /* BEGIN MESSAGES */
   const messages = {

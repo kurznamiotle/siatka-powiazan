@@ -64,6 +64,8 @@
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
   const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
   const slug = s => G().slug(s);
+  /* liczba z ułamkiem wg języka generatora: 1,72 (pl) / 1.72 (en) */
+  const decimal = (x, digits) => { const s = x.toFixed(digits), g = G(); return g.decimal ? g.decimal(s) : s; };
   const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 
   function money(R, year) {
@@ -279,7 +281,7 @@
     return out;
   }
 
-  const util = { fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const util = { decimal, fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM };
   root.Siatka = api;
