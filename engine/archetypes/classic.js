@@ -8,7 +8,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -543,7 +543,7 @@
     LOCS.forEach((loc, li) => {
       const text = [T(R.pick(loc.desc))];
       const here = I.filter((_, i) => locOf[i] === li);
-      if (here.length > 1) text.push(t("gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy", { plList: plList(here.map(it => lc1(it.name))) }));
+      if (here.length > 1) text.push(t("gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy", { plList: plList(here.map(itemRef)) }));
       if (hasK) {
         const h = holders(li), book = evs.some(c => c.kind === "keys" && c.li === li);
         if (book) text.push(h.length ? t("gen.classic.v_pllist_others_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h), others: B.keyBookNote.others }) : t("gen.classic.only_zamek_nieuszkodzony", { only: B.keyBookNote.only }));
@@ -616,7 +616,7 @@
       const owners = evs.map(c => t("gen.classic.owner_is", { what: lc1(c.def.name), mark: c.mark === "flat" ? t("gen.classic.flat_short", { n: c.Pp.flat }) : ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` }));
       why.push([evs.length > 1 ? t("gen.classic.dowody_rzeczowe") : t("gen.classic.dowod_rzeczowy"), owners.join("; ") + "."]);
     }
-    const hNames = herrings.map(h => lc1(I[h].name));
+    const hNames = herrings.map(h => itemRef(I[h]));
     why.push([cap(plList(hNames)), hNames.length > 1
       ? t("gen.classic.to_falszywe_tropy_zaden_nie_pasuje")
       : t("gen.classic.to_falszywy_trop_nie_pasuje_do")]);

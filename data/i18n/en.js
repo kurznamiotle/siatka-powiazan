@@ -44,7 +44,8 @@
   }
   const moneyGen = s => s;
   const decimal = s => s; // decimal point: 1.72
-  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal };
+  const itemRef = it => it.acc; // items in a list: „the jar of paint and the brush”
+  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal, itemRef };
 
   /* BEGIN MESSAGES */
   const messages = {
@@ -129,11 +130,11 @@
     "gen.classic.dowod_rzeczowy": "Evidence:",
     "gen.classic.dowody_rzeczowe": "Evidence:",
     "gen.classic.spelnia_wszystkie_reguly_join": "fits every rule: {join}.",
-    "gen.classic.nie_ma_go_jej_w_zeszycie": "isn't in the {g:dozorca|caretaker}'s notebook",
+    "gen.classic.nie_ma_go_jej_w_zeszycie": "isn't in the {g:dozorca|dozorca}'s notebook",
     "gen.classic.relacja_z_osoba_refname_what": "connection to {refName} ({what})",
     "gen.classic.mniej": "less",
     "gen.classic.wiecej": "more",
-    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "is in the {g:dozorca|caretaker}'s notebook: crossed the courtyard at {toHM} (rule {n}).",
+    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "is in the {g:dozorca|dozorca}'s notebook: crossed the courtyard at {toHM} (rule {n}).",
     "gen.classic.w_teczce_nie_ma_nic_co": "nothing in the file connects them (rule {n}).",
     "gen.classic.relnoun_a_nie_relnoun2_regula_n": "{relNoun}, not {relNoun2} (rule {n}).",
     "gen.classic.nizszy": "shorter",

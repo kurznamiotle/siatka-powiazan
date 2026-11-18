@@ -3,15 +3,20 @@
  * Sprawy do przeczytania przez człowieka, jako zwykły tekst.
  *   node tools/review.js                          → po jednej sprawie z 7 typów zbrodni z 2.1.1
  *   node tools/review.js plik.txt szantaz napad   → wybrane typy do wybranego pliku (w cases/generated/)
+ *   node tools/review.js plik.txt dailies 2026-11-18 30   → 30 kolejnych spraw dnia od tej daty
+ *   --lang en   (gdziekolwiek w argumentach): sprawy po angielsku (treści data/i18n/en/, teksty gen.* i gramatyka EN)
  * Przy zbrodniach bez kontaktu (szantaż, fałszerstwo, sabotaż, wandalizm) bierze sprawę z regułą cechy,
  * żeby było widać ślady na przedmiocie albo w miejscu czynu.
  */
 const fs = require("fs"), path = require("path");
 require("../engine/sprites.js");
 const S = require("../engine/engine.js");
-const WORLD = { base: require("../data/i18n/pl/base.js"), cities: require("../data/i18n/pl/cities.js") };
+const I = require("../data/i18n/i18n.js");
+const argv = process.argv.slice(2), li = argv.indexOf("--lang"), LANG = li >= 0 ? argv.splice(li, 2)[1] : "pl";
+if (LANG !== "pl") { require(`../data/i18n/${LANG}.js`); require(`../data/i18n/${LANG}/base.js`); require(`../data/i18n/${LANG}/cities.js`); I.use(LANG); }
+const WORLD = { base: require(`../data/i18n/${LANG}/base.js`), cities: require(`../data/i18n/${LANG}/cities.js`) };
 
-const [, , fileArg, ...crimeArgs] = process.argv;
+const [fileArg, ...crimeArgs] = argv;
 const MIX = crimeArgs[0] === "mix", V22 = crimeArgs[0] === "v22", V221 = crimeArgs[0] === "v221"; // 20 spraw: 15 z różnych typów i wielkości + 5 XL (w tym seed ze zgłoszenia gracza)
 const CRIMES = MIX ? [] : crimeArgs.length ? crimeArgs : ["szantaz", "falszerstwo", "sabotaz", "napad", "wandalizm", "porwanie_psa", "otrucie_czlowieka"];
 const NO_CONTACT = ["szantaz", "falszerstwo", "sabotaz", "wandalizm"];
@@ -69,13 +74,19 @@ if (crimeArgs[0] === "daily") {
   const [y, m, d] = crimeArgs[1].split("-").map(Number);
   jobs.length = 0; jobs.push({ get: () => S.dailyCase(WORLD, new Date(y, m - 1, d, 12)) });
 }
+/* dailies RRRR-MM-DD N: N kolejnych spraw dnia */
+if (crimeArgs[0] === "dailies") {
+  const [y, m, d] = crimeArgs[1].split("-").map(Number), n = +crimeArgs[2] || 30;
+  jobs.length = 0;
+  for (let k = 0; k < n; k++) jobs.push({ get: () => S.dailyCase(WORLD, new Date(y, m - 1, d + k, 12)) });
+}
 const out = [];
 const line = (s = "") => out.push(s);
 jobs.forEach((job, k) => {
   const c = job.get(), crime = c.crime, N = t => c.nodes.filter(n => n.type === t);
   const name = id => (c.nodes.find(n => n.id === id) || {}).name || id;
   line("=".repeat(78));
-  line(`${k + 1}. ${WORLD.base.crimes[crime].name.toUpperCase()}: „${c.title}”`);
+  line(`${k + 1}. ${c.number ? "#" + c.number + " " : ""}${WORLD.base.crimes[crime].name.toUpperCase()}: „${c.title}”`);
   if (c.verify && c.verify.depth) line(`głębokość: ${c.verify.depth.minFacts} faktów · najsilniejsza reguła odcina ${c.verify.depth.strongRule}, najsilniejszy fakt ${c.verify.depth.strongFact}`);
   line(`${c.city_name}, ${c.month} ${c.year} · wielkość ${c.size} · seed ${c.seed} · ${c.detective}`);
   line("=".repeat(78));
