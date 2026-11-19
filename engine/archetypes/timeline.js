@@ -9,7 +9,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
+  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, darkMonth, prices } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -38,14 +38,14 @@
     const crimeIds = CRIMES.filter(id => B.crimes[id] && (!opts.crime || id === opts.crime));
     if (!crimeIds.length) return null;
     const crimeId = R.pick(crimeIds), crime = B.crimes[crimeId];
-    const scenes = crime.scenes.filter(s => inYears(s, year, monthIdx));
+    const scenes = crime.scenes.filter((s, i) => inYears(s, year, monthIdx) && !darkMonth(B, TL.places[crimeId][i].pt, monthIdx)); // 2.2.2: bez przystani, działek i parku po zmroku zimą
     if (!scenes.length) return null;
     const scene = R.pick(prefer(scenes, s => avS.has(s.title)));
     const sub = R.pick(crime.subtags);
 
     /* 2. Miejsca i czasy dojścia: punkty na płaszczyźnie, zaokrąglone do 5 min, potem najkrótsze drogi (nierówność trójkąta) */
-    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
-    const pool = [...B.locations, ...cityLocs];
+    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx) && !darkMonth(B, l.pt, monthIdx));
+    const pool = [...B.locations.filter(l => !darkMonth(B, l.pt, monthIdx)), ...cityLocs];
     const others = R.sample(pool, NLOC[sizeKey] - 1);
     const X = Object.assign({ desc: [scene.where ? t("gen.timeline.tu_to_sie_stalo_where", { where: scene.where }) : t("gen.timeline.tu_to_sie_stalo")] }, TL.scene);
     // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
@@ -185,7 +185,7 @@
       // co najmniej jeden dowód dotyczy niewinnego
       const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
       for (const f of order) {
-        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt)); // dowód pasuje do rodzaju miejsca
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
         if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
         per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
       }
@@ -221,8 +221,8 @@
     for (const { Pp, o } of allObs) {
       const loc = LOCS[o.w], meta = new Map(), pool = [];
       for (const e of TL.obsTpl) {
-        if (!fitsAt(e, loc.pt)) continue;
-        const m = typeof e === "string" ? {} : e, str = typeof e === "string" ? e : e.t;
+        if (!fitsAt(e, loc.pt, o.t)) continue;
+        const m = e, str = e.t;
         if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
         if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
         if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
@@ -231,7 +231,7 @@
       const pickedT = pickU(pool), m = meta.get(pickedT);
       if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
       if (m.anc) {
-        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && loc.pt === "shop") closedAt[o.w] = o.t; }
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && (loc.pt === "shop" || loc.pt === "kiosk")) closedAt[o.w] = o.t; }
         else genUsed.add(m.anc);
       }
       obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
@@ -251,7 +251,7 @@
     LOCS.forEach((loc, li) => {
       const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
       const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
+      nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
         sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
     });
     for (const c of evs) {

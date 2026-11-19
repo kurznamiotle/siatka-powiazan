@@ -8,7 +8,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, darkMonth, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -50,8 +50,9 @@
 
     /* 2. Zbrodnia, podtyp, scena, miejsca i dowody */
     const items = B.items.filter(it => inYears(it, year, monthIdx));
-    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
-    const allLocs = [...B.locations, ...cityLocs];
+    // 2.2.2: bez miejsc, które w tym miesiącu są po zmroku puste (przystań, działki zimą; base.placeTypes)
+    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx) && !darkMonth(B, l.pt, monthIdx));
+    const allLocs = [...B.locations.filter(l => !darkMonth(B, l.pt, monthIdx)), ...cityLocs];
     const locIdSet = new Set(allLocs.map(l => l.id));
     const accessOf = role => [...(role.access || []), ...cityLocs.filter(l => (l.roles || []).includes(role.id)).map(l => l.id)];
     const locsFor = (sub, exclude) => {
@@ -333,10 +334,12 @@
     if (relRule) {
       const refG = R.chance(.5) ? "m" : "f", n = pickName(refG, R.pick(["mid", "old"]));
       Object.assign(relRule, { refName: `${n.first} ${n.last}`, refG });
-      const fitsT = (Pp, t) => t !== "workmate" || fitsWho({ k: ["job"] }, who(Pp));
+      // 2.2.2: współpracownik tylko z rolą, która ma rodzaj miejsca pracy (wp), a wszyscy z tą relacją mają ten sam wp
+      const fitsT = (Pp, t) => t !== "workmate" || (!!Pp.role.wp && fitsWho({ k: ["job"] }, who(Pp)));
+      const sameWp = ps => new Set(ps.map(Pp => Pp.role.wp)).size === 1;
       const fail = innocents.filter(i => assign[i] === relRule), keep = persons.filter(Pp => !fail.includes(Pp.idx));
       // relacja z reguły musi pasować do wszystkich, którzy ją mają (student nie pracuje w zakładzie)
-      const okRel = RELS.filter(t => keep.every(Pp => fitsT(Pp, t)));
+      const okRel = RELS.filter(t => keep.every(Pp => fitsT(Pp, t)) && (t !== "workmate" || sameWp(keep)));
       if (!okRel.length) return null;
       if (!okRel.includes(relRule.rel)) relRule.rel = R.pick(okRel);
       for (const Pp of keep) Pp.rel = relRule.rel;
@@ -390,7 +393,7 @@
         const Pp = byPid[f.who]; if (!Pp) continue;
         const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
         if (f.type === "presence" && iniOk(Pp))
-          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt))),
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt, toMin(f.at)))),
             ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
@@ -496,7 +499,7 @@
         if (hasK && s.keys.has(li) && !evOf(Pp, "keys", f => f.where === loc.id))
           parts.push(pickU(accessOf(Pp.role).includes(loc.id) ? forP(B.keyTpl, Pp) : B.spareKeyTpl).replace(/\{gen\}/g, loc.gen));
         for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))))
-          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
+          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt, p.t))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
@@ -550,7 +553,7 @@
         else text.push(h.length ? t("gen.classic.v_pllist_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h) }) : t("gen.classic.nikt_z_podejrzanych_nie_ma_tu"));
       }
       else text.push(T(R.pick(loc.open || [t("gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl")])));
-      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
+      nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
         forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
     });
     I.forEach((it, i) => {

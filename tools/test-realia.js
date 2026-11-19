@@ -121,5 +121,41 @@ for (let i = 0; i < 300 && (mo.maj[0] < 3 || mo.maj[1] < 3 || !mo.kwiecień[0] |
 check(mo.kwiecień[1] === 0 && mo.kwiecień[0] > 0, `kwiecień 1990: zawsze milicja (${mo.kwiecień})`);
 check(mo.czerwiec[0] === 0 && mo.czerwiec[1] > 0, `czerwiec 1990: zawsze policja (${mo.czerwiec})`);
 check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja (od 10.05) (${mo.maj})`);
+// 8. (2.2.2) świadkowie i dowody obecności tylko w rodzajach miejsc ze swojej listy (`at`) i o swojej porze (`time`),
+//    a przystań, działki i park (base.placeTypes.dark) nie pojawiają się od listopada do marca
+{
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
+  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{t\})/).map(p => p === "{in}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
+    : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""));
+  const witness = [...B.presenceTpl, ...B.timeline.obsTpl].map(o => ({ o, re: toRe(o.t) }));
+  const evDefs = [...B.evidence.presence, ...B.timeline.evidence];
+  const dark = (pt, month) => S.util.darkMonth(B, pt, B.months.indexOf(month));
+  let nW = 0, nE = 0, nDark = 0, winter = 0; const bad8 = [];
+  for (let i = 0; i < 2000; i++) {
+    const c = S.generateCase(W, "realia-at-" + i, i % 4 === 3 ? { archetype: "timeline", size: R8(i) } : {});
+    const locs = c.nodes.filter(n => n.type === "location"), ptIn = {};
+    for (const n of locs) for (const f of n.forms || []) ptIn[f] = n.pt;
+    if (B.placeTypes && ["listopad", "grudzień", "styczeń", "luty", "marzec"].includes(c.month)) winter++;
+    for (const n of locs) if (dark(n.pt, c.month)) { nDark++; bad8.push(`${c.seed}: ${n.name} (${n.pt}) w miesiącu ${c.month}`); }
+    for (const n of c.nodes.filter(n => n.type === "person")) for (const line of n.text) for (const { o, re } of witness) {
+      const m = line.match(re); if (!m || !(m.groups.in in ptIn)) continue;
+      nW++;
+      const pt = ptIn[m.groups.in], tm = S.util.toMin(m.groups.t);
+      if (!o.at.includes(pt)) bad8.push(`${c.seed}: świadek poza listą (${pt}): ${m[0]}`);
+      if (o.time && !(tm >= S.util.toMin(o.time[0]) && tm < S.util.toMin(o.time[1]))) bad8.push(`${c.seed}: świadek o złej porze: ${m[0]}`);
+    }
+    for (const n of c.nodes.filter(n => n.type === "evidence")) {
+      const def = evDefs.find(d => d.name === n.name), f = c.facts.find(f => f.type === "presence" && f.src === n.id);
+      if (!def || !f) continue;
+      nE++;
+      const pt = (locs.find(l => l.id === f.where) || {}).pt;
+      if (!def.at.includes(pt)) bad8.push(`${c.seed}: dowód „${n.name}” poza listą (${pt})`);
+    }
+  }
+  bad8.slice(0, 8).forEach(b => console.log("BŁĄD " + b)); fails += bad8.length;
+  check(nW > 3000 && nE > 300 && winter > 500, `test miejsc ma dość danych (świadkowie ${nW}, dowody obecności ${nE}, sprawy zimą ${winter})`);
+  console.log(`Miejsca (2000 spraw): ${nW} zdań świadków i ${nE} dowodów obecności w swoich rodzajach miejsc i porach, ${nDark} miejsc po zmroku zimą`);
+}
+function R8(i) { return ["M", "L", "XL"][i % 3]; }
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);

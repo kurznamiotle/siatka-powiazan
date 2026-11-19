@@ -137,7 +137,7 @@
     "gen.classic.szwagrowie": "szwagrowie",
     "gen.classic.sasiedzi_z_jednej_klatki": "sąsiedzi z jednej klatki",
     "gen.classic.sasiedzi_z_klatki": "sąsiedzi z klatki",
-    "gen.classic.wspolpracownicy_z_jednego_zakladu": "współpracownicy z jednego zakładu",
+    "gen.classic.wspolpracownicy_z_jednego_zakladu": "współpracownicy z jednego miejsca pracy",
     "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób.",

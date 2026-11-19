@@ -222,7 +222,10 @@ Wydanie 2.2.2 (**obowiązuje od 22.11.2026**; 2.2.1 zamrożone w `engine/version
 - Listonosz mija tylko na ulicy, na klatce i w lokalu (`at:["street","stair","shop"]` w `presenceTpl` i `timeline.obsTpl`, PL i EN).
 - Milicja → Policja 10 maja 1990 (`context()` w `engine.js`, dzień maja z `seed/day`; test w `test-realia.js`).
 - „[przeczytał|przeczytała] [sam|sama]” w zdaniu o okularach.
-- Do decyzji na następną wersję (z przeglądu 22–28.11): relacja „współpracownik” bez względu na zawód, przystań i świadkowie zimą po zmroku, książka wejść z portierni w kiosku i aptece, świadkowie z podwórka w garażu.
+- **Listy dopuszczalnych miejsc (allowlist).** Każdy szablon świadka (`presenceTpl`, `timeline.obsTpl`) i dowodu obecności (`evidence.presence`, `timeline.evidence`) ma `at:[…]`, w PL i EN identycznie; bez listy szablon nie jest używany (`fitsAt`). Opcjonalne `time:["od","do"]` = pora obserwacji (pani z wózkiem do 20:00, listonosz do 19:00, dzieci do 20:30). Rodzaje miejsc (`pt` na miejscu, na miejscu osi czasu i na węźle miejsca w sprawie): street, kiosk, marina, park, yard, garage, site, field, shop, office, stair, cellar, flat, work, plant (zakład z portiernią). Książka wejść i lista obecności tylko w `plant`. `generate.js` wymaga listy przy każdym szablonie i dość szablonów na każdy rodzaj, w którym stoją miejsca.
+- **Sezon miejsc** (`base.placeTypes.<pt>.dark = { months:[11,3], after:"17:00" }`, `darkMonth` w `engine.js`): przystań, działki i park zimą nie trafiają do spraw (miejsca klasyczne, miejsca i sceny osi czasu).
+- **Współpracownik**: rola ma `wp` (rodzaj miejsca pracy); relacja „współpracownik” tylko, gdy wszyscy z nią mają ten sam `wp`, inaczej klatka albo szwagrostwo.
+- Test: `tools/test-realia.js` pkt 8. Do decyzji (z przeglądu 400 spraw po zmianach): współpracownik prawie nie wypada, szczęka na bazarze jako ulica, godziny otwarcia lokali, za szeroki rodzaj `work` (`docs/todo-generator.md`).
 
 ## Najbliższe kroki
 

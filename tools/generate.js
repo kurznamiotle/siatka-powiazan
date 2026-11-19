@@ -60,10 +60,14 @@ const staticErrors = [];
     if (a < 16 * 60 + 30 || b > 23 * 60 + 30 || b - a < 30) bad(`${k}/${s.title}: godziny sceny ${s.time} poza 16:30–23:30 albo za wąskie`);
   }
   // 3. rodzaje miejsc: każde miejsce ma pt, a każdy pt dość szablonów świadków i dowodów
-  const PT = ["street", "yard", "field", "shop", "stair", "cellar", "work"];
+  // 2.2.2: drobniejsze rodzaje; szablony liczymy dla rodzajów, w których stoją miejsca (świadkowie i dowody są tylko tam)
+  const PT = ["street", "kiosk", "marina", "park", "yard", "garage", "site", "field", "shop", "office", "stair", "cellar", "flat", "work", "plant"];
   const locs = [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])];
   for (const l of locs) if (!PT.includes(l.pt)) bad(`miejsce ${l.id}: brak albo zły rodzaj miejsca pt (${l.pt})`);
-  for (const pt of PT) {
+  for (const [k, v] of Object.entries(B.timeline.places)) v.forEach((p, i) => { if (!PT.includes(p.pt)) bad(`oś czasu ${k}[${i}]: zły rodzaj miejsca ${p.pt}`); });
+  for (const o of [...B.presenceTpl, ...B.timeline.obsTpl, ...B.evidence.presence, ...B.timeline.evidence])
+    if (typeof o !== "object" || !Array.isArray(o.at) || !o.at.length || o.at.some(x => !PT.includes(x))) bad(`szablon bez listy rodzajów miejsc albo z nieznanym rodzajem: ${JSON.stringify(o).slice(0, 80)}`);
+  for (const pt of [...new Set(locs.map(l => l.pt))]) {
     const n = (list, f = S.util.fitsAt) => list.filter(o => f(o, pt)).length;
     if (pt !== "stair" && n(B.presenceTpl) < 5) bad(`świadkowie (presenceTpl) dla ${pt}: ${n(B.presenceTpl)} szablonów`);
     if (n(B.timeline.obsTpl) < (pt === "stair" ? 2 : 4)) bad(`świadkowie osi czasu dla ${pt}: ${n(B.timeline.obsTpl)} szablonów`);

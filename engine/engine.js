@@ -58,9 +58,16 @@
   const plural = (n, ...forms) => G().plural(n, ...forms);
   /* years:[od,do] i opcjonalnie months:[od,do] (1–12, w każdym roku z zakresu); m = indeks miesiąca sprawy 0–11 */
   const inYears = (o, y, m) => !o || ((!o.years || (y >= o.years[0] && y <= o.years[1])) && (!o.months || m === undefined || (m + 1 >= o.months[0] && m + 1 <= o.months[1])));
-  /* 2.2.1: świadkowie i dowody pasują do rodzaju miejsca (pt: street, yard, field, shop, stair, cellar, work); wpis z `at` tylko w miejscach z listy */
-  const fitsAt = (o, pt) => typeof o === "string" || !o.at || (!!pt && o.at.includes(pt));
-  const atTexts = (list, pt) => list.filter(o => fitsAt(o, pt)).map(o => typeof o === "string" ? o : o.t);
+  /* 2.2.2: świadkowie i dowody obecności mają listę dopuszczalnych rodzajów miejsc (`at`, pt: street, kiosk, marina, park,
+     yard, garage, site, field, shop, office, stair, cellar, flat, work, plant). Bez listy szablon nie jest używany nigdzie.
+     `time:["od","do"]` (opcjonalnie) ogranicza porę obserwacji t (minuty od północy, „do” wyłączone). */
+  const fitsAt = (o, pt, t) => !!o && typeof o === "object" && Array.isArray(o.at) && !!pt && o.at.includes(pt)
+    && (!o.time || t === undefined || (t >= toMin(o.time[0]) && t < toMin(o.time[1])));
+  const atTexts = (list, pt, t) => list.filter(o => fitsAt(o, pt, t)).map(o => o.t);
+  /* 2.2.2: sezon rodzajów miejsc (base.placeTypes): dark.months [od, do] (może przejść przez Nowy Rok) od godziny dark.after.
+     Gra dzieje się wieczorem, więc takie miejsca w tych miesiącach w ogóle nie trafiają do spraw. */
+  const darkMonth = (B, pt, m) => { const d = B.placeTypes && B.placeTypes[pt] && B.placeTypes[pt].dark; if (!d) return false;
+    const mm = m + 1, [a, b] = d.months; return a <= b ? mm >= a && mm <= b : mm >= a || mm <= b; };
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
   const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
   const slug = s => G().slug(s);
@@ -348,7 +355,7 @@
     return out;
   }
 
-  const util = { itemRef, decimal, fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const util = { itemRef, decimal, fitsAt, atTexts, darkMonth, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
   root.Siatka = api;
