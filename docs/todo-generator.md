@@ -16,24 +16,26 @@ Zmiany, które zmieniają tekst polskich spraw. Nie wchodzą bez nowej wersji ge
 - Książka wejść z portierni i lista obecności tylko w zakładach z portiernią (`plant`: przędzalnia, zajezdnia, magazyn portowy, lampownia, w osi czasu księgowość i brama zakładu…). Nowe dowody obecności dla kiosku, biura, przystani, działek, zaplecza i sklepu.
 - Test: `tools/test-realia.js`, pkt 8 (2000 spraw: świadek i dowód tylko w swoich rodzajach miejsc i porach, zero miejsc sezonowych zimą).
 
-## Do decyzji (z przeglądu 400 spraw 2.2.2 po zmianach)
+- Akta (2.2.2, druga tura): kolejne obserwacje tej samej osoby w tym samym miejscu w jednym zdaniu z `presence2Tpl` („o 20:50 i jeszcze raz o 21:10” / “at 20:50 and again at 21:10”, `timesPhrase`); szablon świadka najwyżej raz w aktach osoby (po obiekcie szablonu, przy braku sprawa się losuje od nowa); etykieta polaroidu w każdej formie miejsca (magazyn w porcie: „Magazyn” / “Warehouse” zamiast „Nabrzeże” / “Quay”; klub jazzowy: „w klubie jazzowym” zamiast „w piwnicy jazzowej”).
+- Współpracownik: gdy reguła relacji wylosuje „współpracownika”, osoby z tą relacją biorą role z jednego `wp` (kolejne próby po rodzajach pracy, potem inna relacja); grupy `wp` poszerzone (administracja: hydraulik, elektryk, malarz; bazar: kwiaciarka). Udział ok. 29% reguł relacji (przed 2.2.2 ok. 1/3).
+- Stragan (`stall`): szczęka na bazarze „przy szczęce na bazarze” / “by the stall in the bazaar”, budki i stragany w osi czasu; świadkowie: handlarka z sąsiedniej budki, klient w kolejce, dzielnicowy, inkasent targowy (dowód). Bez godzin, więc bez świadków ulicznych.
+- Godziny otwarcia: `placeTypes.<pt>.open` (shop 9–19, office 8–18, kiosk 6–19) albo `hours` na miejscu (apteka 8–20, świetlica 15–21, klub jazzowy 18–24, sklep 6–19). Obecność „w środku” tylko w godzinach + 30 min, poza nimi forma `out` („przed apteką”) i świadkowie uliczni (`placeAt` w `engine.js`).
+- Miejsce pracy: szef i kierownik zmiany tylko w zakładach (`plant`), kwity w zakładach i lokalach; kotłownia, stajnia i szopa rybacka to `boiler`, `stable`, `shed` z palaczem, stajennym i rybakiem oraz sąsiadem i dzielnicowym; warsztat i zaplecze: klient po zamówienie, zeszyt zamówień.
+- Test: `tools/test-realia.js` pkt 8 (A1–A3, B, C, D, E na 2000 + 1600 spraw).
 
-### 1. „Współpracownik” prawie nie wypada
+## Do decyzji (z przeglądu 400 spraw 2.2.2 po drugiej turze)
 
-- Zasada z `wp` działa (0 niezgodnych), ale w 3000 spraw L–XL relacja to zawsze klatka albo szwagrostwo, a w S–M „współpracownik” wypadł raz na 338. Losowe role rzadko mają ten sam `wp`.
-- Możliwość: przy regule relacji „współpracownik” dobierać role osób z tą relacją z jednego `wp` (wtedy częściej mpk, adm, bazar).
+### 1. Sygnał czasu nie o pełnej godzinie
 
-### 2. Szczęka na bazarze jako ulica
+- Przykłady: „Emerytka z parteru widziała ją przed zakładem fryzjerskim o 19:40, kiedy w radiu nadawali sygnał czasu.”, „…przed biurem administracji o 22:35…”.
+- Kotwica `radio` (oś czasu) pasuje do każdej minuty. Sygnał czasu jest o pełnej godzinie: kotwica tylko dla czasów :00 (albo inna kotwica, np. dziennik radiowy o :00 i :30).
 
-- Przykłady: „Pani z wózkiem minęła ją w szczęce na bazarze o 16:35.”, „Emerytka z parteru widziała go w szczęce na bazarze…, kiedy w radiu nadawali sygnał czasu.”, „…w szczęce na bazarze. Widział ją mechanik, który pchał Malucha pod górkę.”
-- Forma `in` „w szczęce” to wnętrze budki. Albo osobny rodzaj (`stall`: klient, sąsiedni handlarz, dzielnicowy), albo forma „przy szczęce”.
+### 2. Raport stróża nocnego po południu
 
-### 3. Godziny otwarcia lokali
+- Przykład: «Godz. 14:35. Spotkano S.P. w kotłowni.» w „Raporcie stróża nocnego”.
+- Dowody i świadkowie mogą mieć `time` tak jak szablony świadków (stróż nocny od 20:00, dyżurny na obchodzie od 18:00).
 
-- Przykłady: „Dzielnicowy zanotował w notesie: 23:35, w zakładzie fryzjerskim.”, „Obsługa zapamiętała, że o 20:55 była w zakładzie fryzjerskim.”, „Listonosz minął go w piwnicy jazzowej o 17:55.”
-- Lokale nie mają godzin. Możliwość: `hours` na miejscu (fryzjer, apteka, biuro do 18–19, piwnica jazzowa od 19) i obecności tylko w tych godzinach; listonosz tylko „przy” lokalu.
+### 3. Kolejka i „na kreskę” w miejscach bez lady
 
-### 4. Rodzaj `work` za szeroki
-
-- Przykłady: „Kierownik zmiany przyznaje, że o 18:55 widział ją w szopie rybackiej.”, „Szef zmiany zanotował: 21:15, w stajni.”, „Kwit wypisany ręcznie w kotłowni, z godziną 21:35 w rogu.”
-- `work` łączy warsztat, zaplecze sklepu, kotłownię, stajnię i szopę rybacką. „Zmiana” i „kwit” pasują tylko do części. Możliwość: `shed` (kotłownia, stajnia, szopa) z własnymi świadkami (stróż, stajenny, rybak).
+- Przykłady: „Klient stojący w kolejce widział ją w świetlicy o 18:05.”, «… w zakładzie fryzjerskim, do zapłaty w piątek» w „Zeszycie na kreskę”.
+- `shop` łączy sklep z ladą, fryzjera, świetlicę i klub. Możliwość: świetlica i klub jako osobny rodzaj (`hall`) bez kolejki i bez kreski.

@@ -225,7 +225,10 @@ Wydanie 2.2.2 (**obowiązuje od 22.11.2026**; 2.2.1 zamrożone w `engine/version
 - **Listy dopuszczalnych miejsc (allowlist).** Każdy szablon świadka (`presenceTpl`, `timeline.obsTpl`) i dowodu obecności (`evidence.presence`, `timeline.evidence`) ma `at:[…]`, w PL i EN identycznie; bez listy szablon nie jest używany (`fitsAt`). Opcjonalne `time:["od","do"]` = pora obserwacji (pani z wózkiem do 20:00, listonosz do 19:00, dzieci do 20:30). Rodzaje miejsc (`pt` na miejscu, na miejscu osi czasu i na węźle miejsca w sprawie): street, kiosk, marina, park, yard, garage, site, field, shop, office, stair, cellar, flat, work, plant (zakład z portiernią). Książka wejść i lista obecności tylko w `plant`. `generate.js` wymaga listy przy każdym szablonie i dość szablonów na każdy rodzaj, w którym stoją miejsca.
 - **Sezon miejsc** (`base.placeTypes.<pt>.dark = { months:[11,3], after:"17:00" }`, `darkMonth` w `engine.js`): przystań, działki i park zimą nie trafiają do spraw (miejsca klasyczne, miejsca i sceny osi czasu).
 - **Współpracownik**: rola ma `wp` (rodzaj miejsca pracy); relacja „współpracownik” tylko, gdy wszyscy z nią mają ten sam `wp`, inaczej klatka albo szwagrostwo.
-- Test: `tools/test-realia.js` pkt 8. Do decyzji (z przeglądu 400 spraw po zmianach): współpracownik prawie nie wypada, szczęka na bazarze jako ulica, godziny otwarcia lokali, za szeroki rodzaj `work` (`docs/todo-generator.md`).
+- **Akta (druga tura):** kolejne obserwacje tej samej osoby w tym samym miejscu w jednym zdaniu (`presence2Tpl`, `{ts}` = „o 20:50 i jeszcze raz o 21:10”, `timesPhrase`); szablon świadka najwyżej raz w aktach osoby; etykieta polaroidu w każdej formie miejsca (gen, in, out, from).
+- **Godziny otwarcia:** `placeTypes.<pt>.open` albo `hours` na miejscu; „w środku” tylko w godzinach + 30 min, poza nimi forma `out` („przed apteką”) i świadkowie uliczni (`placeAt`). Nowe rodzaje: `stall` (stragan, „przy szczęce”), `boiler`, `stable`, `shed` (kotłownia, stajnia, szopa rybacka z własnymi świadkami). Szef i kierownik zmiany tylko w `plant`.
+- **Współpracownik:** przy tej relacji role osób z nią z jednego `wp` (ok. 29% reguł relacji).
+- Test: `tools/test-realia.js` pkt 8 (A–E). Do decyzji: sygnał czasu nie o pełnej godzinie, raport stróża nocnego po południu, kolejka i „na kreskę” w świetlicy i u fryzjera (`docs/todo-generator.md`).
 
 ## Najbliższe kroki
 

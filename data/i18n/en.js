@@ -145,6 +145,8 @@
     "gen.classic.sasiedzi_z_jednej_klatki": "neighbours on the same staircase",
     "gen.classic.sasiedzi_z_klatki": "neighbours on the staircase",
     "gen.classic.wspolpracownicy_z_jednego_zakladu": "workmates at the same place",
+    "gen.presence.o_t": "at {t}",
+    "gen.presence.again": "{list} and again at {t}",
     "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papers don't always say what the suspects say. Compare the times and dates on the documents with their statements.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Evidence carries no names. Match the initials and flat numbers to the people's files.",

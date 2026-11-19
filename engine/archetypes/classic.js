@@ -8,7 +8,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, darkMonth, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -276,9 +276,14 @@
     // siwizna u starszych, bez siwych włosów u młodych (indeksy z SiatkaSprites.HAIR_C)
     const HAIR_BY_AGE = { young: [0, 1, 2, 5], mid: [0, 1, 2, 3, 5], old: [3, 4, 4] };
     const SP = sprites();
-    const persons = S.map((s, idx) => {
+    /* 2.2.2: relacja „współpracownik”: osoby, które ją dostaną (sprawca i niewinni, którzy z niej nie odpadają),
+       biorą role z jednego rodzaju miejsca pracy (wp). Próbujemy kolejnych wp; gdy żaden nie pasuje, inna relacja. */
+    const relW = rules.find(r => r.type === "relation" && r.rel === "workmate");
+    const relKeep = relW ? new Set(S.map((_, i) => i).filter(i => !(innocents.includes(i) && assign[i] === relW))) : null;
+    const wpOrder = relW ? R.shuffle([...new Set(roles.filter(r => r.wp).map(r => r.wp))]).filter(w => roles.filter(r => r.wp === w).length >= relKeep.size) : [];
+    const mkPersons = wp => { usedFirst.clear(); usedSur.clear(); usedRoles.clear(); ids.length = 0; return S.map((s, idx) => {
       const keyLocs = [...s.keys].map(li => LOCS[li].id);
-      const fits = role => role[s.g] && !usedRoles.has(role.id) && roleFitsTraits(role, s);
+      const fits = role => role[s.g] && !usedRoles.has(role.id) && roleFitsTraits(role, s) && (!wp || !relKeep.has(idx) || role.wp === wp);
       const inter = role => accessOf(role).filter(a => locs.includes(a));
       let pool = roles.filter(r => fits(r) && sameSet(inter(r), keyLocs));
       if (!pool.length) pool = roles.filter(r => fits(r) && inter(r).length === 0);
@@ -293,7 +298,10 @@
         sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
           head: head || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
           mustache: s.g === "m" && R.chance(.35) } };
-    });
+    }); };
+    let persons = null;
+    for (const wp of wpOrder) { const p = mkPersons(wp); if (!p.some(x => !x)) { persons = p; break; } }
+    if (!persons) { if (relW) relW.rel = R.pick(RELS.filter(t => t !== "workmate")); persons = mkPersons(null); }
     if (persons.some(p => !p)) return null;
     const victim = (() => { const n = pickName(scene.vg || "m", scene.vage || R.pick(["mid", "old"])); return `${n.first} ${n.last}`; })();
     /* 2.2: wzrost w cm z realnego rozkładu wg płci, niezależnie od reguł. Tylko gdy wzrost opisowy jest regułą,
@@ -393,7 +401,7 @@
         const Pp = byPid[f.who]; if (!Pp) continue;
         const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
         if (f.type === "presence" && iniOk(Pp))
-          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt, toMin(f.at)))),
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => li >= 0 && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at)))),
             ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
@@ -492,14 +500,29 @@
     const usedLines = new Set();
     const fresh = list => { const sh = R.shuffle(list), c = sh.find(x => !usedLines.has(x) && !avF.has(x)) || sh.find(x => !usedLines.has(x)); if (c) usedLines.add(c); return c; };
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx); // teksty dla tej osoby i tego roku, jako napisy
+    const janRe = new RegExp(B.textRe.janitor, "i");
+    let textFail = false;
     persons.forEach(Pp => {
-      const s = Pp.s, g = s.g, text = [];
+      const s = Pp.s, g = s.g, text = [], tplUsed = new Set();
+      const pickT = (list, pt, tm) => {
+        const objs = list.filter(o => fitsAt(o, pt, tm) && !tplUsed.has(o) && !(absentRule && janRe.test(o.t)));
+        if (!objs.length) { textFail = true; return ""; }
+        const str = pickU(objs.map(o => o.t)); tplUsed.add(objs.find(o => o.t === str)); return str;
+      };
       LOCS.forEach((loc, li) => {
         const parts = [];
         if (hasK && s.keys.has(li) && !evOf(Pp, "keys", f => f.where === loc.id))
           parts.push(pickU(accessOf(Pp.role).includes(loc.id) ? forP(B.keyTpl, Pp) : B.spareKeyTpl).replace(/\{gen\}/g, loc.gen));
-        for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))))
-          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt, p.t))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
+        /* 2.2.2: kilka obecności w tym samym miejscu (i tej samej formie: w środku albo przed lokalem poza godzinami) w jednym
+           zdaniu z presence2Tpl; szablon świadka najwyżej raz w aktach osoby (po obiekcie szablonu) */
+        const groups = [];
+        for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))).sort((a, b) => a.t - b.t)) {
+          const pa = placeAt(B, loc, p.t), gr = groups[groups.length - 1];
+          if (gr && gr.pa.form === pa.form) { gr.ts.push(p.t); gr.pts.add(pa.pt); } else groups.push({ pa, ts: [p.t], pts: new Set([pa.pt]) });
+        }
+        for (const gr of groups) parts.push(gr.ts.length === 1
+          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0]).replace("{in}", gr.pa.form).replace("{t}", toHM(gr.ts[0]))
+          : pickT(B.presence2Tpl.filter(o => [...gr.pts].every(pt => fitsAt(o, pt))), gr.pa.pt).replace("{in}", gr.pa.form).replace("{ts}", timesPhrase(gr.ts.map(toHM))));
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
@@ -536,6 +559,7 @@
       }
       nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
     });
+    if (textFail) return null;
     for (const d of debunks) {
       const others = nodes.filter(n => n.type === "person" && n.id !== persons[d.who].id);
       const n = R.pick(others);
@@ -554,7 +578,7 @@
       }
       else text.push(T(R.pick(loc.open || [t("gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl")])));
       nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
-        forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
+        forms: [loc.gen, loc.in, loc.from, loc.out].filter(Boolean) }); // formy do wyróżniania w tekście
     });
     I.forEach((it, i) => {
       const gone = { m: t("gen.classic.zniknal"), f: t("gen.classic.zniknela"), n: t("gen.classic.zniknelo"), pl: t("gen.classic.zniknely") }[it.g];
@@ -566,7 +590,7 @@
       const loc = c.li >= 0 ? LOCS[c.li] : null, f = c.f;
       // losowe szczegóły (imię psa, film, zespół, papierosy, towar, kwota), z osobnego strumienia dowodów
       const D = B.details;
-      const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && loc.in, gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
+      const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && (f.at ? placeAt(B, loc, toMin(f.at)).form : loc.in), gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
         dogname: RE.pick(D.dogs), dogbreed: RE.pick(D.breeds), film: RE.pick(A(D.films)), band: RE.pick(A(D.bands)),
         cig: RE.pick(A(D.cigs)), packs: RE.pick(D.packs), goods: RE.pick(A(D.goods)), kwota: smallMoney(RE, year) };
       nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.classic.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },

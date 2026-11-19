@@ -610,6 +610,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.classic.sasiedzi_z_jednej_klatki": "sąsiedzi z jednej klatki",
     "gen.classic.sasiedzi_z_klatki": "sąsiedzi z klatki",
     "gen.classic.wspolpracownicy_z_jednego_zakladu": "współpracownicy z jednego miejsca pracy",
+    "gen.presence.o_t": "o {t}",
+    "gen.presence.again": "{list} i jeszcze raz o {t}",
     "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób.",
@@ -1193,6 +1195,15 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
   const atTexts = (list, pt, t) => list.filter(o => fitsAt(o, pt, t)).map(o => o.t);
   /* 2.2.2: sezon rodzajów miejsc (base.placeTypes): dark.months [od, do] (może przejść przez Nowy Rok) od godziny dark.after.
      Gra dzieje się wieczorem, więc takie miejsca w tych miesiącach w ogóle nie trafiają do spraw. */
+  /* 2.2.2: godziny otwarcia: loc.hours albo base.placeTypes[pt].open. Obecność o czasie t poza godzinami (+30 min po zamknięciu)
+     to obecność przed lokalem: rodzaj „street” (świadkowie uliczni) i forma loc.out („przed apteką”). */
+  const placeAt = (B, loc, t) => {
+    const h = loc.hours || (B.placeTypes && B.placeTypes[loc.pt] && B.placeTypes[loc.pt].open);
+    if (h && t !== undefined && !(t >= toMin(h[0]) && t < toMin(h[1]) + 30)) return { pt: "street", form: loc.out || loc.in, closed: true };
+    return { pt: loc.pt, form: loc.in, closed: false };
+  };
+  /* 2.2.2: kilka obserwacji tej samej osoby w tym samym miejscu w jednym zdaniu: „o 20:50 i jeszcze raz o 21:10” */
+  const timesPhrase = list => { const a = list.map(x => t("gen.presence.o_t", { t: x })); return a.length < 2 ? a[0] : t("gen.presence.again", { list: a.slice(0, -1).join(", "), t: list[list.length - 1] }); };
   const darkMonth = (B, pt, m) => { const d = B.placeTypes && B.placeTypes[pt] && B.placeTypes[pt].dark; if (!d) return false;
     const mm = m + 1, [a, b] = d.months; return a <= b ? mm >= a && mm <= b : mm >= a || mm <= b; };
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
@@ -1482,7 +1493,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     return out;
   }
 
-  const util = { itemRef, decimal, fitsAt, atTexts, darkMonth, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const util = { itemRef, decimal, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
   root.Siatka = api;
@@ -1660,7 +1671,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, darkMonth, HEIGHT, heightOf, heightClass } = Eng.util;
+  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, HEIGHT, heightOf, heightClass } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
   /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
@@ -1928,9 +1939,14 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     // siwizna u starszych, bez siwych włosów u młodych (indeksy z SiatkaSprites.HAIR_C)
     const HAIR_BY_AGE = { young: [0, 1, 2, 5], mid: [0, 1, 2, 3, 5], old: [3, 4, 4] };
     const SP = sprites();
-    const persons = S.map((s, idx) => {
+    /* 2.2.2: relacja „współpracownik”: osoby, które ją dostaną (sprawca i niewinni, którzy z niej nie odpadają),
+       biorą role z jednego rodzaju miejsca pracy (wp). Próbujemy kolejnych wp; gdy żaden nie pasuje, inna relacja. */
+    const relW = rules.find(r => r.type === "relation" && r.rel === "workmate");
+    const relKeep = relW ? new Set(S.map((_, i) => i).filter(i => !(innocents.includes(i) && assign[i] === relW))) : null;
+    const wpOrder = relW ? R.shuffle([...new Set(roles.filter(r => r.wp).map(r => r.wp))]).filter(w => roles.filter(r => r.wp === w).length >= relKeep.size) : [];
+    const mkPersons = wp => { usedFirst.clear(); usedSur.clear(); usedRoles.clear(); ids.length = 0; return S.map((s, idx) => {
       const keyLocs = [...s.keys].map(li => LOCS[li].id);
-      const fits = role => role[s.g] && !usedRoles.has(role.id) && roleFitsTraits(role, s);
+      const fits = role => role[s.g] && !usedRoles.has(role.id) && roleFitsTraits(role, s) && (!wp || !relKeep.has(idx) || role.wp === wp);
       const inter = role => accessOf(role).filter(a => locs.includes(a));
       let pool = roles.filter(r => fits(r) && sameSet(inter(r), keyLocs));
       if (!pool.length) pool = roles.filter(r => fits(r) && inter(r).length === 0);
@@ -1945,7 +1961,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
           head: head || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
           mustache: s.g === "m" && R.chance(.35) } };
-    });
+    }); };
+    let persons = null;
+    for (const wp of wpOrder) { const p = mkPersons(wp); if (!p.some(x => !x)) { persons = p; break; } }
+    if (!persons) { if (relW) relW.rel = R.pick(RELS.filter(t => t !== "workmate")); persons = mkPersons(null); }
     if (persons.some(p => !p)) return null;
     const victim = (() => { const n = pickName(scene.vg || "m", scene.vage || R.pick(["mid", "old"])); return `${n.first} ${n.last}`; })();
     /* 2.2: wzrost w cm z realnego rozkładu wg płci, niezależnie od reguł. Tylko gdy wzrost opisowy jest regułą,
@@ -2045,7 +2064,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         const Pp = byPid[f.who]; if (!Pp) continue;
         const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
         if (f.type === "presence" && iniOk(Pp))
-          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt, toMin(f.at)))),
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => li >= 0 && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at)))),
             ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
@@ -2144,14 +2163,29 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const usedLines = new Set();
     const fresh = list => { const sh = R.shuffle(list), c = sh.find(x => !usedLines.has(x) && !avF.has(x)) || sh.find(x => !usedLines.has(x)); if (c) usedLines.add(c); return c; };
     const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx); // teksty dla tej osoby i tego roku, jako napisy
+    const janRe = new RegExp(B.textRe.janitor, "i");
+    let textFail = false;
     persons.forEach(Pp => {
-      const s = Pp.s, g = s.g, text = [];
+      const s = Pp.s, g = s.g, text = [], tplUsed = new Set();
+      const pickT = (list, pt, tm) => {
+        const objs = list.filter(o => fitsAt(o, pt, tm) && !tplUsed.has(o) && !(absentRule && janRe.test(o.t)));
+        if (!objs.length) { textFail = true; return ""; }
+        const str = pickU(objs.map(o => o.t)); tplUsed.add(objs.find(o => o.t === str)); return str;
+      };
       LOCS.forEach((loc, li) => {
         const parts = [];
         if (hasK && s.keys.has(li) && !evOf(Pp, "keys", f => f.where === loc.id))
           parts.push(pickU(accessOf(Pp.role).includes(loc.id) ? forP(B.keyTpl, Pp) : B.spareKeyTpl).replace(/\{gen\}/g, loc.gen));
-        for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))))
-          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt, p.t))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
+        /* 2.2.2: kilka obecności w tym samym miejscu (i tej samej formie: w środku albo przed lokalem poza godzinami) w jednym
+           zdaniu z presence2Tpl; szablon świadka najwyżej raz w aktach osoby (po obiekcie szablonu) */
+        const groups = [];
+        for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))).sort((a, b) => a.t - b.t)) {
+          const pa = placeAt(B, loc, p.t), gr = groups[groups.length - 1];
+          if (gr && gr.pa.form === pa.form) { gr.ts.push(p.t); gr.pts.add(pa.pt); } else groups.push({ pa, ts: [p.t], pts: new Set([pa.pt]) });
+        }
+        for (const gr of groups) parts.push(gr.ts.length === 1
+          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0]).replace("{in}", gr.pa.form).replace("{t}", toHM(gr.ts[0]))
+          : pickT(B.presence2Tpl.filter(o => [...gr.pts].every(pt => fitsAt(o, pt))), gr.pa.pt).replace("{in}", gr.pa.form).replace("{ts}", timesPhrase(gr.ts.map(toHM))));
         if (parts.length) text.push(T(parts.join(" "), g));
       });
       if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
@@ -2188,6 +2222,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       }
       nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
     });
+    if (textFail) return null;
     for (const d of debunks) {
       const others = nodes.filter(n => n.type === "person" && n.id !== persons[d.who].id);
       const n = R.pick(others);
@@ -2206,7 +2241,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       }
       else text.push(T(R.pick(loc.open || [t("gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl")])));
       nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
-        forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
+        forms: [loc.gen, loc.in, loc.from, loc.out].filter(Boolean) }); // formy do wyróżniania w tekście
     });
     I.forEach((it, i) => {
       const gone = { m: t("gen.classic.zniknal"), f: t("gen.classic.zniknela"), n: t("gen.classic.zniknelo"), pl: t("gen.classic.zniknely") }[it.g];
@@ -2218,7 +2253,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const loc = c.li >= 0 ? LOCS[c.li] : null, f = c.f;
       // losowe szczegóły (imię psa, film, zespół, papierosy, towar, kwota), z osobnego strumienia dowodów
       const D = B.details;
-      const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && loc.in, gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
+      const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && (f.at ? placeAt(B, loc, toMin(f.at)).form : loc.in), gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
         dogname: RE.pick(D.dogs), dogbreed: RE.pick(D.breeds), film: RE.pick(A(D.films)), band: RE.pick(A(D.bands)),
         cig: RE.pick(A(D.cigs)), packs: RE.pick(D.packs), goods: RE.pick(A(D.goods)), kwota: smallMoney(RE, year) };
       nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.classic.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
@@ -2416,7 +2451,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, darkMonth, prices } = Eng.util;
+  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, prices } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -2592,7 +2627,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       // co najmniej jeden dowód dotyczy niewinnego
       const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
       for (const f of order) {
-        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
         if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
         per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
       }
@@ -2625,27 +2660,48 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     const allObs = [];
     persons.forEach(Pp => { for (const o of Pp.s.obs) if (!evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) allObs.push({ Pp, o }); });
     allObs.sort((x, y) => x.o.t - y.o.t);
+    /* 2.2.2: szablon najwyżej raz w aktach jednej osoby (po obiekcie szablonu); kolejne obserwacje tej samej osoby w tym samym
+       miejscu (i tej samej formie: w środku albo przed lokalem) w jednym zdaniu z presence2Tpl: „o 20:50 i jeszcze raz o 21:10” */
+    const tplUsed = new Map(), tplOf = Pp => tplUsed.get(Pp) || tplUsed.set(Pp, new Set()).get(Pp);
+    let textFail = false;
+    persons.forEach(Pp => {
+      const groups = [];
+      for (const { o } of allObs.filter(x => x.Pp === Pp)) {
+        const pa = placeAt(B, LOCS[o.w], o.t), g = groups[groups.length - 1];
+        if (g && g.w === o.w && g.pa.form === pa.form) { g.list.push(o); g.pts.add(pa.pt); } else groups.push({ w: o.w, pa, list: [o], pts: new Set([pa.pt]) });
+      }
+      for (const g of groups.filter(g => g.list.length > 1)) {
+        const objs = B.presence2Tpl.filter(e => [...g.pts].every(pt => fitsAt(e, pt)) && !e.open && !tplOf(Pp).has(e)); // bez „obsługi”: oś czasu może mieć zamknięcie okienka
+        if (!objs.length) { textFail = true; continue; }
+        const str = pickU(objs.map(e => e.t)); tplOf(Pp).add(objs.find(e => e.t === str));
+        obsText.set(g.list[0], T(str.replace("{in}", g.pa.form).replace("{ts}", timesPhrase(g.list.map(o => toHM(o.t)))), Pp.s.g));
+        g.list.slice(1).forEach(o => obsText.set(o, null));
+      }
+    });
     for (const { Pp, o } of allObs) {
-      const loc = LOCS[o.w], meta = new Map(), pool = [];
+      if (obsText.has(o)) continue;
+      const loc = LOCS[o.w], pa = placeAt(B, loc, o.t), meta = new Map(), pool = [];
       for (const e of TL.obsTpl) {
-        if (!fitsAt(e, loc.pt, o.t)) continue;
+        if (!fitsAt(e, pa.pt, o.t) || tplOf(Pp).has(e)) continue;
         const m = e, str = e.t;
         if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
         if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
         if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
         meta.set(str, m); pool.push(str);
       }
-      const pickedT = pickU(pool), m = meta.get(pickedT);
+      if (!pool.length) { textFail = true; continue; }
+      const pickedT = pickU(pool), m = meta.get(pickedT); tplOf(Pp).add(m);
       if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
       if (m.anc) {
-        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && (loc.pt === "shop" || loc.pt === "kiosk")) closedAt[o.w] = o.t; }
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && ["shop", "kiosk", "stall"].includes(loc.pt)) closedAt[o.w] = o.t; }
         else genUsed.add(m.anc);
       }
-      obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
+      obsText.set(o, T(pickedT.replace("{in}", pa.form).replace("{t}", toHM(o.t)), Pp.s.g));
     }
+    if (textFail) return null;
     persons.forEach(Pp => {
       const s = Pp.s, g = s.g, text = [];
-      for (const o of s.obs) if (obsText.has(o)) text.push(obsText.get(o));
+      for (const o of s.obs) if (obsText.get(o)) text.push(obsText.get(o));
       for (const r of tRules) {
         const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
         text.push(T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: s.traits[r.trait], cm: Pp.cm }));
@@ -2659,12 +2715,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
       const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
       nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
-        sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
+        sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from, loc.out].filter(Boolean) });
     });
     for (const c of evs) {
       const loc = LOCS[c.li];
       nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.timeline.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
-        text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: loc.in }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
+        text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: placeAt(B, loc, toMin(c.f.at)).form }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
     }
 
     /* 11. Połączenia: osoba ↔ miejsce obserwacji (trasa), sprawca ↔ miejsce zdarzenia, dowód ↔ osoba i miejsce */
@@ -25620,7 +25676,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { id:"dzialkowiec", age:"old", m:"Działkowiec", f:"Działkowiczka", access:["dzialka"],
         outfit:{shape:"jacket",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Hoduje pomidory, o których mówi z czułością.","Co roku wygrywa konkurs na największą dynię."] },
-      { id:"hydraulik", age:"mid", m:"Hydraulik", f:null, access:["kotlownia","piwnica"],
+      { id:"hydraulik", wp:"adm", age:"mid", m:"Hydraulik", f:null, access:["kotlownia","piwnica"],
         outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet",""]},
         flavor:["Zawsze ma przy sobie klucz nastawny.","Za fuchy bierze w markach."] },
       { id:"maglarka", age:"old", m:null, f:"Maglarka", access:["pralnia"],
@@ -25723,16 +25779,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { id:"sprzataczka", wp:"adm", age:["mid","old"], m:"Sprzątacz w biurze", f:"Sprzątaczka w biurze", access:["administracja"],
         outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Sprząta biura po godzinach i wie, kto zostawia na biurku papiery.","Pęk kluczy nosi na sznurku przy fartuchu."] },
-      { id:"elektryk", age:["young","mid"], m:"Elektryk", f:null, access:["kotlownia","piwnica"],
+      { id:"elektryk", wp:"adm", age:["young","mid"], m:"Elektryk", f:null, access:["kotlownia","piwnica"],
         outfit:{shape:"plain",c:"#5a5f6a",d:"#c9a646"}, headwear:{m:["kaszkiet",""]},
         flavor:["Ma w kieszeni próbnik i zwój taśmy izolacyjnej.","Naprawia sąsiadom telewizory, choć mówi, że to nie jego fach."] },
-      { id:"malarz", age:["young","mid"], m:"Malarz pokojowy", f:null, access:[],
+      { id:"malarz", wp:"adm", age:["young","mid"], m:"Malarz pokojowy", f:null, access:[],
         outfit:{shape:"plain",c:"#e8e8e0",d:"#c9c2b0"}, headwear:{m:["kaszkiet"]},
         flavor:["Ma na rękach plamy farby, których nie domyje żaden rozpuszczalnik.","Maluje mieszkania na zlecenie, płatne do ręki."] },
       { id:"kominiarz", age:["young","mid"], m:"Kominiarz", f:null, access:["kotlownia"],
         outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kolejarz"]},
         flavor:["Ludzie łapią się za guzik, kiedy go mijają.","Zna każdy dach w dzielnicy, od strychu po komin."] },
-      { id:"kwiaciarka", age:["mid","old"], m:"Kwiaciarz", f:"Kwiaciarka", access:[],
+      { id:"kwiaciarka", wp:"bazar", age:["mid","old"], m:"Kwiaciarz", f:"Kwiaciarka", access:[],
         outfit:{shape:"apron",c:"#4c6b3a",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
         flavor:["Sprzedaje kwiaty z budki przy cmentarzu.","Na Wszystkich Świętych wiąże wieńce przez całą noc."] },
       { id:"pewex", age:["young","mid"], m:"Ekspedient w Peweksie", f:"Ekspedientka w Peweksie", access:[], years:[1989,1990],
@@ -25788,7 +25844,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Kłódka wisi na skoblu tylko dla ozdoby, nikt jej nie zatrzaskuje.", "Właściciel trzyma bramę otwartą, bo sąsiedzi ciągle pożyczają narzędzia."],
         desc:["Murowany boks w oficynie, z kanałem i półkami pełnymi narzędzi.","Blaszane drzwi, w środku zapach smaru i benzyny.",
               "Na ścianie wisi kalendarz z Pewexu, a pod nim rzędem stoją opony.","W kącie stary Maluch na klockach, czekający na części od roku."] },
-      { id:"apteka", pt:"shop", name:"Apteka „Pod Orłem”", label:"Apteka", gen:"apteki", in:"w aptece", from:"z zaplecza apteki", icon:"pharmacy",
+      { id:"apteka", pt:"shop", hours:["08:00","20:00"], out:"przed apteką", name:"Apteka „Pod Orłem”", label:"Apteka", gen:"apteki", in:"w aptece", from:"z zaplecza apteki", icon:"pharmacy",
         open:["Tylne drzwi od podwórka nie domykają się, wie o tym cała kamienica.", "Wieczorem zaplecze stoi otwarte dla dostawców.",
               "Okno zaplecza jest uchylone przez całą dobę, bo w środku duszno od lekarstw.", "Na zaplecze przechodzi się przez sień, w której nikt nie pilnuje drzwi."],
         desc:["Apteka na rogu {street2}, z drewnianymi szufladami i zapleczem od podwórka.","Zamykana o 19:00, tylne drzwi wychodzą na podwórko.",
@@ -25818,28 +25874,28 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "Kiedy kioskarka wychodzi na chwilę, drzwiczki zostawia tylko przymknięte.", "Tylne drzwiczki trzyma tylko haczyk, który podważy się palcem."],
         desc:["Zielony kiosk z okienkiem, pełen gazet i papierosów.","Stoi przy przystanku tramwajowym na {street2}.",
               "Na szybie przypięte klamerkami krzyżówki i kolorowe pisma.","W środku ciasno: stołek, grzejnik farelka i paczki prasy pod sufit."] },
-      { id:"sklep", pt:"work", name:"Sklep spożywczy „Społem”", label:"Sklep", gen:"sklepu", in:"na zapleczu sklepu", from:"z zaplecza sklepu", icon:"shop",
+      { id:"sklep", pt:"work", hours:["06:00","19:00"], out:"przed sklepem", name:"Sklep spożywczy „Społem”", label:"Sklep", gen:"sklepu", in:"na zapleczu sklepu", from:"z zaplecza sklepu", icon:"shop",
         open:["Drzwi na zaplecze stoją otwarte, bo ciągle ktoś wnosi skrzynki.", "Na zaplecze wchodzi się prosto z podwórka, bez żadnego zamka.",
               "Zaplecze dzieli od podwórka tylko zasłona z koralików.", "Kierowniczka zostawia zaplecze otwarte do wieczornej dostawy mleka."],
         desc:["Spożywczy z ladą chłodniczą i zapleczem pełnym skrzynek.","Dostawa chleba o szóstej, kolejka jeszcze przed otwarciem.",
               "Na zapleczu waga dziesiętna, beczka z kapustą i stos pustych butelek.","Nad ladą wisi tabliczka „Towar ze skrzynek wydajemy tylko w obecności kierownika”."] },
-      { id:"fryzjer", pt:"shop", name:"Zakład fryzjerski", label:"Fryzjer", gen:"zakładu fryzjerskiego", in:"w zakładzie fryzjerskim", from:"z zakładu fryzjerskiego", icon:"barber",
+      { id:"fryzjer", pt:"shop", out:"przed zakładem fryzjerskim", name:"Zakład fryzjerski", label:"Fryzjer", gen:"zakładu fryzjerskiego", in:"w zakładzie fryzjerskim", from:"z zakładu fryzjerskiego", icon:"barber",
         open:["Zakład jest otwarty do wieczora i każdy może wejść.", "W zakładzie ciągle ktoś czeka w kolejce, a zaplecza nikt nie pilnuje.",
               "Drzwi na zaplecze zakładu są tylko przymknięte, bo przez nie ucieka para.", "Fryzjerka wpuszcza na zaplecze każdą klientkę, która chce poprawić makijaż."],
         desc:["Dwa fotele, suszarka-hełm i lustro z pęknięciem.","Na szybie wywieszka „Trwała ondulacja”.",
               "Na półce rzędem stoją butelki wody brzozowej i puszki lakieru.","Na ścianie wiszą zdjęcia fryzur z zachodnich żurnali."] },
-      { id:"kotlownia", pt:"work", name:"Kotłownia", label:"Kotłownia", gen:"kotłowni", in:"w kotłowni", from:"z kotłowni", icon:"boiler",
+      { id:"kotlownia", pt:"boiler", name:"Kotłownia", label:"Kotłownia", gen:"kotłowni", in:"w kotłowni", from:"z kotłowni", icon:"boiler",
         open:["Drzwi do kotłowni stoją otwarte, żeby piec miał ciąg.", "Zamek od kotłowni zepsuł się zeszłej zimy.",
               "Do kotłowni schodzi się prosto z piwnic, przez przejście bez drzwi.", "Palacz wietrzy kotłownię i zostawia drzwi szeroko otwarte."],
         desc:["Gorąca, ciemna kotłownia z pryzmą koksu.","Piec huczy przez cały sezon grzewczy.",
               "Na ścianie wisi zegar z kukułką, którym palacz mierzy czas między dorzucaniem.","Pod sufitem plątanina rur, a w kącie kozetka palacza."] },
       /* wydanie 2.1.1: miejsca dla szantażu i fałszerstwa (maszyny do pisania, pieczątki, farby) */
-      { id:"administracja", pt:"office", name:"Biuro administracji osiedla", label:"Administracja", gen:"biura administracji", in:"w biurze administracji", from:"z biura administracji", icon:"office",
+      { id:"administracja", pt:"office", out:"przed biurem administracji", name:"Biuro administracji osiedla", label:"Administracja", gen:"biura administracji", in:"w biurze administracji", from:"z biura administracji", icon:"office",
         open:["Sprzątaczka zostawia biuro otwarte, kiedy wynosi śmieci.", "Drzwi biura stoją otwarte do wieczora, bo lokatorzy przychodzą płacić czynsz.",
               "Okno biura od podwórka nie domyka się od zeszłej zimy.", "Kierownik wychodzi na papierosa i zostawia biuro otwarte."],
         desc:["Dwa biurka, szafa z segregatorami i maszyna do pisania pod pokrowcem.","Na drzwiach tabliczka „Interesantów przyjmujemy we wtorki i czwartki”.",
               "Na parapecie paprotka, a na ścianie plan osiedla z numerami klatek.","Na biurku kierownika stoi pudełko z pieczątkami i poduszka z tuszem."] },
-      { id:"swietlica", pt:"shop", name:"Świetlica spółdzielni", label:"Świetlica", gen:"świetlicy", in:"w świetlicy", from:"ze świetlicy", icon:"hall",
+      { id:"swietlica", pt:"shop", hours:["15:00","21:00"], out:"przed świetlicą", name:"Świetlica spółdzielni", label:"Świetlica", gen:"świetlicy", in:"w świetlicy", from:"ze świetlicy", icon:"hall",
         open:["Świetlica jest otwarta do wieczora, bo w środku ćwiczy zespół.", "Drzwi świetlicy podpiera krzesło, żeby wywietrzyć salę po zebraniu.",
               "Na zajęcia kółka plastycznego wchodzi każdy, kto ma ochotę.", "Instruktorka zostawia świetlicę otwartą, kiedy biegnie do kiosku."],
         desc:["Sala z pianinem, stołem do ping-ponga i gazetką ścienną.","Na ścianie wiszą prace kółka plastycznego i dyplomy z przeglądu piosenki.",
@@ -26098,11 +26154,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Komis przy {street}", pt:"shop" },
           { name:"Zakrystia parafii", pt:"work" },
           { name:"Klatka schodowa przy {street}", pt:"stair" },
-          { name:"Budka {market_on}", pt:"street" },
+          { name:"Budka {market_on}", pt:"stall" },
           { name:"Altana w ogródkach działkowych", pt:"field" }
         ],
         kradziez:[
-          { name:"Budka {market_on}", pt:"street" },
+          { name:"Budka {market_on}", pt:"stall" },
           { name:"Mieszkanie przy {street}", pt:"flat" },
           { name:"Mieszkanie w kamienicy", pt:"flat" },
           { name:"Kasa kina „{cinema}”", pt:"shop" },
@@ -26117,7 +26173,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Mieszkanie w kamienicy", pt:"flat" },
           { name:"Mieszkanie przy {street}", pt:"flat" },
           { name:"Mieszkanie w kamienicy", pt:"flat" },
-          { name:"Szczęka z ciuchami", pt:"street" },
+          { name:"Szczęka z ciuchami", pt:"stall" },
           { name:"Plebania parafii", pt:"flat" },
           { name:"Księgowość zakładu", pt:"plant" },
           { name:"Apteka przy {street}", pt:"shop" },
@@ -26128,7 +26184,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Klatka schodowa przy {street}", pt:"stair" },
           { name:"Kantor na osiedlu", pt:"shop" },
           { name:"Postój taksówek", pt:"street" },
-          { name:"Budka {market_on}", pt:"street" },
+          { name:"Budka {market_on}", pt:"stall" },
           { name:"Brama zakładu", pt:"plant" },
           { name:"Brama przy PKO", pt:"street" },
           { name:"Stacja CPN przy {street}", pt:"street" },
@@ -26139,33 +26195,33 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Sklep monopolowy przy {street}", pt:"shop" },
           { name:"Klatka schodowa przy {street}", pt:"stair" },
           { name:"Pętla autobusowa", pt:"street" },
-          { name:"Budka pod cmentarzem", pt:"street" },
+          { name:"Budka pod cmentarzem", pt:"stall" },
           { name:"Poczta przy {street}", pt:"shop" },
-          { name:"Budka z lodami przy {street}", pt:"street" },
+          { name:"Budka z lodami przy {street}", pt:"stall" },
           { name:"Mieszkanie przy {street}", pt:"flat" },
           { name:"Komis przy {street}", pt:"shop" }
         ],
         podpalenie:[
           { name:"Szopa z rowerami", pt:"yard" },
-          { name:"Budka z warzywami", pt:"street" },
+          { name:"Budka z warzywami", pt:"stall" },
           { name:"Altana prezesa", pt:"field" },
           { name:"Wiata przy {street}", pt:"street" },
-          { name:"Szczęka z ciuchami", pt:"street" },
+          { name:"Szczęka z ciuchami", pt:"stall" },
           { name:"Kiosk przy {street}", pt:"kiosk" },
           { name:"Wózkownia przy {street}", pt:"yard" },
           { name:"Podwórko przy {street}", pt:"yard" },
           { name:"Piwnica z komórkami", pt:"cellar" },
           { name:"Garaż mechanika", pt:"garage" },
-          { name:"Stragan z zabawkami", pt:"street" },
+          { name:"Stragan z zabawkami", pt:"stall" },
           { name:"Muszla koncertowa w parku", pt:"park" },
           { name:"Stodoła na skraju osiedla", pt:"site" },
-          { name:"Budka z lodami", pt:"street" },
+          { name:"Budka z lodami", pt:"stall" },
           { name:"Szopa dozorcy", pt:"yard" },
           { name:"Wypożyczalnia kaset", pt:"shop" },
           { name:"Barak na budowie", pt:"site" },
           { name:"Biuro prezesa", pt:"office" },
           { name:"Bar mleczny przy {street}", pt:"shop" },
-          { name:"Budka z kwiatami", pt:"street" }
+          { name:"Budka z kwiatami", pt:"stall" }
         ],
         wandalizm:[
           { name:"Gablota przed spółdzielnią", pt:"street" },
@@ -26186,7 +26242,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Klatka schodowa przy {street}", pt:"stair" },
           { name:"Wypożyczalnia przy {street}", pt:"shop" },
           { name:"Przychodnia przy {street}", pt:"shop" },
-          { name:"Stragan {market_on}", pt:"street" },
+          { name:"Stragan {market_on}", pt:"stall" },
           { name:"Boisko szkolne", pt:"street" }
         ],
         porwanie_psa:[
@@ -26199,9 +26255,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Warsztat samochodowy", pt:"work" },
           { name:"Podwórko przy {street}", pt:"yard" },
           { name:"Balkon w kamienicy", pt:"cellar" },
-          { name:"Budka dozorcy", pt:"yard" },
+          { name:"Budka dozorcy", pt:"stall" },
           { name:"Altana na działce", pt:"field" },
-          { name:"Budka {market_on}", pt:"street" },
+          { name:"Budka {market_on}", pt:"stall" },
           { name:"Lecznica dla zwierząt", pt:"shop" },
           { name:"Kiosk przy {street}", pt:"kiosk" },
           { name:"Brama hurtowni", pt:"plant" },
@@ -26213,7 +26269,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         ],
         sabotaz:[
           { name:"Maszynownia windy przy {street}", pt:"work" },
-          { name:"Kotłownia przy {street}", pt:"work" },
+          { name:"Kotłownia przy {street}", pt:"boiler" },
           { name:"Zwrotnica przy {street}", pt:"street" },
           { name:"Poczta przy {street}", pt:"shop" },
           { name:"Klatka schodowa przy {street}", pt:"stair" },
@@ -26252,7 +26308,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Balkon w kamienicy", pt:"cellar" },
           { name:"Willa prezesa", pt:"flat" },
           { name:"Piwnica przy {street}", pt:"cellar" },
-          { name:"Klatki {market_on}", pt:"street" },
+          { name:"Klatki {market_on}", pt:"stall" },
           { name:"Podwórko przy {street}", pt:"yard" }
         ]
       },
@@ -26263,8 +26319,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       tableNote:"Godziny w teczkach są dokładne co do minuty. Czasy dojścia działają w obie strony.",
       hint:"Reguła {n}: przy każdej osobie sprawdź przerwę między obserwacjami. Czy starczy czasu, żeby dojść na miejsce zdarzenia, spędzić tam co najmniej {stay} minut między {a} a {b} i zdążyć na następną?",
       obsTpl:[
-              { t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat"] },
-              { t:"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+              { t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+              { t:"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
               { t:"Listonosz minął [go|ją] {in} o {t}.", at:["street","kiosk","stair","shop","office"], time:["00:00","19:00"] },
               { t:"Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.", at:["yard","garage","cellar","stair"] },
               { t:"O {t} [rozmawiał|rozmawiała] z kimś {in}, jak mówi sąsiadka z okna.", at:["street","yard","stair"] },
@@ -26274,20 +26330,26 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               { t:"Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.", at:["street","yard"], time:["00:00","20:00"], anc:"bells" },
               { t:"O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.", at:["street","yard","garage"] },
               { t:"Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.", at:["kiosk"], anc:"close", open:true },
-              { t:"Dzielnicowy zanotował w notesie: {t}, {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair"] },
+              { t:"Dzielnicowy zanotował w notesie: {t}, {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","stall","boiler","stable","shed"] },
               { t:"Ktoś z załogi widział [go|ją] {in} o {t}, bo akurat spojrzał na zegar nad drzwiami.", at:["work","plant"], anc:"clock" },
-              { t:"Szef zmiany zanotował: {t}, {in}.", at:["work","plant"] },
+              { t:"Szef zmiany zanotował: {t}, {in}.", at:["plant"] },
               { t:"Kolega z zakładu pamięta, że o {t} [był|była] {in}, bo właśnie zaczynała się przerwa.", at:["work","plant"], anc:"break" },
-              { t:"Klient w kolejce widział [go|ją] {in} o {t}, bo właśnie patrzył na zegarek.", at:["shop","kiosk","office"], anc:"watch", open:true },
+              { t:"Klient w kolejce widział [go|ją] {in} o {t}, bo właśnie patrzył na zegarek.", at:["shop","kiosk","office","stall"], anc:"watch", open:true },
               { t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} punktualnie o {t}, bo wołano na obiad.", at:["field"], anc:"lunch" },
               { t:"Lokator z piętra schodził po rzeczy i widział [go|ją] {in} o {t}, zerknął wtedy na zegarek.", at:["cellar"], anc:"watch" },
-              { t:"Bosman przystani zapisał w dzienniku: {t}, {in}.", at:["marina"] }
+              { t:"Bosman przystani zapisał w dzienniku: {t}, {in}.", at:["marina"] },
+              { t:"Handlarz z sąsiedniego straganu widział [go|ją] {in} punktualnie o {t}, bo właśnie zwijał towar.", at:["stall"], anc:"close" },
+              { t:"Klient, który przyszedł odebrać zamówienie, widział [go|ją] {in} o {t}, zerknął wtedy na zegar.", at:["work"] },
+              { t:"Palacz zanotował w zeszycie kotłowni: {t}, {in}.", at:["boiler"] },
+              { t:"Stajenny pamięta, że o {t} [był|była] {in}, bo właśnie poił konie.", at:["stable"] },
+              { t:"Rybak naprawiający sieci widział [go|ją] {in} o {t}, bo akurat zapalał lampę.", at:["shed"] }
             ],
       evidence:[
-                { label:"Kwit", name:"Kwit z godziną", icon:"receipt", at:["shop","kiosk","office","work","garage"], text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis: {ini}."] },
+                { label:"Kwit", name:"Kwit z godziną", icon:"receipt", at:["plant","shop","office","stall"], text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis: {ini}."] },
                 { label:"Książka", name:"Książka wejść z portierni", icon:"notebook", at:["plant"], text:["Książka wejść prowadzona przez portiera {in}.","Wpis: «{t} — {ini}, wejście»."] },
-                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", at:["street","kiosk","marina"], text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, zamówiona na: {ini}.»"] },
-                { label:"Raport", name:"Raport stróża", icon:"card", at:["yard","garage","site","street","field","cellar","marina"], text:["Stróż co wieczór obchodzi teren i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] }
+                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", at:["street","kiosk","marina","stall"], text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, zamówiona na: {ini}.»"] },
+                { label:"Raport", name:"Raport stróża", icon:"card", at:["yard","garage","site","street","field","cellar","marina","boiler","stable","shed"], text:["Stróż co wieczór obchodzi teren i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] },
+                { label:"Zamówienia", name:"Zeszyt zamówień", icon:"notebook", at:["work"], text:["Zeszyt zamówień prowadzony {in}.","«{t} — {ini}, odbiór zamówienia»."] }
               ],
       intro:"Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Sprawdź, kto zdążyłby dojść na miejsce zdarzenia w czasie zbrodni i wrócić tam, gdzie widziano go później."
     },
@@ -26849,8 +26911,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       presence: [
         { label:"Zeszyt", name:"Zeszyt dozorcy", icon:"notebook", at:["yard","garage","cellar","stair"], text:["Dozorca zapisuje w zeszycie w kratkę, kto o której kręci się po podwórku.","Wpis z tamtego wieczoru: «{t} — {ini}, {in}»."] },
         { label:"Notes", name:"Notes sąsiadki z parteru", icon:"notebook", at:["yard","street","stair"], text:["Sąsiadka z parteru notuje „na wszelki wypadek”, kto chodzi koło jej okien.","Pod datą tamtego dnia, drobnym pismem: «{t}. {ini} {in}.»"] },
-        { label:"Raport", name:"Raport stróża nocnego", icon:"card", at:["yard","garage","cellar","street","site"], text:["Stróż z osiedla co wieczór obchodzi podwórka i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] },
-        { label:"Bloczek", name:"Kartka z dyżurki", icon:"receipt", at:["yard","garage","street","field","cellar","stair","shop","kiosk","work"], text:["Kartka z bloczku, znaleziona w dyżurce obok telefonu. Dyżurny notuje na niej, kogo minął na obchodzie.","Długopisem, krzywo: «{t} — {ini}, {in}»."] },
+        { label:"Raport", name:"Raport stróża nocnego", icon:"card", at:["yard","garage","cellar","street","site","boiler"], text:["Stróż z osiedla co wieczór obchodzi podwórka i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] },
+        { label:"Bloczek", name:"Kartka z dyżurki", icon:"receipt", at:["yard","garage","street","field","cellar","stair","shop","kiosk","work","boiler","stable","shed"], text:["Kartka z bloczku, znaleziona w dyżurce obok telefonu. Dyżurny notuje na niej, kogo minął na obchodzie.","Długopisem, krzywo: «{t} — {ini}, {in}»."] },
         { label:"Lista", name:"Lista obecności z zakładu", icon:"card", at:["plant"], text:["Lista obecności prowadzona na portierni zakładu, z godziną przy każdym podpisie.","Wpis: «{t} — {ini}, {in}»"] },
         { label:"Książka", name:"Książka wejść z portierni", icon:"notebook", at:["plant"], text:["Portier prowadzi książkę wejść i zapisuje godzinę przy każdym nazwisku.","Wpis: «{t} — {ini}, {in}»."] },
         { label:"Bosman", name:"Dziennik bosmana", icon:"notebook", at:["marina"], text:["Bosman przystani zapisuje w dzienniku, kto o której wypływa i wraca.","Wpis z tamtego wieczoru: «{t} — {ini}, {in}»."] },
@@ -26859,8 +26921,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         { label:"Prasa", name:"Zeszyt odłożonej prasy", icon:"notebook", at:["kiosk"], text:["Kioskarka zapisuje, komu odłożyła gazety i o której ktoś je odebrał.","«{t} — {ini}, prasa odebrana {in}»."] },
         { label:"Interesanci", name:"Książka interesantów", icon:"notebook", at:["office"], text:["Biuro prowadzi książkę interesantów: kto, o której i w jakiej sprawie.","Wpis: «{t} — {ini}, {in}, sprawa do kierownika»."] },
         { label:"Okienko", name:"Numerek z okienka", icon:"receipt", at:["office"], text:["Numerek do okienka w biurze, z godziną wydania na odwrocie.","«Godz. {t}.» Ołówkiem, na odwrocie: {ini}."] },
-        { label:"Wpisy", name:"Zeszyt dyżurów", icon:"notebook", at:["work"], text:["Na drzwiach wisi zeszyt dyżurów. Kto wchodzi po godzinach, wpisuje się z godziną.","«{t} — {ini}, {in}»."] },
-        { label:"Na kreskę", name:"Zeszyt na kreskę", icon:"notebook", at:["shop"], text:["Sprzedawczyni zapisuje w zeszycie, kto i o której brał towar na kreskę.","«{t} — {ini}, {in}, do zapłaty w piątek»."] }
+        { label:"Wpisy", name:"Zeszyt dyżurów", icon:"notebook", at:["work","boiler","stable","shed"], text:["Na drzwiach wisi zeszyt dyżurów. Kto wchodzi po godzinach, wpisuje się z godziną.","«{t} — {ini}, {in}»."] },
+        { label:"Na kreskę", name:"Zeszyt na kreskę", icon:"notebook", at:["shop","stall"], text:["Sprzedawczyni zapisuje w zeszycie, kto i o której brał towar na kreskę.","«{t} — {ini}, {in}, do zapłaty w piątek»."] },
+        { label:"Targ", name:"Notes inkasenta targowego", icon:"notebook", at:["stall"], text:["Inkasent opłaty targowej notuje, kogo o której minął przy stoiskach.","«{t} — {ini}, {in}»."] }
       ],
       /* klucz: {gen}, {flat}; tylko miejsca z keyBookLocs */
       keys: [
@@ -26913,10 +26976,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
        shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala) */
     /* 2.2.2: sezon i pora rodzajów miejsc. Od listopada do marca po zmroku (ok. 17:00) przystań, działki i park jako miejsce wypoczynku
        nie trafiają do spraw (miejsca, obserwacje, sceny osi czasu). Gra dzieje się wieczorem, więc wypadają na cały miesiąc. */
-    placeTypes: { marina:{ dark:{ months:[11,3], after:"17:00" } }, field:{ dark:{ months:[11,3], after:"17:00" } }, park:{ dark:{ months:[11,3], after:"17:00" } } },
+    placeTypes: { marina:{ dark:{ months:[11,3], after:"17:00" } }, field:{ dark:{ months:[11,3], after:"17:00" } }, park:{ dark:{ months:[11,3], after:"17:00" } }, shop:{ open:["09:00","19:00"] }, office:{ open:["08:00","18:00"] }, kiosk:{ open:["06:00","19:00"] } },
     presenceTpl: [
-      { t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat"] },
-      { t:"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+      { t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+      { t:"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
       { t:"Około {t} [był|była] {in}. Widziały [go|ją] dzieci grające w kapsle.", at:["street","yard"], time:["00:00","20:30"] },
       { t:"Listonosz minął [go|ją] {in} o {t}.", at:["street","kiosk","stair","shop","office"], time:["00:00","19:00"] },
       { t:"Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.", at:["yard","garage","cellar","stair"] },
@@ -26924,25 +26987,39 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { t:"Kioskarz z naprzeciwka widział [go|ją] {in} około {t}.", at:["street"] },
       { t:"Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat trzepała dywan.", at:["yard"], time:["00:00","20:00"] },
       { t:"O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu.", at:["street","kiosk","marina","yard","field","shop"] },
-      { t:"Dzielnicowy zanotował, że około {t} [był|była] {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair"] },
+      { t:"Dzielnicowy zanotował, że około {t} [był|była] {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","stall","boiler","stable","shed"] },
       { t:"Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy wyglądała przez okno, czy idzie listonosz.", at:["street","yard","stair"] },
       { t:"Około {t} [był|była] {in}, jak mówi dozorczyni, która zamiatała podwórko.", at:["yard","garage","cellar","stair"] },
       { t:"Pani z wózkiem minęła [go|ją] {in} o {t}.", at:["street","yard"], time:["00:00","20:00"] },
-      { t:"[Sam|Sama] mówi, że około {t} [był|była] {in}, ale tylko na chwilę.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+      { t:"[Sam|Sama] mówi, że około {t} [był|była] {in}, ale tylko na chwilę.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
       { t:"O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.", at:["street","yard","garage"] },
       { t:"Ktoś z załogi widział [go|ją] {in} o {t}.", at:["work","plant"] },
       { t:"Kolega z zakładu zapamiętał, że około {t} [był|była] {in}.", at:["work","plant"] },
-      { t:"Szef zmiany zanotował, że o {t} [był|była] {in}.", at:["work","plant"] },
-      { t:"Kierownik zmiany przyznaje, że o {t} widział [go|ją] {in}.", at:["work","plant"] },
-      { t:"Klient stojący w kolejce widział [go|ją] {in} o {t}.", at:["shop","kiosk","office"] },
-      { t:"Ktoś z kolejki pamięta, że około {t} [był|była] {in}.", at:["shop","kiosk","office"] },
+      { t:"Szef zmiany zanotował, że o {t} [był|była] {in}.", at:["plant"] },
+      { t:"Kierownik zmiany przyznaje, że o {t} widział [go|ją] {in}.", at:["plant"] },
+      { t:"Klient stojący w kolejce widział [go|ją] {in} o {t}.", at:["shop","kiosk","office","stall"] },
+      { t:"Ktoś z kolejki pamięta, że około {t} [był|była] {in}.", at:["shop","kiosk","office","stall"] },
       { t:"Obsługa zapamiętała, że o {t} [był|była] {in}.", at:["shop","office"] },
       { t:"Lokator z piętra schodził akurat po rzeczy i widział [go|ją] {in} o {t}.", at:["cellar"] },
       { t:"Sąsiad z parteru mówi, że o {t} słyszał [go|ją] {in}.", at:["cellar"] },
       { t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} o {t}.", at:["field"] },
       { t:"Działkowiec z drugiej alejki zapamiętał, że o {t} [był|była] {in}.", at:["field"] },
       { t:"Bosman z przystani widział [go|ją] {in} o {t}.", at:["marina"] },
-      { t:"O {t} [był|była] {in}. Pamięta to wędkarz, który zwijał wędki.", at:["marina"] }
+      { t:"O {t} [był|była] {in}. Pamięta to wędkarz, który zwijał wędki.", at:["marina"] },
+      { t:"Handlarka z sąsiedniej budki widziała [go|ją] {in} o {t}.", at:["stall"] },
+      { t:"Klient, który przyszedł po zamówienie, widział [go|ją] {in} o {t}.", at:["work"] },
+      { t:"Palacz, który dorzucał do pieca, widział [go|ją] {in} o {t}.", at:["boiler"] },
+      { t:"Stajenny widział [go|ją] {in} o {t}, kiedy poił konie.", at:["stable"] },
+      { t:"Rybak, który naprawiał sieci, widział [go|ją] {in} o {t}.", at:["shed"] }
+    ],
+    /* 2.2.2: kilka obserwacji tej samej osoby w tym samym miejscu w jednym zdaniu; {ts} = „o 20:50 i jeszcze raz o 21:10” */
+    presence2Tpl: [
+      { t:"[Sam|Sama] przyznaje, że {in} [był|była] {ts}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
+      { t:"Sąsiad widział [go|ją] {in} {ts}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+      { t:"Dzielnicowy widział [go|ją] {in} {ts}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","boiler","stable","shed"] },
+      { t:"Ktoś z załogi widział [go|ją] {in} {ts}.", at:["work","plant"] },
+      { t:"Obsługa pamięta [go|ją] {in} {ts}.", at:["shop","office","kiosk","stall"], open:true },
+      { t:"Dozorca widział [go|ją] {in} {ts}.", at:["yard","garage","cellar","stair"] }
     ],
 
     /* Realia epoki: smaczki z zakresem lat */
@@ -27903,7 +27980,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Od dwudziestu lat skręca Polonezy na Żeraniu.","Boi się zwolnień, o których mówią w zakładzie."] },
       locations:[
-        { id:"szczeka", pt:"street", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"w szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+        { id:"szczeka", pt:"stall", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"przy szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
           open:["Na bazarze w ciągu dnia każdy kręci się przy cudzych budkach.", "Plandekę z tyłu budki można po prostu odchylić.",
                 "Handlarze z sąsiednich szczęk pilnują swojego, a cudzej budki nikt.", "Blacha z tyłu szczęki odstaje i wystarczy ją odgiąć."],
           desc:["Blaszana budka z pyzami w słoikach i kapustą na wagę.","Między budkami pachnie flakami i tanimi perfumami.",
@@ -28004,12 +28081,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
         flavor:["Codziennie dojeżdża tramwajem do kombinatu w Nowej Hucie.","Mówi, że huta to całe [jego|jej] życie."] },
       locations:[
-        { id:"stajnia", pt:"work", name:"Stajnia dorożkarska", label:"Stajnia", gen:"stajni", in:"w stajni", from:"ze stajni", icon:"stable", roles:["dorozkarz"],
+        { id:"stajnia", pt:"stable", name:"Stajnia dorożkarska", label:"Stajnia", gen:"stajni", in:"w stajni", from:"ze stajni", icon:"stable", roles:["dorozkarz"],
           open:["Wrota stajni stoją otwarte, żeby konie miały powietrze.", "Stajnię zamyka się dopiero na noc, wieczorem kręcą się tu dorożkarze i ich znajomi.",
                 "Stajenny wychodzi do baru i zostawia wrota uchylone.", "Do stajni wchodzi się przez bramę, której nikt nie pilnuje."],
           desc:["Stajnia w podwórku, skąd rano wyjeżdżają dorożki na Rynek.","Pachnie sianem, skórą i końmi.",
                 "Na ścianie wiszą chomąta i uprząż z mosiężnymi okuciami.","W kącie stoi dorożka z podniesioną budą, czekająca na nowe koło."] },
-        { id:"piwnica_jazz", pt:"shop", name:"Piwnica jazzowa", label:"Klub", gen:"klubu", in:"w piwnicy jazzowej", from:"z piwnicy jazzowej", icon:"cellar", roles:["muzyk"],
+        { id:"piwnica_jazz", pt:"shop", hours:["18:00","24:00"], out:"przed klubem jazzowym", name:"Piwnica jazzowa", label:"Klub", gen:"klubu", in:"w klubie jazzowym", from:"z klubu jazzowego", icon:"cellar", roles:["muzyk"],
           open:["Wieczorem wejdzie każdy, kto zapłaci za bilet.", "Bramkarz wpuszcza każdego, kto zna któregoś z muzyków.",
                 "Drzwi do zaplecza stoją otwarte, bo muzycy wynoszą tamtędy sprzęt.", "Na przerwie między koncertami bramkarz idzie na papierosa i nikt nie pilnuje wejścia."],
           desc:["Ceglana piwnica z małą sceną i fortepianem bez jednego klawisza.","Grają tu do rana, a dym siwieje pod sklepieniem.",
@@ -28105,12 +28182,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#2f4f6f",d:"#c9a646"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Od lat pracuje przy pochylni w stoczni.","Przy każdej okazji wspomina sierpień osiemdziesiątego."] },
       locations:[
-        { id:"szopa_rybacka", pt:"work", name:"Szopa rybacka w Brzeźnie", label:"Szopa", gen:"szopy rybackiej", in:"w szopie rybackiej", from:"z szopy rybackiej", icon:"shed", roles:["rybak"],
+        { id:"szopa_rybacka", pt:"shed", name:"Szopa rybacka w Brzeźnie", label:"Szopa", gen:"szopy rybackiej", in:"w szopie rybackiej", from:"z szopy rybackiej", icon:"shed", roles:["rybak"],
           open:["Szopa na plaży nie ma zamka, tylko drewniany skobel.", "Rybacy nigdy nie zamykają szopy. Mówią, że i tak wszyscy się znają.",
                 "Wiatr od morza ciągle otwiera drzwi szopy, więc nikt ich już nie domyka.", "Rybacy zostawiają szopę otwartą, żeby sieci schły w przeciągu."],
           desc:["Smołowana szopa na plaży, pełna sieci i skrzynek na ryby.","Od morza ciągnie chłodem, a w środku pachnie śledziem.",
                 "Pod ścianą stoją beczki, a na hakach wiszą sztormiaki.","Przez szpary w deskach widać łodzie wyciągnięte na piasek."] },
-        { id:"magazyn_port", pt:"plant", name:"Magazyn w porcie", label:"Nabrzeże", gen:"magazynu portowego", in:"w magazynie portowym", from:"z magazynu w porcie", icon:"garage", roles:["portowiec"],
+        { id:"magazyn_port", pt:"plant", name:"Magazyn w porcie", label:"Magazyn", gen:"magazynu portowego", in:"w magazynie portowym", from:"z magazynu w porcie", icon:"garage", roles:["portowiec"],
           open:["W ogrodzeniu nabrzeża jest dziura, o której wiedzą wszyscy portowcy.", "Brama magazynu stoi otwarta, bo wieczorem jeszcze rozładowują frachtowiec.",
                 "Wartownik obchodzi nabrzeże raz na godzinę, a boczne drzwi zostają otwarte.", "Przez rampę załadunkową wchodzi każdy, kto ma na sobie kombinezon portowca."],
           desc:["Magazyn przy nabrzeżu, gdzie składa się towar z frachtowców.","Magazyn z czerwonej cegły, pełen skrzyń i worków z kawą.",
@@ -28514,6 +28591,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "gen.classic.sasiedzi_z_jednej_klatki": "neighbours on the same staircase",
     "gen.classic.sasiedzi_z_klatki": "neighbours on the staircase",
     "gen.classic.wspolpracownicy_z_jednego_zakladu": "workmates at the same place",
+    "gen.presence.o_t": "at {t}",
+    "gen.presence.again": "{list} and again at {t}",
     "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papers don't always say what the suspects say. Compare the times and dates on the documents with their statements.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
     "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Evidence carries no names. Match the initials and flat numbers to the people's files.",
@@ -28944,7 +29023,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { id:"dzialkowiec", age:"old", m:"Allotment holder", f:"Allotment holder", access:["dzialka"],
         outfit:{shape:"jacket",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Grows tomatoes and talks about them tenderly.","Wins the biggest-pumpkin contest every year."] },
-      { id:"hydraulik", age:"mid", m:"Plumber", f:null, access:["kotlownia","piwnica"],
+      { id:"hydraulik", wp:"adm", age:"mid", m:"Plumber", f:null, access:["kotlownia","piwnica"],
         outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet",""]},
         flavor:["Always carries an adjustable spanner.","Takes payment for side jobs in Deutschmarks."] },
       { id:"maglarka", age:"old", m:null, f:"Mangle woman", access:["pralnia"],
@@ -29047,16 +29126,16 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { id:"sprzataczka", wp:"adm", age:["mid","old"], m:"Office cleaner", f:"Office cleaner", access:["administracja"],
         outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Cleans offices after hours and knows who leaves papers on their desk.","Wears a bunch of keys on a string tied to [his|her] apron."] },
-      { id:"elektryk", age:["young","mid"], m:"Electrician", f:null, access:["kotlownia","piwnica"],
+      { id:"elektryk", wp:"adm", age:["young","mid"], m:"Electrician", f:null, access:["kotlownia","piwnica"],
         outfit:{shape:"plain",c:"#5a5f6a",d:"#c9a646"}, headwear:{m:["kaszkiet",""]},
         flavor:["Has a voltage tester and a roll of insulating tape in [his|her] pocket.","Fixes the neighbours' TVs, though [he|she] says it's not [his|her] trade."] },
-      { id:"malarz", age:["young","mid"], m:"Painter and decorator", f:null, access:[],
+      { id:"malarz", wp:"adm", age:["young","mid"], m:"Painter and decorator", f:null, access:[],
         outfit:{shape:"plain",c:"#e8e8e0",d:"#c9c2b0"}, headwear:{m:["kaszkiet"]},
         flavor:["Has paint stains on [his|her] hands that no thinner will shift.","Paints flats to order, cash in hand."] },
       { id:"kominiarz", age:["young","mid"], m:"Chimney sweep", f:null, access:["kotlownia"],
         outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kolejarz"]},
         flavor:["People grab a button when they pass [him|her], for luck.","Knows every roof in the district, from attic to chimney."] },
-      { id:"kwiaciarka", age:["mid","old"], m:"Florist", f:"Florist", access:[],
+      { id:"kwiaciarka", wp:"bazar", age:["mid","old"], m:"Florist", f:"Florist", access:[],
         outfit:{shape:"apron",c:"#4c6b3a",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
         flavor:["Sells flowers from a stall by the cemetery.","Ties wreaths all night before All Saints' Day."] },
       { id:"pewex", age:["young","mid"], m:"{g:pewex|Pewex} shop assistant", f:"{g:pewex|Pewex} shop assistant", access:[], years:[1989,1990],
@@ -29112,7 +29191,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "The padlock hangs on the hasp just for show. Nobody snaps it shut.", "The owner keeps the door open because the neighbours are always borrowing tools."],
         desc:["A brick lock-up in the back courtyard, with an inspection pit and shelves of tools.","A tin door, and inside a smell of grease and petrol.",
               "A {g:pewex|Pewex} calendar hangs on the wall, with a row of tyres beneath it.","In the corner an old {g:maluch|Maluch} up on blocks, a year into waiting for parts."] },
-      { id:"apteka", pt:"shop", name:"“Pod Orłem” pharmacy", label:"Pharmacy", gen:"the pharmacy", in:"at the pharmacy", from:"from the back of the pharmacy", icon:"pharmacy",
+      { id:"apteka", pt:"shop", hours:["08:00","20:00"], out:"outside the pharmacy", name:"“Pod Orłem” pharmacy", label:"Pharmacy", gen:"the pharmacy", in:"at the pharmacy", from:"from the back of the pharmacy", icon:"pharmacy",
         open:["The back door onto the courtyard doesn't shut, and the whole tenement knows it.", "In the evening the back room stands open for deliveries.",
               "The back-room window is open day and night, because it's stuffy with medicines.", "You get to the back room through a passage where nobody watches the door."],
         desc:["A corner pharmacy on {street2}, with wooden drawers and a back room onto the courtyard.","Closes at 19:00. The back door opens onto the courtyard.",
@@ -29142,28 +29221,28 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               "When the kiosk lady pops out, she only pulls the door to.", "The back door is held by a hook you can lift with one finger."],
         desc:["A green kiosk with a hatch, full of newspapers and cigarettes.","It stands by the tram stop on {street2}.",
               "Crosswords and glossy magazines are pegged to the window.","Cramped inside: a stool, a fan heater and bundles of papers up to the ceiling."] },
-      { id:"sklep", pt:"work", name:"{g:spolem|Społem} grocery", label:"Shop", gen:"the shop", in:"in the back of the shop", from:"from the back of the shop", icon:"shop",
+      { id:"sklep", pt:"work", hours:["06:00","19:00"], out:"outside the shop", name:"{g:spolem|Społem} grocery", label:"Shop", gen:"the shop", in:"in the back of the shop", from:"from the back of the shop", icon:"shop",
         open:["The door to the back stands open because someone is always carrying crates in.", "You walk into the back straight from the courtyard. There's no lock.",
               "Only a bead curtain separates the back room from the courtyard.", "The manageress leaves the back open until the evening milk delivery."],
         desc:["A grocery with a chilled counter and a back room full of crates.","The bread arrives at six, and there's a queue before opening.",
               "In the back: a platform scale, a barrel of sauerkraut and a stack of empty bottles.","A sign above the counter: “Goods from crates issued only in the presence of the manager”."] },
-      { id:"fryzjer", pt:"shop", name:"Hairdresser's", label:"Hairdresser", gen:"the hairdresser's", in:"at the hairdresser's", from:"from the hairdresser's", icon:"barber",
+      { id:"fryzjer", pt:"shop", out:"outside the hairdresser's", name:"Hairdresser's", label:"Hairdresser", gen:"the hairdresser's", in:"at the hairdresser's", from:"from the hairdresser's", icon:"barber",
         open:["The salon is open until the evening, and anyone can walk in.", "There's always someone waiting in the salon, and nobody watches the back room.",
               "The door to the back room is only pulled to, to let the steam out.", "The hairdresser lets any customer into the back to fix her make-up."],
         desc:["Two chairs, a hood dryer and a cracked mirror.","A sign in the window: “Permanent waves”.",
               "A row of birch-water tonics and cans of hairspray on the shelf.","Hairstyle photos from Western fashion magazines on the wall."] },
-      { id:"kotlownia", pt:"work", name:"Boiler room", label:"Boiler room", gen:"the boiler room", in:"in the boiler room", from:"from the boiler room", icon:"boiler",
+      { id:"kotlownia", pt:"boiler", name:"Boiler room", label:"Boiler room", gen:"the boiler room", in:"in the boiler room", from:"from the boiler room", icon:"boiler",
         open:["The boiler-room door stands open so the furnace draws.", "The boiler-room lock broke last winter.",
               "You walk straight down into the boiler room from the cellars, through a doorless passage.", "The stoker airs the boiler room and leaves the door wide open."],
         desc:["A hot, dark boiler room with a heap of coke.","The furnace roars all through the heating season.",
               "A cuckoo clock hangs on the wall. The stoker times his shovelling by it.","A tangle of pipes under the ceiling, and the stoker's cot in the corner."] },
       /* wydanie 2.1.1: miejsca dla szantażu i fałszerstwa (maszyny do pisania, pieczątki, farby) */
-      { id:"administracja", pt:"office", name:"Estate management office", label:"Estate office", gen:"the estate office", in:"at the estate office", from:"from the estate office", icon:"office",
+      { id:"administracja", pt:"office", out:"outside the estate office", name:"Estate management office", label:"Estate office", gen:"the estate office", in:"at the estate office", from:"from the estate office", icon:"office",
         open:["The cleaner leaves the office open while she takes out the rubbish.", "The office door stands open until evening, because tenants come in to pay rent.",
               "The office window onto the courtyard hasn't shut since last winter.", "The manager steps out for a smoke and leaves the office open."],
         desc:["Two desks, a cabinet of files and a typewriter under its cover.","A sign on the door: “Callers received Tuesdays and Thursdays”.",
               "A fern on the windowsill, and a map of the estate with staircase numbers on the wall.","On the manager's desk, a box of rubber stamps and an ink pad."] },
-      { id:"swietlica", pt:"shop", name:"Cooperative community centre", label:"Community centre", gen:"the community centre", in:"at the community centre", from:"from the community centre", icon:"hall",
+      { id:"swietlica", pt:"shop", hours:["15:00","21:00"], out:"outside the community centre", name:"Cooperative community centre", label:"Community centre", gen:"the community centre", in:"at the community centre", from:"from the community centre", icon:"hall",
         open:["The community centre is open until evening because a band rehearses there.", "The door is propped with a chair to air the hall after a meeting.",
               "Anyone who fancies it can walk into the art club.", "The instructor leaves the centre open when she runs to the kiosk."],
         desc:["A hall with an upright piano, a ping-pong table and a noticeboard.","Art club pictures and song contest certificates hang on the wall.",
@@ -29422,11 +29501,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Second-hand shop on {street}", pt:"shop" },
           { name:"Parish sacristy", pt:"work" },
           { name:"Staircase on {street}", pt:"stair" },
-          { name:"Stall {market_on}", pt:"street" },
+          { name:"Stall {market_on}", pt:"stall" },
           { name:"Allotment summerhouse", pt:"field" }
         ],
         kradziez:[
-          { name:"Stall {market_on}", pt:"street" },
+          { name:"Stall {market_on}", pt:"stall" },
           { name:"Flat on {street}", pt:"flat" },
           { name:"Tenement flat", pt:"flat" },
           { name:"Box office of the “{cinema}” cinema", pt:"shop" },
@@ -29441,7 +29520,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Tenement flat", pt:"flat" },
           { name:"Flat on {street}", pt:"flat" },
           { name:"Tenement flat", pt:"flat" },
-          { name:"Clothes stall", pt:"street" },
+          { name:"Clothes stall", pt:"stall" },
           { name:"Parish presbytery", pt:"flat" },
           { name:"The works accounts office", pt:"plant" },
           { name:"Pharmacy on {street}", pt:"shop" },
@@ -29452,7 +29531,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Staircase on {street}", pt:"stair" },
           { name:"Exchange bureau on the estate", pt:"shop" },
           { name:"Taxi rank", pt:"street" },
-          { name:"Stall {market_on}", pt:"street" },
+          { name:"Stall {market_on}", pt:"stall" },
           { name:"Works gate", pt:"plant" },
           { name:"Gateway by the {g:pko|PKO} bank", pt:"street" },
           { name:"{g:cpn|CPN} station on {street}", pt:"street" },
@@ -29463,33 +29542,33 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Off-licence on {street}", pt:"shop" },
           { name:"Staircase on {street}", pt:"stair" },
           { name:"Bus terminus", pt:"street" },
-          { name:"Stall by the cemetery", pt:"street" },
+          { name:"Stall by the cemetery", pt:"stall" },
           { name:"Post office on {street}", pt:"shop" },
-          { name:"Ice-cream kiosk on {street}", pt:"street" },
+          { name:"Ice-cream kiosk on {street}", pt:"stall" },
           { name:"Flat on {street}", pt:"flat" },
           { name:"Second-hand shop on {street}", pt:"shop" }
         ],
         podpalenie:[
           { name:"Bicycle shed", pt:"yard" },
-          { name:"Vegetable stall", pt:"street" },
+          { name:"Vegetable stall", pt:"stall" },
           { name:"The chairman's summerhouse", pt:"field" },
           { name:"Shelter on {street}", pt:"street" },
-          { name:"Clothes stall", pt:"street" },
+          { name:"Clothes stall", pt:"stall" },
           { name:"Kiosk on {street}", pt:"kiosk" },
           { name:"Pram store on {street}", pt:"yard" },
           { name:"Courtyard on {street}", pt:"yard" },
           { name:"Cellar storerooms", pt:"cellar" },
           { name:"The mechanic's garage", pt:"garage" },
-          { name:"Toy stall", pt:"street" },
+          { name:"Toy stall", pt:"stall" },
           { name:"Bandstand in the park", pt:"park" },
           { name:"Barn on the edge of the estate", pt:"site" },
-          { name:"Ice-cream kiosk", pt:"street" },
+          { name:"Ice-cream kiosk", pt:"stall" },
           { name:"The {g:dozorca|dozorca}'s shed", pt:"yard" },
           { name:"Video rental shop", pt:"shop" },
           { name:"Site hut", pt:"site" },
           { name:"The chairman's office", pt:"office" },
           { name:"Milk bar on {street}", pt:"shop" },
-          { name:"Flower stall", pt:"street" }
+          { name:"Flower stall", pt:"stall" }
         ],
         wandalizm:[
           { name:"Cooperative noticeboard", pt:"street" },
@@ -29510,7 +29589,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Staircase on {street}", pt:"stair" },
           { name:"Video rental shop on {street}", pt:"shop" },
           { name:"Clinic on {street}", pt:"shop" },
-          { name:"Stall {market_on}", pt:"street" },
+          { name:"Stall {market_on}", pt:"stall" },
           { name:"School pitch", pt:"street" }
         ],
         porwanie_psa:[
@@ -29523,9 +29602,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Car repair workshop", pt:"work" },
           { name:"Courtyard on {street}", pt:"yard" },
           { name:"Tenement balcony", pt:"cellar" },
-          { name:"The {g:dozorca|dozorca}'s hut", pt:"yard" },
+          { name:"The {g:dozorca|dozorca}'s hut", pt:"stall" },
           { name:"Allotment summerhouse", pt:"field" },
-          { name:"Stall {market_on}", pt:"street" },
+          { name:"Stall {market_on}", pt:"stall" },
           { name:"Veterinary clinic", pt:"shop" },
           { name:"Kiosk on {street}", pt:"kiosk" },
           { name:"Warehouse gate", pt:"plant" },
@@ -29537,7 +29616,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         ],
         sabotaz:[
           { name:"Lift machine room on {street}", pt:"work" },
-          { name:"Boiler room on {street}", pt:"work" },
+          { name:"Boiler room on {street}", pt:"boiler" },
           { name:"Tram points on {street}", pt:"street" },
           { name:"Post office on {street}", pt:"shop" },
           { name:"Staircase on {street}", pt:"stair" },
@@ -29576,7 +29655,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
           { name:"Tenement balcony", pt:"cellar" },
           { name:"The chairman's villa", pt:"flat" },
           { name:"Cellar on {street}", pt:"cellar" },
-          { name:"Cages {market_on}", pt:"street" },
+          { name:"Cages {market_on}", pt:"stall" },
           { name:"Courtyard on {street}", pt:"yard" }
         ]
       },
@@ -29587,8 +29666,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       tableNote:"All times in the files are exact to the minute. Walking times work both ways.",
       hint:"Rule {n}: for each person, check the gap between sightings. Is there time to walk to the scene, stay at least {stay} minutes between {a} and {b}, and make it to the next sighting?",
       obsTpl:[
-              { t:"A neighbour saw [him|her] {in} at {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat"] },
-              { t:"Admits [he|she] was {in} at {t}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+              { t:"A neighbour saw [him|her] {in} at {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+              { t:"Admits [he|she] was {in} at {t}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
               { t:"The postman passed [him|her] {in} at {t}.", at:["street","kiosk","stair","shop","office"], time:["00:00","19:00"] },
               { t:"The {g:dozorca|dozorca} wrote in the notebook that at {t} [he|she] was {in}.", at:["yard","garage","cellar","stair"] },
               { t:"At {t} [he|she] was talking to someone {in}, according to the neighbour at her window.", at:["street","yard","stair"] },
@@ -29598,20 +29677,26 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
               { t:"A woman pushing a pram passed [him|her] {in} at {t}, just as the church bells were ringing.", at:["street","yard"], time:["00:00","20:00"], anc:"bells" },
               { t:"At {t} [he|she] was {in}. A mechanic pushing a {g:maluch|Maluch} up the hill saw [him|her].", at:["street","yard","garage"] },
               { t:"The kiosk vendor saw [him|her] {in} at {t} on the dot, because he was just closing the hatch.", at:["kiosk"], anc:"close", open:true },
-              { t:"The {g:dzielnicowy|dzielnicowy} noted in his book: {t}, {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair"] },
+              { t:"The {g:dzielnicowy|dzielnicowy} noted in his book: {t}, {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","stall","boiler","stable","shed"] },
               { t:"Someone from the crew saw [him|her] {in} at {t}, because they'd just looked at the clock above the door.", at:["work","plant"], anc:"clock" },
-              { t:"The shift foreman noted: {t}, {in}.", at:["work","plant"] },
+              { t:"The shift foreman noted: {t}, {in}.", at:["plant"] },
               { t:"A workmate remembers [he|she] was {in} at {t}, because the break was just starting.", at:["work","plant"], anc:"break" },
-              { t:"A customer in the queue saw [him|her] {in} at {t}, because he'd just looked at his watch.", at:["shop","kiosk","office"], anc:"watch", open:true },
+              { t:"A customer in the queue saw [him|her] {in} at {t}, because he'd just looked at his watch.", at:["shop","kiosk","office","stall"], anc:"watch", open:true },
               { t:"The man on the next allotment saw [him|her] {in} at {t} on the dot, because someone was calling everyone in for dinner.", at:["field"], anc:"lunch" },
               { t:"A tenant from upstairs came down for something and saw [him|her] {in} at {t}. He glanced at his watch.", at:["cellar"], anc:"watch" },
-              { t:"The boathouse keeper wrote in his log: {t}, {in}.", at:["marina"] }
+              { t:"The boathouse keeper wrote in his log: {t}, {in}.", at:["marina"] },
+              { t:"The trader at the next stall saw [him|her] {in} at {t} sharp, just as he was packing up.", at:["stall"], anc:"close" },
+              { t:"A customer collecting an order saw [him|her] {in} at {t}, and glanced at the clock.", at:["work"] },
+              { t:"The stoker wrote in the boiler-room book: {t}, {in}.", at:["boiler"] },
+              { t:"The stable hand remembers [him|her] {in} at {t}, because he was just watering the horses.", at:["stable"] },
+              { t:"A fisherman mending his nets saw [him|her] {in} at {t}, just as he was lighting his lamp.", at:["shed"] }
             ],
       evidence:[
-                { label:"Slip", name:"Timed slip", icon:"receipt", at:["shop","kiosk","office","work","garage"], text:["A slip written by hand {in}, with the time {t} in the corner.","Signed on the slip: {ini}."] },
+                { label:"Slip", name:"Timed slip", icon:"receipt", at:["plant","shop","office","stall"], text:["A slip written by hand {in}, with the time {t} in the corner.","Signed on the slip: {ini}."] },
                 { label:"Book", name:"Porter's entry book", icon:"notebook", at:["plant"], text:["A visitors' book kept by the porter {in}.","Entry: «{t} — {ini}, in»."] },
-                { label:"Log", name:"Payphone call log", icon:"card", at:["street","kiosk","marina"], text:["A log of calls from the payphone {in}, kept by the woman on duty.","«{t} — local call, booked under: {ini}.»"] },
-                { label:"Report", name:"Watchman's report", icon:"card", at:["yard","garage","site","street","field","cellar","marina"], text:["The watchman walks the grounds every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] }
+                { label:"Log", name:"Payphone call log", icon:"card", at:["street","kiosk","marina","stall"], text:["A log of calls from the payphone {in}, kept by the woman on duty.","«{t} — local call, booked under: {ini}.»"] },
+                { label:"Report", name:"Watchman's report", icon:"card", at:["yard","garage","site","street","field","cellar","marina","boiler","stable","shed"], text:["The watchman walks the grounds every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] },
+                { label:"Orders", name:"Order book", icon:"notebook", at:["work"], text:["The order book kept {in}.","«{t} — {ini}, order collected»."] }
               ],
       intro:"New kind of case: the timeline. Nobody can be in two places at once. Work out who could have reached the scene at the time of the crime and got back to where they were seen later."
     },
@@ -30173,8 +30258,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       presence: [
         { label:"Exercise book", name:"The {g:dozorca|dozorca}'s notebook", icon:"notebook", at:["yard","garage","cellar","stair"], text:["The {g:dozorca|dozorca} writes down in a squared exercise book who hangs about the courtyard and when.","Entry from that evening: «{t} — {ini}, {in}»."] },
         { label:"Notebook", name:"Notepad of the neighbour on the ground floor", icon:"notebook", at:["yard","street","stair"], text:["The ground-floor neighbour notes down, “just in case”, who walks past her windows.","Under that day's date, in small handwriting: «{t}. {ini} {in}.»"] },
-        { label:"Report", name:"Night watchman's report", icon:"card", at:["yard","garage","cellar","street","site"], text:["The estate night watchman goes round the courtyards every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] },
-        { label:"Notepad", name:"Note from the duty room", icon:"receipt", at:["yard","garage","street","field","cellar","stair","shop","kiosk","work"], text:["A page from a notepad, found in the duty room next to the phone. The man on duty notes who he passed on his round.","In biro, crooked: «{t} — {ini}, {in}»."] },
+        { label:"Report", name:"Night watchman's report", icon:"card", at:["yard","garage","cellar","street","site","boiler"], text:["The estate night watchman goes round the courtyards every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] },
+        { label:"Notepad", name:"Note from the duty room", icon:"receipt", at:["yard","garage","street","field","cellar","stair","shop","kiosk","work","boiler","stable","shed"], text:["A page from a notepad, found in the duty room next to the phone. The man on duty notes who he passed on his round.","In biro, crooked: «{t} — {ini}, {in}»."] },
         { label:"List", name:"Works attendance list", icon:"card", at:["plant"], text:["An attendance list kept at the works gatehouse, with the time beside each signature.","Entry: «{t} — {ini}, {in}»"] },
         { label:"Book", name:"Porter's entry book", icon:"notebook", at:["plant"], text:["The porter keeps an entry book and writes the time next to each name.","Entry: «{t} — {ini}, {in}»."] },
         { label:"Boathouse", name:"Boathouse log", icon:"notebook", at:["marina"], text:["The boathouse keeper logs who takes a boat out and when they come back.","Entry from that evening: «{t} — {ini}, {in}»."] },
@@ -30183,8 +30268,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         { label:"Papers", name:"Held-papers notebook", icon:"notebook", at:["kiosk"], text:["The kiosk lady notes whose papers she put aside and when they were collected.","«{t} — {ini}, papers collected {in}»."] },
         { label:"Callers", name:"Callers' book", icon:"notebook", at:["office"], text:["The office keeps a callers' book: who came, when, and on what business.","Entry: «{t} — {ini}, {in}, to see the manager»."] },
         { label:"Counter", name:"Queue ticket", icon:"receipt", at:["office"], text:["A queue ticket for the office counter, with the time it was issued on the back.","«{t}.» Pencilled on the back: {ini}."] },
-        { label:"Sign-in", name:"Duty book", icon:"notebook", at:["work"], text:["A duty book hangs on the door. Anyone coming in after hours signs in with the time.","«{t} — {ini}, {in}»."] },
-        { label:"On tick", name:"Tick book", icon:"notebook", at:["shop"], text:["The shop assistant writes down who took goods on tick, and when.","«{t} — {ini}, {in}, to be paid on Friday»."] }
+        { label:"Sign-in", name:"Duty book", icon:"notebook", at:["work","boiler","stable","shed"], text:["A duty book hangs on the door. Anyone coming in after hours signs in with the time.","«{t} — {ini}, {in}»."] },
+        { label:"On tick", name:"Tick book", icon:"notebook", at:["shop","stall"], text:["The shop assistant writes down who took goods on tick, and when.","«{t} — {ini}, {in}, to be paid on Friday»."] },
+        { label:"Market", name:"Market collector's notebook", icon:"notebook", at:["stall"], text:["The market fee collector notes whom he passed by the stalls, and when.","«{t} — {ini}, {in}»."] }
       ],
       /* klucz: {gen}, {flat}; tylko miejsca z keyBookLocs */
       keys: [
@@ -30237,10 +30323,10 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
        shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala) */
     /* 2.2.2: season and hours of place types. From November to March after dark (c. 17:00) the landing, allotments and parks
        do not appear in cases (places, sightings, timeline scenes). Cases happen in the evening, so they drop out for the whole month. */
-    placeTypes: { marina:{ dark:{ months:[11,3], after:"17:00" } }, field:{ dark:{ months:[11,3], after:"17:00" } }, park:{ dark:{ months:[11,3], after:"17:00" } } },
+    placeTypes: { marina:{ dark:{ months:[11,3], after:"17:00" } }, field:{ dark:{ months:[11,3], after:"17:00" } }, park:{ dark:{ months:[11,3], after:"17:00" } }, shop:{ open:["09:00","19:00"] }, office:{ open:["08:00","18:00"] }, kiosk:{ open:["06:00","19:00"] } },
     presenceTpl: [
-      { t:"A neighbour saw [him|her] {in} at {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat"] },
-      { t:"Admits [he|she] was {in} at {t}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+      { t:"A neighbour saw [him|her] {in} at {t}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+      { t:"Admits [he|she] was {in} at {t}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
       { t:"Around {t} [he|she] was {in}. Children playing bottle-cap races saw [him|her].", at:["street","yard"], time:["00:00","20:30"] },
       { t:"The postman passed [him|her] {in} at {t}.", at:["street","kiosk","stair","shop","office"], time:["00:00","19:00"] },
       { t:"The {g:dozorca|dozorca} wrote in the notebook that at {t} [he|she] was {in}.", at:["yard","garage","cellar","stair"] },
@@ -30248,25 +30334,39 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       { t:"The kiosk man across the road saw [him|her] {in} around {t}.", at:["street"] },
       { t:"The neighbour from the second floor says that at {t} [he|she] was {in}, because she happened to be beating a rug.", at:["yard"], time:["00:00","20:00"] },
       { t:"At {t} [he|she] was {in}. A boy coming back from football practice remembers it.", at:["street","kiosk","marina","yard","field","shop"] },
-      { t:"The {g:dzielnicowy|dzielnicowy} noted that around {t} [he|she] was {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair"] },
+      { t:"The {g:dzielnicowy|dzielnicowy} noted that around {t} [he|she] was {in}.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","stall","boiler","stable","shed"] },
       { t:"The pensioner on the ground floor saw [him|her] {in} at {t}, while looking out to see if the postman was coming.", at:["street","yard","stair"] },
       { t:"Around {t} [he|she] was {in}, according to the {g:dozorca|dozorca}'s wife, who was sweeping the courtyard.", at:["yard","garage","cellar","stair"] },
       { t:"A woman with a pram passed [him|her] {in} at {t}.", at:["street","yard"], time:["00:00","20:00"] },
-      { t:"Says that around {t} [he|she] was {in}, but only for a moment.", at:["street","kiosk","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant"] },
+      { t:"Says that around {t} [he|she] was {in}, but only for a moment.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
       { t:"At {t} [he|she] was {in}. A mechanic pushing a {g:maluch|Maluch} up the hill saw [him|her].", at:["street","yard","garage"] },
       { t:"Someone from the crew saw [him|her] {in} at {t}.", at:["work","plant"] },
       { t:"A colleague from the works remembers that around {t} [he|she] was {in}.", at:["work","plant"] },
-      { t:"The shift boss noted that at {t} [he|she] was {in}.", at:["work","plant"] },
-      { t:"The shift manager admits that at {t} he saw [him|her] {in}.", at:["work","plant"] },
-      { t:"A customer standing in the queue saw [him|her] {in} at {t}.", at:["shop","kiosk","office"] },
-      { t:"Someone in the queue remembers that around {t} [he|she] was {in}.", at:["shop","kiosk","office"] },
+      { t:"The shift boss noted that at {t} [he|she] was {in}.", at:["plant"] },
+      { t:"The shift manager admits that at {t} he saw [him|her] {in}.", at:["plant"] },
+      { t:"A customer standing in the queue saw [him|her] {in} at {t}.", at:["shop","kiosk","office","stall"] },
+      { t:"Someone in the queue remembers that around {t} [he|she] was {in}.", at:["shop","kiosk","office","stall"] },
       { t:"The staff remember that at {t} [he|she] was {in}.", at:["shop","office"] },
       { t:"A tenant from upstairs was just coming down for something and saw [him|her] {in} at {t}.", at:["cellar"] },
       { t:"The neighbour on the ground floor says that at {t} he heard [him|her] {in}.", at:["cellar"] },
       { t:"The neighbour from the next allotment saw [him|her] {in} at {t}.", at:["field"] },
       { t:"An allotment holder from the next path remembers that at {t} [he|she] was {in}.", at:["field"] },
       { t:"The boathouse keeper saw [him|her] {in} at {t}.", at:["marina"] },
-      { t:"At {t} [he|she] was {in}. An angler reeling in his lines remembers it.", at:["marina"] }
+      { t:"At {t} [he|she] was {in}. An angler reeling in his lines remembers it.", at:["marina"] },
+      { t:"The woman at the next stall saw [him|her] {in} at {t}.", at:["stall"] },
+      { t:"A customer collecting an order saw [him|her] {in} at {t}.", at:["work"] },
+      { t:"The stoker, shovelling coal into the furnace, saw [him|her] {in} at {t}.", at:["boiler"] },
+      { t:"The stable hand saw [him|her] {in} at {t}, while watering the horses.", at:["stable"] },
+      { t:"A fisherman mending his nets saw [him|her] {in} at {t}.", at:["shed"] }
+    ],
+    /* 2.2.2: kilka obserwacji tej samej osoby w tym samym miejscu w jednym zdaniu; {ts} = „o 20:50 i jeszcze raz o 21:10” */
+    presence2Tpl: [
+      { t:"Admits [he|she] was {in} {ts}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","cellar","flat","work","plant","boiler","stable","shed"] },
+      { t:"A neighbour saw [him|her] {in} {ts}.", at:["street","kiosk","yard","garage","site","field","stair","cellar","flat","boiler","stable","shed"] },
+      { t:"The {g:dzielnicowy|dzielnicowy} saw [him|her] {in} {ts}.", at:["street","kiosk","stall","marina","park","yard","garage","site","field","shop","office","stair","boiler","stable","shed"] },
+      { t:"One of the crew saw [him|her] {in} {ts}.", at:["work","plant"] },
+      { t:"The staff remember [him|her] {in} {ts}.", at:["shop","office","kiosk","stall"], open:true },
+      { t:"The {g:dozorca|dozorca} saw [him|her] {in} {ts}.", at:["yard","garage","cellar","stair"] }
     ],
 
     /* Realia epoki: smaczki z zakresem lat */
@@ -31227,7 +31327,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Has been bolting Polonezes together at Żerań for twenty years.","Dreads the redundancies everyone at the plant is talking about."] },
       locations:[
-        { id:"szczeka", pt:"street", name:"Stall at the Różycki bazaar", label:"Stall", gen:"the stall", in:"at the stall in the bazaar", from:"from the stall in the bazaar", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+        { id:"szczeka", pt:"stall", name:"Stall at the Różycki bazaar", label:"Stall", gen:"the stall", in:"by the stall in the bazaar", from:"from the stall in the bazaar", icon:"stall", roles:["handlarz","prywaciarz","praski"],
           open:["At the bazaar everyone hangs around other people's stalls all day.", "You can simply lift the tarpaulin at the back of the stall.",
                 "The traders at the next stalls watch their own goods and nobody else's.", "The tin at the back of the stall sticks out. One tug and it bends."],
           desc:["A tin stall with dumplings in jars and cabbage sold by weight.","Between the stalls it smells of tripe soup and cheap perfume.",
@@ -31328,12 +31428,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
         flavor:["Takes the tram to the steel combine in Nowa Huta every day.","Says the steelworks is [his|her] whole life."] },
       locations:[
-        { id:"stajnia", pt:"work", name:"Cab stables", label:"Stables", gen:"the stables", in:"in the stables", from:"from the stables", icon:"stable", roles:["dorozkarz"],
+        { id:"stajnia", pt:"stable", name:"Cab stables", label:"Stables", gen:"the stables", in:"in the stables", from:"from the stables", icon:"stable", roles:["dorozkarz"],
           open:["The stable doors stand open so the horses get some air.", "The stables are only locked for the night. In the evening cabmen and their friends come and go.",
                 "The groom pops out to the bar and leaves the doors ajar.", "You get into the stables through a gate nobody watches."],
           desc:["Stables in a courtyard, where horse cabs set off for the Market Square every morning.","It smells of hay, leather and horses.",
                 "Horse collars and harness with brass fittings hang on the wall.","A cab with its hood up waits in the corner for a new wheel."] },
-        { id:"piwnica_jazz", pt:"shop", name:"Jazz cellar", label:"Club", gen:"the club", in:"in the jazz cellar", from:"from the jazz cellar", icon:"cellar", roles:["muzyk"],
+        { id:"piwnica_jazz", pt:"shop", hours:["18:00","24:00"], out:"outside the jazz club", name:"Jazz cellar", label:"Club", gen:"the club", in:"in the jazz club", from:"from the jazz club", icon:"cellar", roles:["muzyk"],
           open:["In the evening anyone who pays for a ticket gets in.", "The bouncer lets in anyone who knows one of the musicians.",
                 "The back door stands open because the musicians carry their gear out that way.", "Between sets the bouncer goes for a smoke and nobody watches the door."],
           desc:["A brick cellar with a small stage and a piano missing one key.","They play until dawn, and the smoke turns grey under the vaulted ceiling.",
@@ -31429,12 +31529,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         outfit:{shape:"plain",c:"#2f4f6f",d:"#c9a646"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Has worked at the slipway in the shipyard for years.","Brings up August 1980 at every opportunity."] },
       locations:[
-        { id:"szopa_rybacka", pt:"work", name:"Fishermen's shed at Brzeźno", label:"Shed", gen:"the fishermen's shed", in:"in the fishermen's shed", from:"from the fishermen's shed", icon:"shed", roles:["rybak"],
+        { id:"szopa_rybacka", pt:"shed", name:"Fishermen's shed at Brzeźno", label:"Shed", gen:"the fishermen's shed", in:"in the fishermen's shed", from:"from the fishermen's shed", icon:"shed", roles:["rybak"],
           open:["The shed on the beach has no lock, just a wooden latch.", "The fishermen never lock the shed. They say everyone knows each other anyway.",
                 "The sea wind keeps blowing the shed door open, so nobody bothers to shut it.", "The fishermen leave the shed open so the nets dry in the draught."],
           desc:["A tarred shed on the beach, full of nets and fish crates.","A chill comes off the sea, and inside it smells of herring.",
                 "Barrels stand by the wall, and oilskins hang on hooks.","Through gaps in the boards you can see boats pulled up on the sand."] },
-        { id:"magazyn_port", pt:"plant", name:"Warehouse in the port", label:"Quay", gen:"the port warehouse", in:"in the port warehouse", from:"from the warehouse in the port", icon:"garage", roles:["portowiec"],
+        { id:"magazyn_port", pt:"plant", name:"Warehouse in the port", label:"Warehouse", gen:"the port warehouse", in:"in the port warehouse", from:"from the warehouse in the port", icon:"garage", roles:["portowiec"],
           open:["There's a hole in the quay fence every docker knows about.", "The warehouse gate stands open because they're still unloading a freighter in the evening.",
                 "The watchman walks the quay once an hour, and the side door stays open.", "Anyone in docker's overalls can walk in up the loading ramp."],
           desc:["A warehouse on the quay where cargo from the freighters is stored.","A red-brick warehouse full of crates and sacks of coffee.",

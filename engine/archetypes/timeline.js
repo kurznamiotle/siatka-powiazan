@@ -9,7 +9,7 @@
 (function (root) {
   const Eng = root.Siatka || require("../engine.js");
   const t = Eng.t;
-  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, darkMonth, prices } = Eng.util;
+  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, prices } = Eng.util;
   const Solver = root.SiatkaSolver || require("../solver.js");
   /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
   const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
@@ -185,7 +185,7 @@
       // co najmniej jeden dowód dotyczy niewinnego
       const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
       for (const f of order) {
-        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
         if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
         per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
       }
@@ -218,27 +218,48 @@
     const allObs = [];
     persons.forEach(Pp => { for (const o of Pp.s.obs) if (!evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) allObs.push({ Pp, o }); });
     allObs.sort((x, y) => x.o.t - y.o.t);
+    /* 2.2.2: szablon najwyżej raz w aktach jednej osoby (po obiekcie szablonu); kolejne obserwacje tej samej osoby w tym samym
+       miejscu (i tej samej formie: w środku albo przed lokalem) w jednym zdaniu z presence2Tpl: „o 20:50 i jeszcze raz o 21:10” */
+    const tplUsed = new Map(), tplOf = Pp => tplUsed.get(Pp) || tplUsed.set(Pp, new Set()).get(Pp);
+    let textFail = false;
+    persons.forEach(Pp => {
+      const groups = [];
+      for (const { o } of allObs.filter(x => x.Pp === Pp)) {
+        const pa = placeAt(B, LOCS[o.w], o.t), g = groups[groups.length - 1];
+        if (g && g.w === o.w && g.pa.form === pa.form) { g.list.push(o); g.pts.add(pa.pt); } else groups.push({ w: o.w, pa, list: [o], pts: new Set([pa.pt]) });
+      }
+      for (const g of groups.filter(g => g.list.length > 1)) {
+        const objs = B.presence2Tpl.filter(e => [...g.pts].every(pt => fitsAt(e, pt)) && !e.open && !tplOf(Pp).has(e)); // bez „obsługi”: oś czasu może mieć zamknięcie okienka
+        if (!objs.length) { textFail = true; continue; }
+        const str = pickU(objs.map(e => e.t)); tplOf(Pp).add(objs.find(e => e.t === str));
+        obsText.set(g.list[0], T(str.replace("{in}", g.pa.form).replace("{ts}", timesPhrase(g.list.map(o => toHM(o.t)))), Pp.s.g));
+        g.list.slice(1).forEach(o => obsText.set(o, null));
+      }
+    });
     for (const { Pp, o } of allObs) {
-      const loc = LOCS[o.w], meta = new Map(), pool = [];
+      if (obsText.has(o)) continue;
+      const loc = LOCS[o.w], pa = placeAt(B, loc, o.t), meta = new Map(), pool = [];
       for (const e of TL.obsTpl) {
-        if (!fitsAt(e, loc.pt, o.t)) continue;
+        if (!fitsAt(e, pa.pt, o.t) || tplOf(Pp).has(e)) continue;
         const m = e, str = e.t;
         if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
         if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
         if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
         meta.set(str, m); pool.push(str);
       }
-      const pickedT = pickU(pool), m = meta.get(pickedT);
+      if (!pool.length) { textFail = true; continue; }
+      const pickedT = pickU(pool), m = meta.get(pickedT); tplOf(Pp).add(m);
       if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
       if (m.anc) {
-        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && (loc.pt === "shop" || loc.pt === "kiosk")) closedAt[o.w] = o.t; }
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && ["shop", "kiosk", "stall"].includes(loc.pt)) closedAt[o.w] = o.t; }
         else genUsed.add(m.anc);
       }
-      obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
+      obsText.set(o, T(pickedT.replace("{in}", pa.form).replace("{t}", toHM(o.t)), Pp.s.g));
     }
+    if (textFail) return null;
     persons.forEach(Pp => {
       const s = Pp.s, g = s.g, text = [];
-      for (const o of s.obs) if (obsText.has(o)) text.push(obsText.get(o));
+      for (const o of s.obs) if (obsText.get(o)) text.push(obsText.get(o));
       for (const r of tRules) {
         const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
         text.push(T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: s.traits[r.trait], cm: Pp.cm }));
@@ -252,12 +273,12 @@
       const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
       const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
       nodes.push({ id: loc.id, type: "location", pt: loc.pt, label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
-        sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
+        sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from, loc.out].filter(Boolean) });
     });
     for (const c of evs) {
       const loc = LOCS[c.li];
       nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.timeline.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
-        text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: loc.in }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
+        text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: placeAt(B, loc, toMin(c.f.at)).form }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
     }
 
     /* 11. Połączenia: osoba ↔ miejsce obserwacji (trasa), sprawca ↔ miejsce zdarzenia, dowód ↔ osoba i miejsce */

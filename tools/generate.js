@@ -61,13 +61,16 @@ const staticErrors = [];
   }
   // 3. rodzaje miejsc: każde miejsce ma pt, a każdy pt dość szablonów świadków i dowodów
   // 2.2.2: drobniejsze rodzaje; szablony liczymy dla rodzajów, w których stoją miejsca (świadkowie i dowody są tylko tam)
-  const PT = ["street", "kiosk", "marina", "park", "yard", "garage", "site", "field", "shop", "office", "stair", "cellar", "flat", "work", "plant"];
+  const PT = ["street", "kiosk", "stall", "marina", "park", "yard", "garage", "site", "field", "shop", "office", "stair", "cellar", "flat", "work", "plant", "boiler", "stable", "shed"];
   const locs = [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])];
   for (const l of locs) if (!PT.includes(l.pt)) bad(`miejsce ${l.id}: brak albo zły rodzaj miejsca pt (${l.pt})`);
   for (const [k, v] of Object.entries(B.timeline.places)) v.forEach((p, i) => { if (!PT.includes(p.pt)) bad(`oś czasu ${k}[${i}]: zły rodzaj miejsca ${p.pt}`); });
-  for (const o of [...B.presenceTpl, ...B.timeline.obsTpl, ...B.evidence.presence, ...B.timeline.evidence])
+  for (const o of [...B.presenceTpl, ...B.presence2Tpl, ...B.timeline.obsTpl, ...B.evidence.presence, ...B.timeline.evidence])
     if (typeof o !== "object" || !Array.isArray(o.at) || !o.at.length || o.at.some(x => !PT.includes(x))) bad(`szablon bez listy rodzajów miejsc albo z nieznanym rodzajem: ${JSON.stringify(o).slice(0, 80)}`);
+  // godziny otwarcia: miejsce z godzinami ma formę „przed lokalem” (out); poza godzinami świadkowie uliczni
+  for (const l of locs) if ((l.hours || (B.placeTypes[l.pt] || {}).open) && !l.out && !/^(kiosk|stall)$/.test(l.pt)) bad(`miejsce ${l.id}: godziny otwarcia bez formy out`);
   for (const pt of [...new Set(locs.map(l => l.pt))]) {
+    if (!B.presence2Tpl.some(o => S.util.fitsAt(o, pt))) bad(`zdania łączone (presence2Tpl) dla ${pt}: brak`);
     const n = (list, f = S.util.fitsAt) => list.filter(o => f(o, pt)).length;
     if (pt !== "stair" && n(B.presenceTpl) < 5) bad(`świadkowie (presenceTpl) dla ${pt}: ${n(B.presenceTpl)} szablonów`);
     if (n(B.timeline.obsTpl) < (pt === "stair" ? 2 : 4)) bad(`świadkowie osi czasu dla ${pt}: ${n(B.timeline.obsTpl)} szablonów`);
@@ -76,14 +79,14 @@ const staticErrors = [];
   }
 }
 /* świadek pasuje do miejsca: szablon z `at` nie może trafić do miejsca innego rodzaju */
-const ptOfIn = {}; for (const l of [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])]) ptOfIn[l.in] = l.pt;
+const ptOfIn = {}; for (const l of [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])]) { ptOfIn[l.in] = (l.hours || (B.placeTypes[l.pt] || {}).open) && (!l.out || l.out === l.in) ? [l.pt, "street"] : [l.pt]; if (l.out && l.out !== l.in) ptOfIn[l.out] = ["street"]; }
 const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
 const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{t\})/).map(p => p === "{in}" ? "(.+?)" : p === "{t}" ? "\\d+:\\d\\d" : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""));
 const witnessTpl = [...B.presenceTpl, ...B.timeline.obsTpl].filter(o => typeof o === "object" && o.at).map(o => ({ o, re: toRe(o.t) }));
 function witnessCheck(c) {
   for (const n of c.nodes.filter(n => n.type === "person")) for (const { o, re } of witnessTpl) {
     const m = n.text.join(" ").match(re);
-    if (m && ptOfIn[m[1]] && !o.at.includes(ptOfIn[m[1]])) incoherent.push([c.seed, `świadek nie pasuje do miejsca (${ptOfIn[m[1]]}): ${m[0]}`]);
+    if (m && ptOfIn[m[1]] && !ptOfIn[m[1]].some(pt => o.at.includes(pt))) incoherent.push([c.seed, `świadek nie pasuje do miejsca (${ptOfIn[m[1]]}): ${m[0]}`]);
   }
 }
 const workAlibi = B.alibiConfirmed.filter(a => a.roles);

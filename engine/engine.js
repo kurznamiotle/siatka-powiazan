@@ -66,6 +66,15 @@
   const atTexts = (list, pt, t) => list.filter(o => fitsAt(o, pt, t)).map(o => o.t);
   /* 2.2.2: sezon rodzajów miejsc (base.placeTypes): dark.months [od, do] (może przejść przez Nowy Rok) od godziny dark.after.
      Gra dzieje się wieczorem, więc takie miejsca w tych miesiącach w ogóle nie trafiają do spraw. */
+  /* 2.2.2: godziny otwarcia: loc.hours albo base.placeTypes[pt].open. Obecność o czasie t poza godzinami (+30 min po zamknięciu)
+     to obecność przed lokalem: rodzaj „street” (świadkowie uliczni) i forma loc.out („przed apteką”). */
+  const placeAt = (B, loc, t) => {
+    const h = loc.hours || (B.placeTypes && B.placeTypes[loc.pt] && B.placeTypes[loc.pt].open);
+    if (h && t !== undefined && !(t >= toMin(h[0]) && t < toMin(h[1]) + 30)) return { pt: "street", form: loc.out || loc.in, closed: true };
+    return { pt: loc.pt, form: loc.in, closed: false };
+  };
+  /* 2.2.2: kilka obserwacji tej samej osoby w tym samym miejscu w jednym zdaniu: „o 20:50 i jeszcze raz o 21:10” */
+  const timesPhrase = list => { const a = list.map(x => t("gen.presence.o_t", { t: x })); return a.length < 2 ? a[0] : t("gen.presence.again", { list: a.slice(0, -1).join(", "), t: list[list.length - 1] }); };
   const darkMonth = (B, pt, m) => { const d = B.placeTypes && B.placeTypes[pt] && B.placeTypes[pt].dark; if (!d) return false;
     const mm = m + 1, [a, b] = d.months; return a <= b ? mm >= a && mm <= b : mm >= a || mm <= b; };
   /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
@@ -355,7 +364,7 @@
     return out;
   }
 
-  const util = { itemRef, decimal, fitsAt, atTexts, darkMonth, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const util = { itemRef, decimal, fitsAt, atTexts, darkMonth, placeAt, timesPhrase, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
   const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
     GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
   root.Siatka = api;

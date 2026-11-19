@@ -121,41 +121,86 @@ for (let i = 0; i < 300 && (mo.maj[0] < 3 || mo.maj[1] < 3 || !mo.kwiecień[0] |
 check(mo.kwiecień[1] === 0 && mo.kwiecień[0] > 0, `kwiecień 1990: zawsze milicja (${mo.kwiecień})`);
 check(mo.czerwiec[0] === 0 && mo.czerwiec[1] > 0, `czerwiec 1990: zawsze policja (${mo.czerwiec})`);
 check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja (od 10.05) (${mo.maj})`);
-// 8. (2.2.2) świadkowie i dowody obecności tylko w rodzajach miejsc ze swojej listy (`at`) i o swojej porze (`time`),
-//    a przystań, działki i park (base.placeTypes.dark) nie pojawiają się od listopada do marca
+// 8. (2.2.2) miejsca w aktach. Dla 2000 spraw (classic i oś czasu):
+//    A1 kolejne obserwacje tej samej osoby w tym samym miejscu są w jednym zdaniu (dwa sąsiednie zdania nie mówią o tym samym miejscu),
+//    A2 szablon świadka najwyżej raz w aktach osoby, A3 miejsce w zdaniu świadka to pinezka z tablicy, a etykieta polaroidu siedzi
+//    w każdej formie miejsca (gen, in, out, from), C stragan ma własnych świadków, D „w środku” tylko w godzinach otwarcia (+30 min),
+//    poza nimi forma „przed…” i świadkowie uliczni, E zmiana i kwity tylko w zakładach; do tego listy `at`, pory `time` i sezon.
+//    B osobno: współpracownik w ok. 1/3 reguł relacji, zawsze z jednego rodzaju pracy (wp).
 {
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
-  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{t\})/).map(p => p === "{in}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
-    : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""));
-  const witness = [...B.presenceTpl, ...B.timeline.obsTpl].map(o => ({ o, re: toRe(o.t) }));
+  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{ts\}|\{t\})/).map(p => p === "{in}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
+    : p === "{ts}" ? "(?<ts>(?:\\S+ \\d+:\\d\\d,? )+\\S+ (?:\\S+ )*?\\S+ \\d+:\\d\\d)" : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""), "g");
+  const tpls = [...B.presenceTpl, ...B.presence2Tpl, ...B.timeline.obsTpl].map(o => ({ o, re: toRe(o.t) }));
   const evDefs = [...B.evidence.presence, ...B.timeline.evidence];
-  const dark = (pt, month) => S.util.darkMonth(B, pt, B.months.indexOf(month));
-  let nW = 0, nE = 0, nDark = 0, winter = 0; const bad8 = [];
+  const worldLocs = [...B.locations, ...Object.values(W.cities).flatMap(c => c.locations || [])];
+  const strip = s => String(s || "").replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1").toLowerCase();
+  const stemOf = l => { const w = strip(l.label).split(/\s+/)[0]; return w.slice(0, Math.max(4, w.length - 2)); };
+  const bad8 = [], dark = (pt, month) => S.util.darkMonth(B, pt, B.months.indexOf(month));
+  // A3: etykieta polaroidu w każdej formie miejsca
+  for (const l of worldLocs) for (const k of ["gen", "in", "out", "from"]) if (l[k] && !strip(l[k]).includes(stemOf(l))) bad8.push(`miejsce ${l.id}: etykieta „${l.label}” nie pasuje do formy ${k} „${l[k]}”`);
+  // C: stragan
+  for (const l of worldLocs.filter(l => /szczeka/.test(l.id))) if (l.pt !== "stall" || !/^przy /.test(l.in)) bad8.push(`szczęka: rodzaj ${l.pt}, forma ${l.in}`);
+  for (const { o } of tpls) if (o.at.includes("stall") && /wózkiem|z okna|przez okno|z parteru/.test(o.t)) bad8.push(`przy straganie świadek z ulicy: ${o.t}`);
+  // E: zmiana i kwity
+  for (const { o } of tpls) if (/Szef zmiany|Kierownik zmiany/.test(o.t) && o.at.some(x => x !== "plant")) bad8.push(`zmiana poza zakładem: ${o.t}`);
+  for (const d of evDefs) if (/^Kwit z godziną|Lista obecności|Książka wejść/.test(d.name) && d.at.some(x => !["plant", "shop", "office", "stall"].includes(x))) bad8.push(`dowód „${d.name}” poza zakładem i lokalem: ${d.at}`);
+  let nW = 0, nE = 0, nM = 0, nOut = 0, winter = 0;
   for (let i = 0; i < 2000; i++) {
-    const c = S.generateCase(W, "realia-at-" + i, i % 4 === 3 ? { archetype: "timeline", size: R8(i) } : {});
-    const locs = c.nodes.filter(n => n.type === "location"), ptIn = {};
-    for (const n of locs) for (const f of n.forms || []) ptIn[f] = n.pt;
-    if (B.placeTypes && ["listopad", "grudzień", "styczeń", "luty", "marzec"].includes(c.month)) winter++;
-    for (const n of locs) if (dark(n.pt, c.month)) { nDark++; bad8.push(`${c.seed}: ${n.name} (${n.pt}) w miesiącu ${c.month}`); }
-    for (const n of c.nodes.filter(n => n.type === "person")) for (const line of n.text) for (const { o, re } of witness) {
-      const m = line.match(re); if (!m || !(m.groups.in in ptIn)) continue;
-      nW++;
-      const pt = ptIn[m.groups.in], tm = S.util.toMin(m.groups.t);
-      if (!o.at.includes(pt)) bad8.push(`${c.seed}: świadek poza listą (${pt}): ${m[0]}`);
-      if (o.time && !(tm >= S.util.toMin(o.time[0]) && tm < S.util.toMin(o.time[1]))) bad8.push(`${c.seed}: świadek o złej porze: ${m[0]}`);
+    const c = S.generateCase(W, "realia-at-" + i, i % 4 === 3 ? { archetype: "timeline", size: ["M", "L", "XL"][i % 3] } : {});
+    const locs = c.nodes.filter(n => n.type === "location");
+    const byForm = {}; for (const n of locs) { const def = worldLocs.find(l => l.id === n.id); if (def) for (const f of [def.in, def.out].filter(Boolean)) byForm[f] = def; }
+    if (["listopad", "grudzień", "styczeń", "luty", "marzec"].includes(c.month)) winter++;
+    for (const n of locs) if (dark(n.pt, c.month)) bad8.push(`${c.seed}: ${n.name} (${n.pt}) w miesiącu ${c.month}`);
+    for (const n of c.nodes.filter(n => n.type === "person")) {
+      const hits = [];
+      n.text.forEach((line, li) => { for (const { o, re } of tpls) { re.lastIndex = 0; let m; while ((m = re.exec(line))) {
+        const times = m.groups.t ? [m.groups.t] : (m.groups.ts || "").match(/\d+:\d\d/g) || [];
+        hits.push({ o, form: m.groups.in, times, li, at: m.index, txt: m[0] }); } } });
+      hits.sort((a, b) => a.li - b.li || a.at - b.at);
+      for (let k = hits.length - 1; k > 0; k--) if (hits[k].li === hits[k - 1].li && hits[k].at === hits[k - 1].at) hits.splice(k, 1); // ten sam tekst w obu listach szablonów
+      const seenT = new Set();
+      hits.forEach((h, k) => {
+        const def = byForm[h.form];
+        if (!def) { if (worldLocs.some(l => l.in === h.form || l.out === h.form)) bad8.push(`${c.seed}: miejsca „${h.form}” nie ma na tablicy: ${h.txt}`); return; }
+        nW++; if (h.times.length > 1) nM++;
+        if (seenT.has(h.o)) bad8.push(`${c.seed}: ${n.name}: szablon dwa razy: ${h.txt}`); seenT.add(h.o);
+        if (k > 0 && hits[k - 1].form === h.form && byForm[hits[k - 1].form]) bad8.push(`${c.seed}: ${n.name}: dwa zdania z rzędu o tym samym miejscu: ${hits[k - 1].txt} | ${h.txt}`);
+        for (const tm of h.times.map(S.util.toMin)) {
+          const pa = S.util.placeAt(B, def, tm);
+          if (pa.form !== h.form) bad8.push(`${c.seed}: o ${S.util.toHM(tm)} forma „${h.form}”, a powinna „${pa.form}”: ${h.txt}`);
+          if (!h.o.at.includes(pa.pt)) bad8.push(`${c.seed}: świadek poza listą (${pa.pt}): ${h.txt}`);
+          if (h.o.time && !(tm >= S.util.toMin(h.o.time[0]) && tm < S.util.toMin(h.o.time[1]))) bad8.push(`${c.seed}: świadek o złej porze: ${h.txt}`);
+          if (pa.closed) nOut++;
+        }
+      });
     }
     for (const n of c.nodes.filter(n => n.type === "evidence")) {
       const def = evDefs.find(d => d.name === n.name), f = c.facts.find(f => f.type === "presence" && f.src === n.id);
       if (!def || !f) continue;
+      const loc = worldLocs.find(l => l.id === f.where); if (!loc) continue;
       nE++;
-      const pt = (locs.find(l => l.id === f.where) || {}).pt;
-      if (!def.at.includes(pt)) bad8.push(`${c.seed}: dowód „${n.name}” poza listą (${pt})`);
+      const pa = S.util.placeAt(B, loc, S.util.toMin(f.at));
+      if (!def.at.includes(pa.pt)) bad8.push(`${c.seed}: dowód „${n.name}” poza listą (${pa.pt})`);
     }
   }
+  // B: współpracownik
+  const roles = [...B.roles, ...Object.values(W.cities).flatMap(c => [...(c.roles || []), c.worker])];
+  // nazwa roli może mieć wstawkę z miasta („Handlarz {market_from}”): wstawka pasuje do dowolnego tekstu
+  const roleRe = (txt, g) => new RegExp("^" + S.tx(txt, g).split(/\{\w+\}/).map(p => p.replace(/[.*+?^$()|[\]\\]/g, m => "\\" + m)).join(".+") + "$");
+  const wpOf = kind => (roles.find(r => roleRe(r.m, "m").test(kind) || roleRe(r.f || r.m, "f").test(kind)) || {}).wp;
+  let rel = 0, wm = 0;
+  for (let i = 0; i < 1600; i++) {
+    const c = S.generateCase(W, "realia-wm-" + i, { archetype: "classic", size: ["S", "M", "L", "XL"][i % 4] });
+    const r = c.rules.find(r => r.type === "relation"); if (!r) continue; rel++;
+    if (r.rel !== "workmate") continue; wm++;
+    const wps = c.facts.filter(f => f.type === "relation" && f.rel === "workmate").map(f => wpOf(c.nodes.find(n => n.id === f.a).kind));
+    if (!wps[0] || new Set(wps).size !== 1) bad8.push(`${c.seed}: współpracownicy z różnych miejsc pracy (${wps})`);
+  }
+  check(wm / rel > 0.2 && wm / rel < 0.45, `współpracownik w ${(100 * wm / rel).toFixed(0)}% reguł relacji (${wm}/${rel}), oczekiwano ok. 1/3`);
   bad8.slice(0, 8).forEach(b => console.log("BŁĄD " + b)); fails += bad8.length;
-  check(nW > 3000 && nE > 300 && winter > 500, `test miejsc ma dość danych (świadkowie ${nW}, dowody obecności ${nE}, sprawy zimą ${winter})`);
-  console.log(`Miejsca (2000 spraw): ${nW} zdań świadków i ${nE} dowodów obecności w swoich rodzajach miejsc i porach, ${nDark} miejsc po zmroku zimą`);
+  check(nW > 3000 && nE > 300 && winter > 500 && nM > 100 && nOut > 100, `test miejsc ma dość danych (świadkowie ${nW}, łączone ${nM}, przed lokalem ${nOut}, dowody ${nE}, zimą ${winter})`);
+  console.log(`Miejsca (2000 spraw): ${nW} zdań świadków (${nM} łączonych, ${nOut} obserwacji przed lokalem po godzinach), ${nE} dowodów obecności; współpracownik ${wm}/${rel} relacji`);
 }
-function R8(i) { return ["M", "L", "XL"][i % 3]; }
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);
