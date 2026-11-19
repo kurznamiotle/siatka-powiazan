@@ -85,7 +85,7 @@ Komendy:
 ## Biblioteka treści (data/i18n/pl/*.js)
 
 - Tekst: `[męska|żeńska]` albo `[m|f|n]` dla przedmiotów, `{klucz}` dla wstawek z miasta i roku (`{street}`, `{market_on}`, `{team}`, `{church_at}`, `{money}`, `{police_dat}`…). Pełna lista: obiekt `V` w `build()` w silniku.
-- Realia lat: wpis `{t:"…", years:[od,do]}` w dowolnej liście tekstów, a `years` na roli, scenie lub przedmiocie ogranicza je do tych lat. Przykłady: Pewex do 1990, denominacja 1995–96, komórki od 1996, „Klan” od 1997, milicja do kwietnia 1990 (potem policja i komisarz).
+- Realia lat: wpis `{t:"…", years:[od,do]}` w dowolnej liście tekstów, a `years` na roli, scenie lub przedmiocie ogranicza je do tych lat. Przykłady: Pewex do 1990, denominacja 1995–96, komórki od 1996, „Klan” od 1997, milicja do 10 maja 1990 (ustawa z 6 kwietnia; potem policja i komisarz; generator przełącza po miesiącu: maj 1990 to już policja, patrz docs/todo-generator.md).
 - Realia miesięcy: `months:[od,do]` (1–12) obok `years` ogranicza wpis do tych miesięcy w każdym roku z zakresu (filtr `inYears(o, rok, indeksMiesiąca)`). Kartki na mięso zniesiono 31 lipca 1989, więc wszystko z kartkami (na mięso, cukier, buty) ma `years:[1989,1989], months:[1,7]`. Pilnuje tego `tools/test-realia.js`.
 - Kwoty (`{money}`) liczą się wg roku: przed 1995 tysiące i miliony starych złotych, od 1995 nowe złote. Po „z żądaniem”, „zażądał”, „chce”, „nie dostanie” używaj `{money_gen}` (dopełniacz: „2 tysięcy złotych”); generator sprawdza to w kontroli spójności.
 - Szablony obecności (`presenceTpl`) dostają `{in}` w miejscowniku („w kiosku”, „na zapleczu”), więc tylko z czasownikami miejsca („był”, „widział go”), nigdy z „zajrzał” (kontrola w generatorze).

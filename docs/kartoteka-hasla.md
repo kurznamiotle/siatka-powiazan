@@ -6,19 +6,19 @@ Każde hasło ma objaśnienie PL (1 zdanie, dla młodszych graczy) i EN (1–2 z
 - **MO (Milicja Obywatelska)** · do V 1990
   - PL: Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja.
   - EN: The Citizens' Militia, communist Poland's police force. In May 1990 it was replaced by the Policja.
-- **Dzielnicowy** · cały okres
+- **Dzielnicowy**
   - PL: Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca.
   - EN: The neighbourhood beat officer, assigned to a few streets and expected to know every face on them.
-- **Dozorca / dozorczyni** · cały okres
+- **Dozorca / dozorczyni**
   - PL: Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki.
   - EN: Building caretaker. Kept the keys, swept the yard, and knew everyone's business.
-- **Książeczka mieszkaniowa** · cały okres
+- **Książeczka mieszkaniowa**
   - PL: Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku.
   - EN: A savings book for a cooperative flat. People paid in for decades and many never got the keys.
 - **Komitet kolejkowy** · do ok. 1990
   - PL: Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności.
   - EN: A queue run by the people in it. You got a number and had to turn up for roll call, sometimes for days.
-- **Inkasent gazowni** · cały okres
+- **Inkasent gazowni**
   - PL: Chodził po domach, spisywał liczniki i pobierał opłaty.
   - EN: The gas board's meter man, who went door to door reading meters and collecting money. He saw inside every flat.
 
@@ -98,8 +98,8 @@ Każde hasło ma objaśnienie PL (1 zdanie, dla młodszych graczy) i EN (1–2 z
 - **Szychta** · Śląsk
   - PL: Zmiana w kopalni lub hucie.
   - EN: A shift at the mine or steelworks.
-- **Barbórka** · Śląsk, 4 grudnia
-  - PL: Święto górników w dzień świętej Barbary, z orkiestrami i galowymi mundurami.
+- **Barbórka** · Śląsk
+  - PL: Święto górników 4 grudnia, w dzień świętej Barbary, z orkiestrami i galowymi mundurami.
   - EN: The miners' feast on St Barbara's Day, 4 December. Brass bands, dress uniforms, and nobody sober by evening.
 - **Fajrant**
   - PL: Koniec pracy.
@@ -144,7 +144,7 @@ Każde hasło ma objaśnienie PL (1 zdanie, dla młodszych graczy) i EN (1–2 z
   - EN: A Soviet film camera, heavy and indestructible.
 - **Pegasus** · od ok. 1993
   - PL: Bazarowa konsola do gier, podróbka Nintendo.
-  - EN: The bazaar clone of the Nintendo. Every boy in the block had one, and a cartridge with "9999 in 1" games.
+  - EN: The bazaar clone of the Nintendo. Every kid on the estate had one, and a cartridge with "9999 in 1" games.
 - **Wigry**
   - PL: Polski składany rower, w każdej piwnicy.
   - EN: The Polish folding bicycle. Every cellar had one, usually with a flat tyre.

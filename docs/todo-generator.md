@@ -16,3 +16,11 @@ Zmiany, które zmieniają tekst polskich spraw. Nie wchodzą bez nowej wersji ge
 - Problem: przy miejscach typu `field` (altana, działki, kurnik) wychodzi „Listonosz minął ją w altanie” / „The postman passed her in the summerhouse”. Listonosz nie chodzi po działkach.
 - Zmiana: usunąć `"field"` z `at` w obu szablonach, w PL i EN jednocześnie. `at` to pole logiki: `i18n-check` wymaga, żeby było identyczne w obu językach.
 - Uwaga: `generate.js` sprawdza liczbę szablonów na każdy rodzaj miejsca. Po usunięciu sprawdzić, czy `field` ma ich nadal dość.
+
+## 3. Milicja → Policja: maj 1990 (na wersję 2.2.2)
+
+- Stan: `context()` w `engine/engine.js`: `const milicja = year === 1989 || (year === 1990 && monthIdx < 4);`. Sprawa ma tylko miesiąc (bez dnia), więc styczeń–kwiecień 1990 to MO („porucznik … z MO”, `{police_dat}` = milicji), a od maja policja i komisarz. Przełączenie wypada w praktyce 1 maja 1990.
+- Historycznie: ustawa o Policji z 6 kwietnia 1990, Policja powstała 10 maja 1990 (MO do 9 maja). Kartoteka mówi „do V 1990” / „until May 1990”.
+- Rozbieżność: sprawy z maja 1990 mają już policję, choć przez pierwsze 9 dni maja była jeszcze milicja. Czas zbrodni nie ma dnia, więc maj jest z natury niejednoznaczny.
+- Do decyzji: (a) zostawić (maj = policja, większość miesiąca), (b) maj 1990 jako milicja (`monthIdx < 5`), (c) dodać dzień miesiąca do sprawy (większa zmiana). Każda zmiana warunku zmienia polskie (i angielskie) sprawy z maja 1990, więc tylko z nową wersją generatora.
+- Po zmianie: `npm test`, `node tools/generate.js 12 out warszawa 1990` i sprawdzić sprawy z kwietnia, maja i czerwca.
