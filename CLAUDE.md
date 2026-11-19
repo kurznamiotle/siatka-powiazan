@@ -29,7 +29,7 @@ engine/solver.js      ogólny solver (hipotezy archetypu × reguły) + bibliotek
                       (alibi, trait, window, key, fate, dump) + kontrola dowodów rzeczowych
 engine/archetypes/    archetypy spraw; classic.js = jeden sprawca, każdy odpada z jednej reguły;
                       timeline.js = oś czasu (kto zdążył na miejsce zdarzenia, pytanie: kto)
-engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91, v2_2.js = 3838b51), tylko dla spraw dnia
+engine/versions/      zamrożone starsze wersje generatora (v2_0.js = commit 0879423, v2_1.js = c3e4f77, v2_1_1.js = 7b359e1, v2_1_2.js = 0891a91, v2_2.js = 3838b51, v2_2_1.js = f900cef zamrożone z 6026b81), tylko dla spraw dnia
 engine/sprites.js     pixel art 12×12: portrety z warstw, ikony miejsc, przedmiotów i dowodów
 data/i18n/            warstwa językowa (i18n): i18n.js (t, get, apply, world), pl.js (gramatyka + wszystkie teksty
                       jako klucze), pl/base.js, pl/cities.js, pl/changelog.js (treści generatora po polsku),
@@ -85,7 +85,7 @@ Komendy:
 ## Biblioteka treści (data/i18n/pl/*.js)
 
 - Tekst: `[męska|żeńska]` albo `[m|f|n]` dla przedmiotów, `{klucz}` dla wstawek z miasta i roku (`{street}`, `{market_on}`, `{team}`, `{church_at}`, `{money}`, `{police_dat}`…). Pełna lista: obiekt `V` w `build()` w silniku.
-- Realia lat: wpis `{t:"…", years:[od,do]}` w dowolnej liście tekstów, a `years` na roli, scenie lub przedmiocie ogranicza je do tych lat. Przykłady: Pewex do 1990, denominacja 1995–96, komórki od 1996, „Klan” od 1997, milicja do 10 maja 1990 (ustawa z 6 kwietnia; potem policja i komisarz; generator przełącza po miesiącu: maj 1990 to już policja, patrz docs/todo-generator.md).
+- Realia lat: wpis `{t:"…", years:[od,do]}` w dowolnej liście tekstów, a `years` na roli, scenie lub przedmiocie ogranicza je do tych lat. Przykłady: Pewex do 1990, denominacja 1995–96, komórki od 1996, „Klan” od 1997, milicja do 10 maja 1990 (ustawa z 6 kwietnia; potem policja i komisarz; od 2.2.2 w maju 1990 dzień z osobnego strumienia `seed/day`: dni 1–9 MO, od 10. policja).
 - Realia miesięcy: `months:[od,do]` (1–12) obok `years` ogranicza wpis do tych miesięcy w każdym roku z zakresu (filtr `inYears(o, rok, indeksMiesiąca)`). Kartki na mięso zniesiono 31 lipca 1989, więc wszystko z kartkami (na mięso, cukier, buty) ma `years:[1989,1989], months:[1,7]`. Pilnuje tego `tools/test-realia.js`.
 - Kwoty (`{money}`) liczą się wg roku: przed 1995 tysiące i miliony starych złotych, od 1995 nowe złote. Po „z żądaniem”, „zażądał”, „chce”, „nie dostanie” używaj `{money_gen}` (dopełniacz: „2 tysięcy złotych”); generator sprawdza to w kontroli spójności.
 - Szablony obecności (`presenceTpl`) dostają `{in}` w miejscowniku („w kiosku”, „na zapleczu”), więc tylko z czasownikami miejsca („był”, „widział go”), nigdy z „zajrzał” (kontrola w generatorze).
@@ -216,6 +216,13 @@ Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `
 - **Realia epoki** (`tools/test-realia.js`, pkt 6): „Klan”, Koło Fortuny, pager, telefon komórkowy, Cinquecento, Daewoo Tico, Pegasus, „Dynastia”, bony, „Gazeta Wyborcza”, Polsat i kartki muszą mieć `years`/`months` (własne albo przodka, także przez `roles` ról z `years`) w czasie, kiedy istniały. W danych węższe zakresy niż w teście: Klan 1998–99, Koło Fortuny 1993–98, Pegasus 1993–99, „Gazeta Wyborcza” od czerwca 1989.
 - **Test produkcji**: `SMOKE_URL="https://siatkapowiazan.pl/index.html#dev" node tools/smoke.js` (z `#dev`, żeby nie wysyłać analityki).
 - **Nieprzejrzane (wszystko z 2.2.1)**: nowe zdania motywów i podejrzeń z `vt`, nowe szablony świadków i dowodów (`at`), godziny scen, rodzaje miejsc (`pt`).
+
+Wydanie 2.2.2 (**obowiązuje od 22.11.2026**; 2.2.1 zamrożone w `engine/versions/v2_2_1.js` z commita 6026b81 na wip/i18n, który daje te same sprawy PL co wdrożony f900cef; wzorzec `cases/fixtures/daily-2.2.1.json` z dniami 18–21.11 policzony kodem f900cef; cache `siatka-v20`). Zakres: punkty z `docs/todo-generator.md` (tam też lista zrobionych):
+- Kiosk Ruchu: forma `in` „przy kiosku”.
+- Listonosz mija tylko na ulicy, na klatce i w lokalu (`at:["street","stair","shop"]` w `presenceTpl` i `timeline.obsTpl`, PL i EN).
+- Milicja → Policja 10 maja 1990 (`context()` w `engine.js`, dzień maja z `seed/day`; test w `test-realia.js`).
+- „[przeczytał|przeczytała] [sam|sama]” w zdaniu o okularach.
+- Do decyzji na następną wersję (z przeglądu 22–28.11): relacja „współpracownik” bez względu na zawód, przystań i świadkowie zimą po zmroku, książka wejść z portierni w kiosku i aptece, świadkowie z podwórka w garażu.
 
 ## Najbliższe kroki
 

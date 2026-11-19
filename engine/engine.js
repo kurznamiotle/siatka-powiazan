@@ -164,7 +164,9 @@
     const monthIdx = R.int(0, 11);
     const sizeKey = SIZES[opts.size] ? opts.size : R.pick(Object.keys(SIZES));
     const N = SIZES[sizeKey].n, K = R.pick(SIZES[sizeKey].k);
-    const milicja = year === 1989 || (year === 1990 && monthIdx < 4);
+    // 2.2.2: Policja od 10 maja 1990 (ustawa z 6 kwietnia). Sprawa ma tylko miesiąc, więc w maju 1990 dzień losuje się
+    // z osobnego strumienia (nie przesuwa innych losowań): dni 1–9 to jeszcze milicja, od 10. policja.
+    const milicja = year === 1989 || (year === 1990 && (monthIdx < 4 || (monthIdx === 4 && makeRng(seed + "/day").int(1, 31) < 10)));
     const A = list => avail(list, year, monthIdx);
 
     const streets = R.shuffle(city.streets);
@@ -265,14 +267,15 @@
      Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
      w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
      północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
-  const GEN_VERSION = "2.2.1";
+  const GEN_VERSION = "2.2.2";
   const GENERATOR_VERSIONS = [
     { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
     { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
     { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
     { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
-    { id: "2.2.1", from: "2026-11-18" }                                    // bieżący kod; data = północ po wdrożeniu we wtorek 17.11
+    { id: "2.2.1", from: "2026-11-18", frozen: "engine/versions/v2_2_1.js" }, // wdrożony f900cef, zamrożony z 6026b81 (obowiązuje 18–21.11)
+    { id: "2.2.2", from: "2026-11-22" }                                    // bieżący kod; data = północ po wdrożeniu (przesuń, gdy wdrożenie się opóźni)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {

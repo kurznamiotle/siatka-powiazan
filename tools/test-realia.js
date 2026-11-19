@@ -109,5 +109,17 @@ check(G("2 tysiące złotych") === "2 tysięcy złotych" && G("3 miliony złotyc
   for (const m of bad) check(false, "epoka: " + m);
 }
 
+// 7. (2.2.2) Milicja do 9 maja 1990, Policja od 10 maja 1990: kwiecień 1990 zawsze MO, czerwiec zawsze policja,
+//    maj raz tak, raz tak (dzień z osobnego strumienia seed/day), a w sprawie z MO {police_dat} = milicji
+const mo = { kwiecień: [0, 0], maj: [0, 0], czerwiec: [0, 0] };
+for (let i = 0; i < 300 && (mo.maj[0] < 3 || mo.maj[1] < 3 || !mo.kwiecień[0] || !mo.czerwiec[1]); i++) {
+  const c = S.generateCase(W, "realia-mo-" + i, { year: 1990 });
+  if (!mo[c.month]) continue;
+  const isMo = /\bMO\b/.test(c.detective);
+  mo[c.month][isMo ? 0 : 1]++;
+}
+check(mo.kwiecień[1] === 0 && mo.kwiecień[0] > 0, `kwiecień 1990: zawsze milicja (${mo.kwiecień})`);
+check(mo.czerwiec[0] === 0 && mo.czerwiec[1] > 0, `czerwiec 1990: zawsze policja (${mo.czerwiec})`);
+check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja (od 10.05) (${mo.maj})`);
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);

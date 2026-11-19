@@ -1,0 +1,8420 @@
+/*
+ * Siatka Powiązań — ZAMROŻONY generator spraw w wersji 2.2.1 (commit 6026b81).
+ * Plik zrobiło narzędzie tools/freeze-version.js. Nie edytuj go ręcznie.
+ * Używa go sprawa dnia z dni, w których obowiązywała ta wersja (GENERATOR_VERSIONS w engine.js).
+ * Pliki: data/i18n/i18n.js, data/i18n/pl.js, engine/engine.js, engine/solver.js, engine/archetypes/classic.js, engine/archetypes/timeline.js, data/i18n/pl/base.js, data/i18n/pl/cities.js, data/i18n/pl/changelog.js, data/i18n/pl/glossary.js, data/i18n/en.js, data/i18n/en/base.js, data/i18n/en/cities.js, data/i18n/en/glossary.js, data/i18n/en/changelog.js, data/i18n/boot.js
+ */
+(function (root) {
+  "use strict";
+  const fake = { SiatkaSprites: root.SiatkaSprites || (typeof require !== "undefined" ? require("../sprites.js") : undefined) };
+
+/* ===== data/i18n/i18n.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — warstwa językowa (i18n).
+ *
+ * Paczka języka (data/i18n/<język>.js) rejestruje się przez SiatkaI18n.register(język, { messages, grammar }),
+ * a jego treści generatora (data/i18n/<język>/base.js, cities.js) przez register(język, { content: { base } }).
+ *   messages : płaska mapa klucz → tekst z wstawkami {nazwa} (albo lista/obiekt dla danych, np. „Co nowego”)
+ *   grammar  : gramatyka języka dla silnika szablonów: tx (odmiana [a|b] wg rodzaju), plural, list, slug,
+ *              amount (kwota słownie), moneyGen (kwota w dopełniaczu)
+ *   content  : base (role, cechy, alibi, sceny…) i cities (paczki miast) dla generatora
+ * Brakujący klucz w języku bieżącym bierze tekst z polskiego (pl), a gdy go nie ma, zwraca sam klucz.
+ *
+ * Kod gry i silnik nie zawierają polskich tekstów: wołają t("klucz", { zmienne }).
+ */
+(function (root) {
+  "use strict";
+  const I = {
+    lang: "pl",
+    packs: {},
+    register(lang, pack) {
+      const p = this.packs[lang] || (this.packs[lang] = { messages: {} });
+      // null = „jeszcze nieprzetłumaczone”: nie nadpisuje wartości z innego pliku tego języka (np. en/changelog.js przed en.js)
+      if (pack.messages) for (const k in pack.messages) if (pack.messages[k] != null || !(k in p.messages)) p.messages[k] = pack.messages[k];
+      if (pack.grammar) p.grammar = pack.grammar;
+      if (pack.content) p.content = Object.assign(p.content || {}, pack.content);
+    },
+    use(lang) { if (!this.packs[lang]) throw new Error("Unknown language: " + lang); this.lang = lang; },
+    /* wartość klucza (tekst, funkcja, lista albo obiekt) z bieżącego języka, a gdy brak (null) z polskiego */
+    get(key, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl;
+      let v = cur && cur.messages[key];
+      if (v == null && pl) v = pl.messages[key];
+      return v;
+    },
+    has(key) { return this.get(key) != null; },
+    /* tekst z wstawkami {nazwa}: jeden przebieg, więc wstawiona wartość nie jest ponownie przetwarzana; nieznane {x} zostają */
+    /* Język GENERATORA (teksty zbudowane w kodzie sprawy: klucze gen.*, gramatyka szablonów). Zależy od treści, nie od
+       interfejsu: dopóki język nie ma własnych treści (content.base), sprawa powstaje po polsku, choć interfejs jest
+       w tym języku. genOverride wymusza język generatora (testy: angielskie gen.* i gramatyka na polskich treściach). */
+    genLang() {
+      if (this.genOverride) return this.genOverride;
+      const p = this.packs[this.lang];
+      return p && p.content && p.content.base ? this.lang : "pl";
+    },
+    tg(key, vars) { return this.t(key, vars, this.genLang()); },
+    t(key, vars, lang) {
+      const v = this.get(key, lang);
+      if (v == null) return key;
+      if (typeof v === "function") return v(vars || {});
+      if (typeof v !== "string" || !vars) return v;
+      return v.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+    },
+    /* tekst statycznego HTML: data-i18n="klucz" (textContent), data-i18n-vars='{"v":3}', data-i18n-attr="atrybut:klucz;…" */
+    apply(doc) {
+      doc = doc || document;
+      doc.querySelectorAll("[data-i18n]").forEach(el => {
+        const vars = el.getAttribute("data-i18n-vars");
+        el.textContent = this.t(el.getAttribute("data-i18n"), vars ? JSON.parse(vars) : undefined);
+      });
+      doc.querySelectorAll("[data-i18n-attr]").forEach(el => el.getAttribute("data-i18n-attr").split(";").forEach(pair => {
+        const i = pair.indexOf(":"); el.setAttribute(pair.slice(0, i), this.t(pair.slice(i + 1)));
+      }));
+    },
+    /* znacznik Kartoteki {g:hasło|tekst} w szablonach generatora: tekst + niewidoczny znacznik z prywatnego obszaru Unicode
+       (U+E000, długość tekstu, id, U+E001) PO tekście, więc wielka litera na początku zdania, przedimek a/an i wyrażenia
+       textRe działają jak na samym tekście. Na końcu generateCase glossaryPass zamienia go w aktach, notatniku i podpowiedziach
+       na „{g:id|tekst}” (podkreślenie w grze), a w pozostałych polach na sam tekst. */
+    glossary(id, label) {
+      const s = label != null ? label : id;
+      if (!s || s.length > 255) return s;
+      return s + "\uE000" + String.fromCharCode(0xE100 + s.length) + [...id].map(ch => String.fromCharCode(0xE200 + ch.charCodeAt(0))).join("") + "\uE001";
+    },
+    /* znaczniki z glossary() w gotowym tekście: keep = true → „{g:id|tekst}”, inaczej sam tekst */
+    glossaryResolve(s, keep) {
+      if (typeof s !== "string" || s.indexOf("\uE000") < 0) return s;
+      let out = "", last = 0; const re = /\uE000([\uE100-\uE1FF])([\uE200-\uE2FF]+)\uE001/g; let m;
+      while ((m = re.exec(s))) {
+        const before = out + s.slice(last, m.index), len = m[1].charCodeAt(0) - 0xE100;
+        const id = [...m[2]].map(ch => String.fromCharCode(ch.charCodeAt(0) - 0xE200)).join("");
+        out = keep && len <= before.length ? before.slice(0, before.length - len) + "{g:" + id + "|" + before.slice(before.length - len) + "}" : before;
+        last = re.lastIndex;
+      }
+      return out + s.slice(last);
+    },
+    /* „{g:id|tekst}” w tekście sprawy → sam tekst (tam, gdzie nie ma podkreślenia: udostępnianie, podpisy) */
+    glossaryPlain(s) { return typeof s === "string" && s.indexOf("{g:") >= 0 ? s.replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1") : s; },
+    /* hasło Kartoteki { term, text, note? } w bieżącym języku, a gdy go brak, po polsku (data/i18n/<język>/glossary.js) */
+    glossaryEntry(id, lang) {
+      const cur = this.packs[lang || this.lang], pl = this.packs.pl, g = p => p && p.content && p.content.glossary;
+      return (g(cur) && g(cur)[id]) || (g(pl) && g(pl)[id]) || null;
+    },
+    grammar(lang) { const p = this.packs[lang || this.lang]; return (p && p.grammar) || this.packs.pl.grammar; },
+    genGrammar() { return this.grammar(this.genLang()); },
+    /* treści generatora bieżącego języka: { base, cities } */
+    world(lang) {
+      const p = this.packs[lang || this.lang], pl = this.packs.pl;
+      const c = (p && p.content && p.content.base && p.content) || (pl && pl.content);
+      return { base: c.base, cities: c.cities };
+    }
+  };
+  root.SiatkaI18n = I;
+  // skrót t(klucz, zmienne) dla kodu interfejsu (przeglądarka); silnik i narzędzia biorą go z SiatkaI18n / Siatka.t
+  if (typeof window !== "undefined" && !window.t) window.t = (key, vars, lang) => I.t(key, vars, lang);
+  if (typeof module !== "undefined" && module.exports) module.exports = I;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/pl.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — język polski: gramatyka dla silnika szablonów i wszystkie teksty (klucze → tekst).
+ *
+ * Gramatyka (SiatkaI18n.grammar()):
+ *   tx(tekst, rodzaj, zmienne)  {k} → zmienne[k], potem [a|b|c] → wariant wg rodzaju (m, f, n, pl)
+ *                               i „z Słowiańskiej” → „ze Słowiańskiej”
+ *                               znacznik Kartoteki {g:hasło} / {g:hasło|tekst} → SiatkaI18n.glossary(hasło, tekst)
+ *   plural(n, jeden, kilka, wiele), list(["a","b","c"]) → „a, b i c”, slug(tekst) → id bez polskich znaków,
+ *   amount(n, jednostka) kwota słownie (thousand, million, millionFrac, zloty), moneyGen(kwota) → dopełniacz.
+ * Teksty: messages. Klucze zaczynają się od „ui.” (gra) albo „gen.” (generator); wstawki {nazwa}.
+ * Blok między znacznikami BEGIN/END MESSAGES jest generowany narzędziem do wyciągania tekstów.
+ */
+(function (root) {
+  "use strict";
+  const GIDX = { m: 0, f: 1, n: 2, pl: 3 }; // pl = liczba mnoga przedmiotu (widły, nożyce); bez 4. wariantu bierze 3.
+  /* najpierw {k} → vars[k], potem [a|b|c] → wariant wg rodzaju */
+  function tx(str, g, vars) {
+    let s = String(str);
+    if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
+    s = s.replace(/\[([^\[\]]*)\]/g, (_, body) => { const parts = body.split("|"); return parts[Math.min(GIDX[g] || 0, parts.length - 1)]; });
+    // znacznik Kartoteki {g:hasło} albo {g:hasło|tekst}: na razie zostaje samym tekstem (SiatkaI18n.glossary), nic go jeszcze nie zawiera
+    s = s.replace(/\{g:([\w-]+)(?:\|([^{}]*))?\}/g, (m, id, label) => (root.SiatkaI18n ? root.SiatkaI18n.glossary(id, label) : (label != null ? label : id)));
+    // „z Słowiańskiej” → „ze Słowiańskiej”: przed nazwą zaczynającą się zbitką s/z/ś/ź/ż + spółgłoska
+    return s.replace(/(^|[\s„(])([zZ]) (?=(?:Sz|Rz)[^aeiouyąęó\s]|[SZŚŹŻ](?![zh])[^aeiouyąęóz\s])/g, "$1$2e ");
+  }
+  const list = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " i " + a[a.length - 1];
+  const plural = (n, one, few, many) => { if (n === 1) return one; const d = n % 10, h = n % 100; return d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? few : many; };
+  const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  /* kwota słownie: liczba cyframi, rzeczownik wg liczby („2 tysiące złotych”, „5 milionów złotych”, „2,5 miliona złotych”) */
+  function amount(n, unit) {
+    if (unit === "thousand") return `${n} ${plural(n, "tysiąc", "tysiące", "tysięcy")} złotych`;
+    if (unit === "million") return `${n} ${plural(n, "milion", "miliony", "milionów")} złotych`;
+    if (unit === "millionFrac") return `${String(n).replace(".", ",")} miliona złotych`;
+    if (unit === "zloty") return `${n} ${plural(n, "złoty", "złote", "złotych")}`;
+    throw new Error("Unknown amount unit: " + unit);
+  }
+  /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
+  const moneyGen = s => s.replace(/ (tysiące|tysiąc|miliony|milion)(?= )/, (_, w) => w[0] === "t" ? " tysięcy" : " milionów");
+  /* przecinek dziesiętny: „1.72” → „1,72” */
+  const decimal = s => s.replace(".", ",");
+  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal };
+
+  /* BEGIN MESSAGES */
+  const messages = {
+    "gen.size.S": "Mała",
+    "gen.size.M": "Średnia",
+    "gen.size.L": "Duża",
+    "gen.size.XL": "Ogromna",
+    "gen.police_dat.militia": "milicji",
+    "gen.police_dat.police": "policji",
+    "ui.html.title": "Siatka Powiązań",
+    "ui.html.loading_case": "Ładowanie sprawy…",
+    "ui.html.tab_files": "Akta",
+    "ui.html.tab_notes": "Notatnik",
+    "ui.html.accuse_title": "Akt oskarżenia",
+    "ui.html.culprit": "Sprawca",
+    "ui.html.tool": "Narzędzie zbrodni",
+    "ui.html.back_to_board": "Wróć do tablicy",
+    "ui.html.accuse_go": "Wnieś oskarżenie",
+    "ui.html.newcase_sub": "Wybierz miasto, rok i wielkość śledztwa. „Losowo” zostawia wybór generatorowi.",
+    "ui.html.city": "Miasto",
+    "ui.html.year": "Rok",
+    "ui.html.size": "Wielkość",
+    "ui.html.cancel": "Anuluj",
+    "ui.html.open_case": "Otwórz sprawę",
+    "ui.html.skip": "Pomiń",
+    "ui.html.back": "Wstecz",
+    "ui.html.archive_stamp": "ARCHIWUM",
+    "ui.html.limit_title": "Na dziś archiwum zamknięte.",
+    "ui.html.limit_text": "Wróć jutro po kolejne sprawy albo odblokuj nielimitowane w wersji premium (już wkrótce).",
+    "ui.html.lives": "Pozostałe oskarżenia",
+    "ui.html.settings": "Ustawienia",
+    "ui.html.board": "Tablica korkowa",
+    "gen.classic.it_m": "go",
+    "gen.classic.it_f": "ją",
+    "gen.classic.it_n": "je",
+    "gen.classic.it_pl": "je",
+    "gen.classic.klasyczna_sprawa": "Klasyczna sprawa",
+    "gen.classic.alibi_from_to": "Od {from} do {to} {text}.",
+    "gen.classic.at_time": "O {toHM}",
+    "gen.classic.pair_names": "{a} i {b}:",
+    "gen.classic.owner_is": "{what} ({mark}) to {who}",
+    "gen.classic.flat_short": "m. {n}",
+    "gen.classic.brak_modulu_sprites": "Brak modułu sprites",
+    "gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa": "a narzędzie znaleziono {dumpPlace}, gdzie [bywa|bywa] codziennie",
+    "gen.classic.a_los_narzedzia_zgadza_sie_z": "a los narzędzia zgadza się z ustaleniami",
+    "gen.classic.nie_ma_alibi": "nie ma alibi",
+    "gen.classic.jego_jej_papiery_sa_z_innego": "[jego|jej] papiery są z innego dnia, więc nie ma alibi",
+    "gen.classic.jego_jej_papiery_pokazuja_inne_godziny": "[jego|jej] papiery pokazują inne godziny niż zeznanie, więc nie ma alibi",
+    "gen.classic.jego_jej_alibi_okazalo_sie_klamstwem": "[jego|jej] alibi okazało się kłamstwem",
+    "gen.classic.byl_byla_in_we_wlasciwym_czasie": "[był|była] {in} we właściwym czasie",
+    "gen.classic.ma_klucz_do_gen": "ma klucz do {gen}",
+    "gen.classic.wf_regula_n": "{wf} (reguła {n}).",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_t": "[mógł|mogła] zabrać {acc}, ale {T}, a to nie zgadza się z regułą {n}.",
+    "gen.classic.we_wlasciwym_czasie": " we właściwym czasie",
+    "gen.classic.ma_klucz_do_gen_ale": "ma klucz do {gen}, ale ",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_nie": "[mógł|mogła] zabrać {acc}, ale nie bywa codziennie {T}, gdzie {it} znaleziono (reguła {n}).",
+    "gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n": "ma potwierdzone alibi: {alibiTxt} (reguła {n}).",
+    "gen.classic.regula_n_v": "Reguła {n}: {v}",
+    "gen.classic.regula_n_hint": "Reguła {n}: {hint}",
+    "gen.classic.regula_n_replace": "Reguła {n}: {replace}",
+    "gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot": "Reguła {n}: porównaj, gdzie znaleziono przedmioty, z tym, gdzie kto bywa codziennie.",
+    "gen.classic.regula_n_sprawdz_w_aktach_przedmiotow": "Reguła {n}: sprawdź w aktach przedmiotów, co się z każdym z nich stało.",
+    "gen.classic.regula_n_sprawdz_kto_ma_klucze": "Reguła {n}: sprawdź, kto ma klucze do których miejsc.",
+    "gen.classic.regula_n_kto_byl_przy_przedmiocie": "Reguła {n}: kto był przy przedmiocie we właściwym czasie, ale nie miał klucza?",
+    "gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi": "Reguła {n}: porównaj godziny zniknięcia przedmiotów z tym, kto i kiedy był na miejscu.",
+    "gen.classic.regula_n_kto_ma_potwierdzone_alibi": "Reguła {n}: kto ma potwierdzone alibi na {a}–{b}?",
+    "gen.classic.jego": "jego",
+    "gen.classic.jej": "jej",
+    "gen.classic.zeznal": "zeznał",
+    "gen.classic.zeznala": "zeznała",
+    "gen.classic.ktory": "który",
+    "gen.classic.ktora": "która",
+    "gen.classic.widzial": "widział",
+    "gen.classic.widziala": "widziała",
+    "gen.classic.stal": "stał",
+    "gen.classic.stala": "stała",
+    "gen.classic.niego": "niego",
+    "gen.classic.niej": "niej",
+    "gen.classic.tego_wieczoru": "Tego wieczoru",
+    "gen.classic.to_falszywy_trop_nie_pasuje_do": "to fałszywy trop. Nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie.",
+    "gen.classic.to_falszywe_tropy_zaden_nie_pasuje": "to fałszywe tropy. Żaden nie pasuje do reguł o tym, skąd, kiedy i przez kogo zniknęło narzędzie.",
+    "gen.classic.dowod_rzeczowy": "Dowód rzeczowy:",
+    "gen.classic.dowody_rzeczowe": "Dowody rzeczowe:",
+    "gen.classic.spelnia_wszystkie_reguly_join": "spełnia wszystkie reguły: {join}.",
+    "gen.classic.nie_ma_go_jej_w_zeszycie": "nie ma [go|jej] w zeszycie dozorcy",
+    "gen.classic.relacja_z_osoba_refname_what": "relacja z osobą: {refName} ({what})",
+    "gen.classic.mniej": "mniej",
+    "gen.classic.wiecej": "więcej",
+    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "jest w zeszycie dozorcy: o {toHM} [szedł|szła] przez podwórko (reguła {n}).",
+    "gen.classic.w_teczce_nie_ma_nic_co": "w teczce nie ma nic, co ich łączy (reguła {n}).",
+    "gen.classic.relnoun_a_nie_relnoun2_regula_n": "{relNoun}, a nie {relNoun2} (reguła {n}).",
+    "gen.classic.nizszy": "niższy",
+    "gen.classic.wyzszy": "wyższy",
+    "gen.classic.szwagrostwo": "szwagrostwo",
+    "gen.classic.szwagierki": "szwagierki",
+    "gen.classic.szwagrowie": "szwagrowie",
+    "gen.classic.sasiedzi_z_jednej_klatki": "sąsiedzi z jednej klatki",
+    "gen.classic.sasiedzi_z_klatki": "sąsiedzi z klatki",
+    "gen.classic.wspolpracownicy_z_jednego_zakladu": "współpracownicy z jednego zakładu",
+    "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papiery nie zawsze mówią to samo co podejrzani. Porównaj godziny i daty na dokumentach z ich zeznaniami.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Dowody rzeczowe nie mają nazwisk. Inicjały i numery mieszkań porównaj z teczkami osób.",
+    "gen.classic.nie_kazde_alibi_sie_trzyma_porownaj": "Nie każde alibi się trzyma. Porównaj, co mówią o tym samym wieczorze różne osoby.",
+    "gen.classic.dowod_rzeczowy_2": "Dowód rzeczowy",
+    "gen.classic.przedmiot": "Przedmiot",
+    "gen.classic.gone_from_tego_dnia": "{gone} {from} tego dnia.",
+    "gen.classic.gone_from_miedzy_tohm_a_tohm2": "{gone} {from} między {toHM} a {toHM2}.",
+    "gen.classic.zniknely": "Zniknęły",
+    "gen.classic.zniknelo": "Zniknęło",
+    "gen.classic.zniknela": "Zniknęła",
+    "gen.classic.zniknal": "Zniknął",
+    "gen.classic.miejsce": "Miejsce",
+    "gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl": "Drzwi zwykle stoją otwarte, wejść mógł każdy.",
+    "gen.classic.nikt_z_podejrzanych_nie_ma_tu": "Nikt z podejrzanych nie ma tu klucza. Zamek nieuszkodzony.",
+    "gen.classic.klucz_ma": "Klucz ma",
+    "gen.classic.klucze_maja": "Klucze mają",
+    "gen.classic.only_zamek_nieuszkodzony": "{only} Zamek nieuszkodzony.",
+    "gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy": "Tego wieczoru zniknęły stąd dwie rzeczy: {plList}.",
+    "gen.classic.szwagier": "szwagier",
+    "gen.classic.szwagierka": "szwagierka",
+    "gen.classic.byl_byla_in_v_ale_nie": "[był|była] {in}{v}, ale nie ma klucza (reguła {n}).",
+    "gen.classic.v_byl_byla_in_o_tohm": "{v}[był|była] {in} o {toHM}, poza czasem zniknięcia przedmiotów (reguła {n}).",
+    "gen.classic.first_pick_v_zabral_zabrala_acc": "{first} {pick}. {v} [zabrał|zabrała] {acc} {from} {epilogueEnd}",
+    "gen.classic.ma_cm_cm_v_niz_refname": "ma {cm} cm, {v} niż {refName} ({refCm} cm)",
+    "gen.classic.ma_cm_cm_a_sprawca_jest": "ma {cm} cm, a sprawca jest {v} niż {refName} ({refCm} cm) (reguła {n}).",
+    "gen.classic.v_pllist_zamek_nieuszkodzony": "{v} {plList}. Zamek nieuszkodzony.",
+    "gen.classic.v_pllist_others_zamek_nieuszkodzony": "{v} {plList}. {others} Zamek nieuszkodzony.",
+    "gen.timeline.os_czasu": "Oś czasu",
+    "gen.timeline.also": ". Do tego {tw}",
+    "gen.timeline.owner_is": "{what} ({mark}) to {who}",
+    "gen.timeline.nikt_nie_jest_w_dwoch_miejscach": "Nikt nie jest w dwóch miejscach naraz. Kto zdążył?",
+    "gen.timeline.first_pick_o_tohm_byl_byla": "{first} {pick}. O {toHM} [był|była] jeszcze {in}, o {toHM2} już na miejscu zdarzenia, a o {toHM3} [pokazał|pokazała] się {in2}, jakby nic się nie stało.",
+    "gen.timeline.dowod_rzeczowy": "Dowód rzeczowy:",
+    "gen.timeline.dowody_rzeczowe": "Dowody rzeczowe:",
+    "gen.timeline.zdazyl_a_o_tb_in_dp": "zdążył[|a]: o {tb} {in}, {dp} min drogi, na miejscu zdarzenia [mógł|mogła] być od {arr} do {back}, czyli {len} min w czasie zdarzenia ({from}–{to}); potem {dq} min drogi i o {ta} {in2}{v}.",
+    "gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia": "[mógł|mogła] zdążyć na miejsce zdarzenia, ale {wf} (reguła {ruleNo}).",
+    "gen.timeline.nadal_tam": "nadal tam",
+    "gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w": "nie [zdążyłby|zdążyłaby] tam być w czasie zdarzenia ani chwili",
+    "gen.timeline.moglby_moglaby_tam_byc_najwyzej_od": "[mógłby|mogłaby] tam być najwyżej od {toHM} do {toHM2}, czyli {len} min",
+    "gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Dowody rzeczowe nie mają nazwisk. Porównaj inicjały z nazwiskami w teczkach.",
+    "gen.timeline.regula_ruleno_lc1": "Reguła {ruleNo}: {lc1}",
+    "gen.timeline.dowod_rzeczowy_2": "Dowód rzeczowy",
+    "gen.timeline.miejsce": "Miejsce",
+    "gen.timeline.miejsce_zdarzenia": "Miejsce zdarzenia",
+    "gen.timeline.stad_pieszo_join": "Stąd pieszo: {join}.",
+    "gen.timeline.miejsce_zdarz": "Miejsce zdarz.",
+    "gen.timeline.miejsce_zdarzenia_2": " (miejsce zdarzenia)",
+    "gen.timeline.tu_to_sie_stalo": "Tu to się stało.",
+    "gen.timeline.tu_to_sie_stalo_where": "Tu to się stało, {where}.",
+    "gen.timeline.o_tb_byl_byla_in_a": "o {tb} [był|była] {in}, a o {ta} {v}. Z drogą na miejsce zdarzenia ({dp} min) i z powrotem ({dq} min) {where}, a sprawca spędził tam co najmniej {stay} min (reguła {ruleNo}).",
+    "gen.solver.id_fakt_type_dotyczy_who_nie": "{id}: fakt {type} dotyczy {who}, nie właściciela",
+    "gen.solver.id_znak_wskazuje_v_a_dowod": "{id}: znak wskazuje {v}, a dowód należy do {owner}",
+    "gen.solver.id_znak_kind_value_pasuje_do": "{id}: znak {kind}={value} pasuje do {length} osób",
+    "ui.game.label_city_name_year_size_seed": "{label} · {city_name}, {year} · {size} · seed {seed} · generator {caseVersion} · {st}, pomyłki {wrong}, podpowiedzi {hints}",
+    "ui.game.rozwiazana": "rozwiązana",
+    "ui.game.samouczek_pierwsze_uruchomienie": "Samouczek: pierwsze uruchomienie",
+    "ui.game.zapis_sprawy_z_archiwum_pominiety": "Zapis sprawy z archiwum pominięty",
+    "ui.game.zapis_sprawy_dnia_pominiety": "Zapis sprawy dnia pominięty",
+    "ui.game.sprawa_na_rozgrzewke": "Sprawa na rozgrzewkę",
+    "ui.game.sprawa_dnia": "Sprawa dnia",
+    "ui.game.limit_nowych_spraw_wyczerpany": "Limit nowych spraw wyczerpany",
+    "ui.game.nowe_sprawy_za_v_v2_min": "Nowe sprawy za {v}{v2} min, o północy.",
+    "ui.game.zostalo": "zostało",
+    "ui.game.zostala": "została",
+    "ui.game.nowa_sprawa_left_daily_new_cases": "Nowa sprawa · {left}/{DAILY_NEW_CASES}",
+    "ui.game.nowa_sprawa": "Nowa sprawa",
+    "ui.game.nie_udalo_sie": "Nie udało się",
+    "ui.game.wynik_jako_obrazek": "Wynik jako obrazek",
+    "ui.game.udostepniono": "Udostępniono",
+    "ui.game.brak_obrazka": "brak obrazka",
+    "ui.game.archiwum": "archiwum",
+    "ui.game.wsparcie_tworcy_wynik": "Wsparcie twórcy: wynik",
+    "ui.game.blad_w_sprawie_logice": "Błąd w sprawie/logice",
+    "ui.game.wynik_udostepniony": "Wynik udostępniony",
+    "ui.game.wynik_skopiowany": "Wynik skopiowany",
+    "ui.game.podoba_ci_sie_postaw_komisarzowi_html": "<p class=\"support-line\"><a id=\"supportLink\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Podoba Ci się? Postaw komisarzowi kawę ☕</a></p>",
+    "ui.game.nowa_sprawa_html": "<button class=\"btn red full\" id=\"againBtn\">Nowa sprawa</button>",
+    "ui.game.sprawa_dnia_html": "<button class=\"btn red full\" id=\"toDailyBtn\">Sprawa dnia</button>",
+    "ui.game.kopiuj_wynik": "Kopiuj wynik",
+    "ui.game.udostepnij": "Udostępnij",
+    "ui.game.niedomkniety": "niedomknięty",
+    "ui.game.domkniety": "domknięty",
+    "ui.game.a_narzedziem_v": ", a narzędziem {v}",
+    "ui.game.byl": "był",
+    "ui.game.byla": "była",
+    "ui.game.sprawa_umorzona": "SPRAWA UMORZONA",
+    "ui.game.sprawa_zamknieta": "SPRAWA ZAMKNIĘTA",
+    "ui.game.siatka_powiazan_label_city_name_year": "Siatka Powiązań · {label}\n{city_name}, {year}\n{repeat}{v} {repeat2}{repeat3}\nPodpowiedzi: {hints} · {time}",
+    "ui.game.sprawa_dnia_2": "sprawa dnia",
+    "ui.game.przegrana": "Przegrana",
+    "ui.game.wygrana": "Wygrana",
+    "ui.game.wynik": "Wynik",
+    "ui.game.zostaly_left_proby": "Zostały {left} próby.",
+    "ui.game.zostala_1_proba": "Została 1 próba.",
+    "ui.game.podpowiedz_hints": "Podpowiedź {hints}",
+    "ui.game.podpowiedz_v": "Podpowiedź ({v})",
+    "ui.game.podpowiedz_v_max": "Podpowiedź {v}/{max}",
+    "ui.game.powiazania_html": "<p class=\"how\">Powiązania: {join}</p>",
+    "ui.game.wyklucz": "Wyklucz",
+    "ui.game.przywroc": "Przywróć",
+    "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Notatnik detektywa</h2><div class=\"kind\">Ustalenia techników i lekarza</div><ol>{join}</ol>{travelTable}",
+    "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Czasy dojścia pieszo</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
+    "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Stuknij pulsującą pinezkę albo zdjęcie, żeby przeciągnąć sznurek od: {name}.",
+    "ui.game.laczenie": "Łączenie",
+    "ui.game.przetnij_sznurek_html": "<path class=\"s\" data-k=\"{k}\" d=\"{d}\"/><path class=\"hit\" data-k=\"{k2}\" d=\"{d2}\"><title>Przetnij sznurek</title></path>",
+    "ui.game.name_otworz_akta": "{name}, otwórz akta",
+    "ui.game.oskarz": "Oskarż",
+    "ui.game.os_czasu_karta_wprowadzajaca": "Oś czasu: karta wprowadzająca",
+    "ui.game.nowy_typ_sprawy_os_czasu_html": "<div class=\"card tl-card\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"tlH\"><h3 id=\"tlH\">Nowy typ sprawy: oś czasu</h3>\n    <p>Nikt nie jest w dwóch miejscach naraz. W notatniku jest tabela czasów dojścia, a w teczkach godziny, o których kogo widziano: sprawdź, kto zdążyłby dojść na miejsce zdarzenia, spędzić tam tyle, ile mówi reguła, i wrócić na czas.</p>\n    <table class=\"tt\"><tbody><tr><td>Kiosk ↔ Miejsce zdarzenia</td><td>10 min</td></tr><tr><td>Bar ↔ Miejsce zdarzenia</td><td>15 min</td></tr></tbody></table>\n    <p class=\"ex\">Sprawca był na miejscu co najmniej 10 min. Anna była w kiosku o 19:00, a w barze o 19:40. Droga tam (10 min), 10 min na miejscu i droga do baru (15 min) to 35 min, a miała 40, więc mogła zdążyć. Gdyby w barze była o 19:30, nie zdążyłaby.</p>\n    <p>Oskarżasz tylko sprawcę, bez narzędzia.</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"tlGo\">Do roboty</button></div></div>",
+    "ui.game.hl_cars_re": "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)",
+    "ui.game.hl_keys_re": "(?<k>(?:klucz|kłódk|zamk|alibi|świad)\\p{L}*|zamek|\\p{Lu}\\.\\p{Lu}\\.|m\\. \\d+|(?:mieszkani\\p{L}*|numer\\p{L}*|spod) (?:nr )?\\d+)",
+    "ui.game.sprawa_dnia_v": "Sprawa dnia, {v}",
+    "ui.game.nowa_sprawa_na_dzis_v_left": "Nowa sprawa, na dziś {v} {left} z {DAILY_NEW_CASES}",
+    "ui.game.sprawca_html": "<p>Sprawcą {v} {name}{v2}.</p>",
+    "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "Prokurator odrzuca akt oskarżenia. Fakty się nie spinają. {v}",
+    "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Akta sprawy</button></div>\n    {v2}",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Akta sprawy · {np} podejrzanych · {v}{evTxt} · {rules}</div><p>{rich}</p>\n      <p class=\"how\">Stuknij zdjęcie, żeby przeczytać akta. Przeciągnij sznurek od pinezki do pinezki, żeby powiązać fakty. Stuknij sznurek, żeby go przeciąć. Reguły znajdziesz w notatniku.</p>",
+    "ui.game.sprawa_porzucona_v_size_devicetype": "Sprawa porzucona: {v} {size} ({deviceType})",
+    "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Rozumowanie</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Twoja tablica</div>\n    <div class=\"stat\">Sznurki zgodne z faktami: {good} · bez pokrycia: {bad}<br>Obwód sprawcy ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Sprawy dnia</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>seria</span></div><div><b>{best}</b><span>rekord</span></div><div><b>{pct}%</b><span>wygrane</span></div><div><b>{played}</b><span>rozegrane</span></div></div>\n    <div class=\"lbl\">Wszystkie sprawy</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>rozegrane</span></div><div><b>{pct2}%</b><span>wygrane</span></div><div><b>{v7}</b><span>średni czas</span></div></div>\n    <div class=\"lbl\">Wynik do udostępnienia</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Zapisz obrazek</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Coś się nie zgadza? Zgłoś uwagę</button></p>\n    {v10}",
+    "ui.settings.wsparcie_tworcy_ustawienia": "Wsparcie twórcy: ustawienia",
+    "ui.settings.wibracje": "Wibracje",
+    "ui.settings.spokojny_jazz_z_plyty": "Spokojny jazz z płyty",
+    "ui.settings.efekty_dzwiekowe": "Efekty dźwiękowe",
+    "ui.settings.osiagniecia_html": "<button class=\"pick wide set-ach\" id=\"setAch\">Osiągnięcia <small>{got}/{all}</small></button>",
+    "ui.settings.zainstaluj_gre_html": "<p class=\"set-note\"><b>Zainstaluj grę:</b> {hint}</p>",
+    "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Zainstaluj grę</button><p class=\"set-note\">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>",
+    "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">Gra jest zainstalowana na tym urządzeniu.</p>",
+    "ui.settings.co_nowego_wroc_html": "<h3>Co nowego</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Wróć</button></div>",
+    "ui.gloss.title": "Kartoteka",
+    "ui.gloss.close": "Zamknij",
+    "ui.gloss.count": "Hasła z przeczytanych akt: {n} z {all}. Słowa podkreślone kropkami w aktach i notatniku można stuknąć.",
+    "ui.gloss.empty": "Kartoteka jest jeszcze pusta. Słowa podkreślone kropkami w aktach i notatniku (dawne sklepy, urzędy, auta, słowa z epoki) trafiają tu, gdy pojawią się w przeczytanych aktach.",
+    "ui.gloss.list_html": "<h3>Kartoteka</h3>{body}\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"glBack\">Wróć</button></div>",
+    "ui.settings.pelny_ekran": "Pełny ekran",
+    "ui.settings.wyjdz_z_pelnego_ekranu": "Wyjdź z pełnego ekranu",
+    "ui.settings.zgloszenie_uwagi": "Zgłoszenie uwagi: ",
+    "ui.settings.przegladarka": "przeglądarka",
+    "ui.settings.aplikacja": "aplikacja",
+    "ui.settings.inna_przegladarka": "inna przeglądarka",
+    "ui.settings.samsung_internet": "Samsung Internet ",
+    "ui.settings.inny_system": "inny system",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu": "Kliknij ikonę instalacji w pasku adresu albo menu <b>⋮</b> → <b>„Przesyłaj, zapisuj i udostępniaj”</b> → <b>„Zainstaluj stronę jako aplikację”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b": "Stuknij menu <b>⋮</b>, potem <b>„Dodaj do ekranu głównego”</b> → <b>„Zainstaluj”</b>.",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2": "Kliknij ikonę instalacji w pasku adresu albo menu <b>…</b> → <b>„Aplikacje”</b> → <b>„Zainstaluj tę witrynę jako aplikację”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_2": "Stuknij menu <b>…</b>, potem <b>„Dodaj do telefonu”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_3": "Stuknij menu <b>⋮</b>, potem <b>„Zainstaluj”</b> (albo „Dodaj do ekranu głównego”).",
+    "ui.settings.stuknij_menu_b_b_potem_b_4": "Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.",
+    "ui.settings.w_safari_stuknij_b_udostepnij_b": "W Safari stuknij <b>Udostępnij</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.",
+    "ui.settings.gra_zainstalowana": "Gra zainstalowana",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick\" id=\"setNews\">Co nowego{v}</button><button class=\"pick\" id=\"setGloss\">Kartoteka</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "Ta sprawa zostaje w języku, w którym ją zaczęto. Nowy język obowiązuje od następnej sprawy.",
+    "ui.settings.cases_in_progress": "(sprawy: tłumaczenie w toku)",
+    "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Samouczek: wyjście z gry na kroku {v}",
+    "ui.tutorial.samouczek_pominiety_na_kroku_v": "Samouczek pominięty na kroku {v}",
+    "ui.tutorial.samouczek_ukonczony": "Samouczek ukończony",
+    "ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html": "<button class=\"btn ghost\" id=\"hwInstallBtn\">Zainstaluj grę na telefonie</button><small>Ikona na ekranie głównym, pełny ekran, działa bez internetu.</small>",
+    "ui.tutorial.graj_jak_w_aplikacji_html": "<b>Graj jak w aplikacji.</b> {hintHtml}",
+    "ui.tutorial.dalej": "Dalej",
+    "ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html": "<div class=\"hw-desk\"></div><span class=\"hw-lives\"><i></i><i></i><i></i></span>\n        <span class=\"hw-btn\">Oskarż</span>\n        <div class=\"hw-acc\"><b class=\"h\">Akt oskarżenia</b><span>Sprawca: <b>{name}</b></span><span>Narzędzie: <b>{toLowerCase}</b></span>\n          <span class=\"hw-stamp\">SPRAWA ZAMKNIĘTA</span><span class=\"hw-stars\">★★★</span></div>{F}",
+    "ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r": "Podpowiedź nie zdradza odpowiedzi. Wskazuje regułę, którą warto sprawdzić.",
+    "ui.tutorial.gdy_wiesz_kto_i_czym_stuknij": "Gdy wiesz, kto i czym, stuknij „Oskarż”. Masz trzy próby. Za każdą pomyłkę tracisz gwiazdkę, a użycie podpowiedzi zabiera jedną.",
+    "ui.tutorial.oskarzenie": "Oskarżenie",
+    "ui.tutorial.spelnia_br_wszystkie": "spełnia<br>wszystkie",
+    "ui.tutorial.lamie_br_3": "łamie<br>3",
+    "ui.tutorial.lamie_br_1": "łamie<br>1",
+    "ui.tutorial.alibi": "alibi",
+    "ui.tutorial.garazu": "garażu",
+    "ui.tutorial.klucz": "klucz",
+    "ui.tutorial.ten_kto_nie_lamie_zadnej_reguly": "Ten, kto nie łamie żadnej reguły, jest sprawcą. Pomyłka? „Przywróć” cofa wykluczenie.",
+    "ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika": "Sprawca spełnia wszystkie reguły z notatnika. Każdy niewinny łamie co najmniej jedną – wtedy stuknij w jego aktach „Wyklucz”.",
+    "ui.tutorial.sznurki_to_twoje_notatki_gra_nie": "Sznurki to Twoje notatki. Gra nie podpowiada, które są trafne. Policzy je dopiero na końcu.",
+    "ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki": "Przeciągnij sznurek od pinezki do pinezki, żeby powiązać osobę z miejscem albo przedmiotem. Pulsują pinezki, które da się połączyć. Stuknij sznurek, żeby go przeciąć.",
+    "ui.tutorial.sznurek": "Sznurek",
+    "ui.tutorial.swiadkow": "Świadków",
+    "ui.tutorial.spal": "spał",
+    "ui.tutorial.spala": "spała",
+    "ui.tutorial.piwnicy": "piwnicy",
+    "ui.tutorial.ja": "ją",
+    "ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i": "Na tablicy wiszą podejrzani, miejsca i przedmioty. Czerwona kropka na zdjęciu znaczy, że akt jeszcze nie czytałeś.",
+    "ui.tutorial.codziennie_nowa_sprawa_z_lat_90": "Codziennie nowa sprawa z lat 90. Stuknij zdjęcie, żeby otworzyć akta.",
+    "ui.tutorial.notatnik_sprawca_ma_do_nie_html": "<div class=\"hw-desk\"></div>\n        <div class=\"hw-note\"><b class=\"h\">Notatnik</b><ol>\n          <li class=\"q1\">Sprawca ma {k} do {l}.</li>\n          <li class=\"q2\">Nie ma {k2} między {fxT} a {fxT2}.</li>\n          <li class=\"q3\">Sprawca nosi okulary.</li></ol></div>\n        {join}\n        {tag}{tag2}{tag3}",
+    "ui.stats.statystyki_otwarte": "Statystyki otwarte",
+    "ui.stats.umorzone": "umorzone",
+    "ui.stats.statystyki_wyniki_w_tej_przegladarce_html": "<h3>Statystyki</h3><p class=\"sub\">Wyniki w tej przeglądarce.</p>\n    <div class=\"lbl\">Sprawy dnia</div>\n    <div class=\"st-grid\">\n      <div><b>{cur}</b><span>seria</span></div><div><b>{best}</b><span>rekord</span></div>\n      <div><b>{pct}%</b><span>wygrane</span></div><div><b>{played}</b><span>rozegrane</span></div>\n    </div>\n    <div class=\"lbl\">Gwiazdki w sprawach dnia</div>\n    {row}{row2}{row3}{row4}\n    <div class=\"lbl\">Wszystkie sprawy</div>\n    <div class=\"st-grid three\">\n      <div><b>{played2}</b><span>rozegrane</span></div><div><b>{pct2}%</b><span>wygrane</span></div>\n      <div><b>{v}</b><span>średni czas</span></div>\n    </div>\n    <p class=\"stat\">Sprawy z archiwum: rozwiązane {won} z {played3}.</p>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"statsClose\">Zamknij</button></div>",
+    "ui.ach.osiagniecia_html": "\n  <div class=\"overlay ach-pop\" id=\"achPop\" hidden><div class=\"card\" id=\"achPopCard\" role=\"dialog\" aria-modal=\"true\" aria-live=\"assertive\"></div></div>\n  <div class=\"overlay\" id=\"achList\" hidden><div class=\"card\" id=\"achListCard\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Osiągnięcia\"></div></div>",
+    "ui.ach.osiagniecia_otwarte": "Osiągnięcia otwarte",
+    "ui.ach.osiagniecia_zdobyte_z_zapisane_w_html": "<h3>Osiągnięcia</h3><p class=\"sub\">Zdobyte: {got} z {all}. Zapisane w tej przeglądarce.</p>\n    <ul class=\"ach-list\">{rows}</ul>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"achClose\">Zamknij</button></div>",
+    "ui.ach.nowe_osiagniecie_html": "\n    <div class=\"ach-kicker\">Nowe osiągnięcie</div>\n    <div class=\"ach-stage\"><div class=\"ach-rays\"></div>{badge}{repeat}</div>\n    <div class=\"ach-tier t{tier}\">{tierName}</div>\n    <h3>{name}</h3>\n    <p class=\"ach-desc\">{desc}</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"achOk\">{v}</button></div>",
+    "ui.ach.osiagniecie_name": "Osiągnięcie: {name}",
+    "ui.ach.zloto": "złoto",
+    "ui.ach.braz": "brąz",
+    "ui.ach.weteran": "Weteran",
+    "ui.ach.zamknij_sprawe_z_kazdego_roku_od": "Zamknij sprawę z każdego roku od 1989 do 1999.",
+    "ui.ach.cala_dekada": "Cała dekada",
+    "ui.ach.rozwiaz_sprawe_dnia_30_dni_z": "Rozwiąż sprawę dnia 30 dni z rzędu.",
+    "ui.ach.miesiac_na_sluzbie": "Miesiąc na służbie",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na": "Zamknij sprawę z sześcioma podejrzanymi na trzy gwiazdki.",
+    "ui.ach.wielka_szostka": "Wielka szóstka",
+    "ui.ach.zamknij_sprawe_kazdego_z_11_typow": "Zamknij sprawę każdego z 11 typów zbrodni.",
+    "ui.ach.wszechstronny": "Wszechstronny",
+    "ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu": "Zamknij sprawę w każdym z siedmiu miast.",
+    "ui.ach.delegacja": "Delegacja",
+    "ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z": "Rozwiąż sprawę dnia siedem dni z rzędu.",
+    "ui.ach.tydzien_na_sluzbie": "Tydzień na służbie",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi": "Zamknij sprawę z sześcioma podejrzanymi.",
+    "ui.ach.grube_akta": "Grube akta",
+    "ui.ach.wygraj_z_co_najmniej_10_sznurkami": "Wygraj z co najmniej 10 sznurkami zgodnymi z faktami.",
+    "ui.ach.pajeczyna": "Pajęczyna",
+    "ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i": "Wygraj z domkniętym obwodem sprawcy i bez ani jednego sznurka bez pokrycia.",
+    "ui.ach.czysta_robota": "Czysta robota",
+    "ui.ach.zamknij_sprawe_w_mniej_niz_dwie": "Zamknij sprawę w mniej niż dwie minuty.",
+    "ui.ach.blyskawica": "Błyskawica",
+    "ui.ach.staly_bywalec": "Stały bywalec",
+    "ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z": "Rozwiąż sprawę dnia trzy dni z rzędu.",
+    "ui.ach.staly_rytm": "Stały rytm",
+    "ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta": "Zamknij sprawę między północą a czwartą rano.",
+    "ui.ach.nocna_zmiana": "Nocna zmiana",
+    "ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn": "Przed oskarżeniem wyklucz wszystkich niewinnych.",
+    "ui.ach.sito": "Sito",
+    "ui.ach.wygraj_przy_ostatniej_probie": "Wygraj przy ostatniej próbie.",
+    "ui.ach.ostatni_naboj": "Ostatni nabój",
+    "ui.ach.zamknij_sprawe_na_trzy_gwiazdki": "Zamknij sprawę na trzy gwiazdki.",
+    "ui.ach.bez_pudla": "Bez pudła",
+    "ui.ach.zamknij_pierwsza_sprawe": "Zamknij pierwszą sprawę.",
+    "ui.ach.pierwsza_sprawa": "Pierwsza sprawa",
+    "ui.share.sprawa_umorzona": "SPRAWA UMORZONA",
+    "ui.share.sprawa_zamknieta": "SPRAWA ZAMKNIĘTA",
+    "ui.share.dni": "dni",
+    "ui.share.dzien": "dzień",
+    "ui.share.seria": "seria",
+    "ui.share.podpowiedzi": "podpowiedzi",
+    "ui.share.pomylki": "pomyłki",
+    "ui.share.czas": "czas",
+    "ui.share.siatka_powiazan": "Siatka Powiązań",
+    "ui.track.dniach": "dniach",
+    "ui.track.dniu": "dniu",
+    "ui.track.nowy_gracz": "Nowy gracz",
+    "ui.track.powrot_w_dniu_n_po_pierwszej": "Powrót w dniu {n} po pierwszej grze ({device})",
+    "ui.track.powrot_po_n_v": "Powrót po {n} {v}",
+    "ui.game.samouczek_przycisk": "Samouczek: przycisk",
+    "ui.game.zaznaczono_skopiuj": "Zaznaczono, skopiuj",
+    "ui.game.min_html": "<tr><td>{nm} ↔ {nm2}</td><td>{m} min</td></tr>",
+    "ui.settings.aplikacja_html": "<div class=\"lbl\">Aplikacja</div>{app}",
+    "ui.settings.nowe_html": "<span class=\"dot\" aria-label=\"nowe\"></span>",
+    "ui.settings.wersja_html": "<h4>Wersja {v}<small>{fmtDate}</small></h4><ul>{join}</ul>",
+    "ui.tutorial.krok_html": "<button data-j=\"{j}\" aria-label=\"Krok {v}: {title}\"{v2}></button>",
+    "ui.tutorial.widziano_o_ma_do_od_html": "<div class=\"hw-desk\"></div>{pol}\n        <div class=\"hw-sheet\"><b class=\"h\">{name}</b><ul>\n          <li>Widziano {v} {l} o {fxT}.</li>\n          <li>Ma {k} do {l2}.</li>\n          <li>Od {fxT2} {v2}. {k2} brak.</li></ul></div>\n        <i class=\"hw-f\" style=\"--x:53px;--y:86px\"></i>",
+    "ui.ach.zdobyte_html": "<small>{v} · zdobyte {date}</small>",
+    "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} z 3\">{repeat}{repeat2}</div>",
+    "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} z {need}</small>",
+    "ui.game.n_dowod_1": "dowód rzeczowy",
+    "ui.game.n_dowod_2": "dowody rzeczowe",
+    "ui.game.n_dowod_5": "dowodów rzeczowych",
+    "ui.game.n_przedmiot_1": "przedmiot",
+    "ui.game.n_przedmiot_2": "przedmioty",
+    "ui.game.n_przedmiot_5": "przedmiotów",
+    "ui.game.n_miejsce_1": "miejsce",
+    "ui.game.n_miejsce_2": "miejsca",
+    "ui.game.n_miejsce_5": "miejsc",
+    "ui.game.n_regula_1": "reguła",
+    "ui.game.n_regula_2": "reguły",
+    "ui.game.n_regula_5": "reguł",
+    "ui.game.w_trakcie": "w trakcie",
+    "ui.game.sprawa_z_archiwum": "Sprawa z archiwum",
+    "ui.game.sprawa_padstart": "Sprawa #{padStart}",
+    "ui.game.seria_cur": "\nSeria: {cur} 🔥",
+    "ui.game.seria_cur_dni": "Seria {cur} dni",
+    "ui.game.wynik_starsof_z_3_gwiazdek": "Wynik: {starsOf} z 3 gwiazdek",
+    "ui.game.wygrana_devicetype": "Wygrana ({deviceType})",
+    "ui.game.wykluczony": " · wykluczony",
+    "ui.game.pinezka_name": "Pinezka: {name}",
+    "ui.game.start_v_size": "Start: {v} {size}",
+    "ui.settings.co_nowego": "Co nowego",
+    "ui.settings.muzyka_w_tle": "Muzyka w tle",
+    "ui.settings.instalacja_v_where": "Instalacja: {v} ({where})",
+    "ui.tutorial.do_roboty": "Do roboty!",
+    "ui.tutorial.krok_v_z_length": "Krok {v} z {length}",
+    "ui.tutorial.ilustracja_title": "Ilustracja: {title}",
+    "ui.tutorial.notatnik_i_wykluczanie": "Notatnik i wykluczanie",
+    "ui.tutorial.na_miejscu": "na miejscu",
+    "ui.tutorial.tablica_i_akta": "Tablica i akta",
+    "ui.ach.do_akt": "Do akt",
+    "ui.ach.dalej_left": "Dalej ({left})",
+    "gen.classic.komisarz_detective": "Komisarz {detective}",
+    "gen.classic.porucznik_detective_z_mo": "Porucznik {detective} z MO",
+    "gen.timeline.komisarz_detective": "Komisarz {detective}",
+    "gen.timeline.porucznik_detective_z_mo": "Porucznik {detective} z MO",
+    "gen.timeline.label_split_re": " (?:z|ze|przy|w|na|u|pod|nad|obok|do) ",
+    "gen.timeline.name_d_min": "{name}: {d} min"
+  };
+  /* END MESSAGES */
+
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("./i18n.js") : null);
+  if (I18N) I18N.register("pl", { messages, grammar });
+  if (typeof module !== "undefined" && module.exports) module.exports = { messages, grammar };
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== engine/engine.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — silnik: losowanie, tekst, rejestr archetypów, sprawa dnia.
+ * Działa w przeglądarce (window.Siatka) i w Node (require).
+ *
+ * World = { base: SIATKA_BASE, cities: SIATKA_CITIES }
+ *
+ * Archetyp (engine/archetypes/*.js) rejestruje się przez Siatka.register({...}):
+ *   id, name, minSize, weight (liczba albo fn(size)), question,
+ *   build(ctx) → sprawa | null, hypotheses(c) → [...], holds(rule, hyp, ix, c) → bool
+ * Ogólny solver i biblioteka predykatów: engine/solver.js.
+ *
+ * Model logiczny sprawy (pole `facts`):
+ *   has_key     {who, where}
+ *   presence    {who, where, at}  albo {who, where, from, to}
+ *   alibi       {who, from, to, confirmed}
+ *   trait       {who, trait, value}
+ *   item_origin {what, where}
+ *   item_moved  {what, from, to}
+ *   item_fate   {what, value}
+ *   alibi_debunked {who}
+ *   evidence    {id, kind, owner?, mark?:{kind, value}}   dowód rzeczowy (etap 1)
+ *   mark        {who, kind, value}                         znak rozpoznawczy w teczce osoby
+ * Fakt pokazany na dowodzie ma src = id dowodu (i nie ma go w teczce).
+ * Reguły (pole `rules`): {id, type: alibi|trait|window|key|fate|dump, trait?, value?, text}
+ */
+(function (root) {
+  /* ---------------- losowanie ---------------- */
+  function hash(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  }
+  function makeRng(seed) {
+    let a = hash(String(seed));
+    const next = () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const r = {
+      next,
+      int: (lo, hi) => lo + Math.floor(next() * (hi - lo + 1)),
+      pick: arr => arr[Math.floor(next() * arr.length)],
+      chance: p => next() < p,
+      shuffle: arr => { const a2 = arr.slice(); for (let i = a2.length - 1; i > 0; i--) { const j = Math.floor(next() * (i + 1)); [a2[i], a2[j]] = [a2[j], a2[i]]; } return a2; }
+    };
+    r.sample = (arr, n) => r.shuffle(arr).slice(0, n);
+    return r;
+  }
+
+  /* ---------------- tekst ---------------- */
+  /* Gramatyka zależy od języka (data/i18n/<język>.js): odmiana [a|b|c] wg rodzaju, liczba mnoga, wyliczenie, kwoty słownie. */
+  const I18N = () => root.SiatkaI18n;
+  const G = () => I18N().genGrammar();
+  const t = (key, vars) => I18N().tg(key, vars);
+  const tx = (str, g, vars) => G().tx(str, g, vars);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  const toHM = m => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+  const plList = a => G().list(a);
+  const plural = (n, ...forms) => G().plural(n, ...forms);
+  /* years:[od,do] i opcjonalnie months:[od,do] (1–12, w każdym roku z zakresu); m = indeks miesiąca sprawy 0–11 */
+  const inYears = (o, y, m) => !o || ((!o.years || (y >= o.years[0] && y <= o.years[1])) && (!o.months || m === undefined || (m + 1 >= o.months[0] && m + 1 <= o.months[1])));
+  /* 2.2.1: świadkowie i dowody pasują do rodzaju miejsca (pt: street, yard, field, shop, stair, cellar, work); wpis z `at` tylko w miejscach z listy */
+  const fitsAt = (o, pt) => typeof o === "string" || !o.at || (!!pt && o.at.includes(pt));
+  const atTexts = (list, pt) => list.filter(o => fitsAt(o, pt)).map(o => typeof o === "string" ? o : o.t);
+  /* lista tekstów/obiektów → to, co pasuje do roku (teksty jako stringi) */
+  const avail = (list, y, m) => (Array.isArray(list) ? list : [list]).filter(o => typeof o === "string" || inYears(o, y, m)).map(o => (typeof o === "object" && o.t !== undefined && !o.id) ? o.t : o);
+  const slug = s => G().slug(s);
+  /* liczba z ułamkiem wg języka generatora: 1,72 (pl) / 1.72 (en) */
+  /* przedmiot w liście w zdaniu: gramatyka może podać własną formę (en: „the jar of paint”), domyślnie nazwa małą literą */
+  const itemRef = it => { const g = G(); return g.itemRef ? g.itemRef(it) : it.name.charAt(0).toLowerCase() + it.name.slice(1); };
+  const decimal = (x, digits) => { const s = x.toFixed(digits), g = G(); return g.decimal ? g.decimal(s) : s; };
+  const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+
+  function money(R, year) {
+    if (year <= 1989) return G().amount(R.int(2, 9) * 100, "thousand");
+    if (year < 1995) return G().amount(R.int(3, 60), "million");
+    return G().amount(R.int(2, 15), "thousand");
+  }
+  /* 2.2: kwota z cennika (B.prices): rodzaj → zakres dla 1989, 1990–94 i od 1995. Dwie cyfry znaczące,
+     od tysiąca słownie („37 tysięcy”, „2,5 miliona”); w nowych złotych pełne tysiące też słownie. */
+  function price(B, R, year, kind) {
+    const p = (B.prices || {})[kind]; if (!p) throw new Error("Missing price: " + kind);
+    const [lo, hi] = p[year <= 1989 ? 0 : year < 1995 ? 1 : 2];
+    let v = R.int(lo, hi);
+    const step = Math.pow(10, Math.max(0, Math.floor(Math.log10(v)) - 1)); v = Math.max(lo, Math.round(v / step) * step);
+    if (v >= 1e6) { const m = v / 1e6; return G().amount(m, Number.isInteger(m) ? "million" : "millionFrac"); }
+    if (v >= 1000 && v % 1000 === 0) return G().amount(v / 1000, "thousand");
+    if (v >= 10000) return G().amount(Math.round(v / 1000), "thousand");
+    return G().amount(v, "zloty");
+  }
+  /* 2.2: wzrost w cm. Rozkład trójkątny wg płci (m 165–190, najczęściej 176; k 155–178, najczęściej 164).
+     Opis: wysoki od progu tall, niski do progu short, pomiędzy „mid” (bez zdań o wzroście).
+     want = "tall" / "short": losowanie tylko z tej klasy (gdy wzrost opisowy jest regułą). */
+  const HEIGHT = { m: { lo: 165, mode: 176, hi: 190, tall: 182, short: 168 }, f: { lo: 155, mode: 164, hi: 178, tall: 174, short: 158 } };
+  function heightOf(R, g, want) {
+    const H = HEIGHT[g];
+    if (want === "tall") return R.int(H.tall, H.hi);
+    if (want === "short") return R.int(H.lo, H.short);
+    const u = R.next(), F = (H.mode - H.lo) / (H.hi - H.lo);
+    return Math.round(u < F ? H.lo + Math.sqrt(u * (H.hi - H.lo) * (H.mode - H.lo)) : H.hi - Math.sqrt((1 - u) * (H.hi - H.lo) * (H.hi - H.mode)));
+  }
+  const heightClass = (g, cm) => cm >= HEIGHT[g].tall ? "tall" : cm <= HEIGHT[g].short ? "short" : "mid";
+  /* {kwota_<rodzaj>} w tekście → kwota z cennika */
+  const prices = (B, R, year, s) => s.replace(/\{kwota_(\w+)\}/g, (_, k) => price(B, R, year, k));
+  /* {money} w dopełniaczu: liczba zostaje cyframi, zmienia się rzeczownik (2 tysiące → 2 tysięcy, 3 miliony → 3 milionów) */
+  const moneyGen = s => G().moneyGen(s);
+  /* drobna kwota na kwitach i paragonach: do 1994 stare złote, od denominacji nowe */
+  function smallMoney(R, year) {
+    if (year <= 1989) return G().amount(R.int(3, 9), "thousand");
+    if (year < 1995) return G().amount(R.int(5, 40) * 10, "thousand");
+    return G().amount(R.int(15, 90), "zloty");
+  }
+  /* Czy tekst (napis albo {t, ages, k, roles, trait}) pasuje do postaci {age, role, traits}:
+     ages = wiek postaci, roles = tylko te role, k = tagi, których rola nie może mieć (role.no),
+     trait = wymagane wartości cech (np. zdanie o własnym aucie tylko z autem). */
+  function fitsWho(o, who) {
+    if (!o || typeof o === "string" || !who) return true;
+    if (o.ages && who.age && !o.ages.includes(who.age)) return false;
+    if (o.cm && who.cm != null && who.g) { const [lo, hi] = o.cm[who.g] || [0, 999]; if (who.cm < lo || who.cm > hi) return false; } // 2.2: zdania o wzroście
+    const role = who.role || {};
+    if (o.roles && !o.roles.includes(role.id)) return false;
+    /* 2.2.1: rodzaj poszkodowanego (scena.vt: adm, inst, firm, priv, zwierzę…): zdanie z vt pasuje tylko do sceny z wspólnym tagiem */
+    if (o.vt && !(who.vt && [].concat(who.vt).some(t => o.vt.includes(t)))) return false;
+    if (o.k && o.k.some(k => (role.no || []).includes(k))) return false;
+    if (o.trait && who.traits && Object.entries(o.trait).some(([t, v]) => who.traits[t] !== v)) return false;
+    return true;
+  }
+
+  /* ---------------- wielkości ---------------- */
+  /* n = podejrzani, k = liczba dowodów; miejsc jest k albo k-1 (dwa dowody w jednym miejscu) */
+  const SIZES = {
+    S:  { n: 3, k: [2],    get name() { return t("gen.size.S"); } },
+    M:  { n: 4, k: [2, 3], get name() { return t("gen.size.M"); } },
+    L:  { n: 5, k: [3],    get name() { return t("gen.size.L"); } },
+    XL: { n: 6, k: [3, 4], get name() { return t("gen.size.XL"); } }
+  };
+
+  /* ---------------- archetypy ---------------- */
+  const ARCH = {};
+  const SIZE_ORDER = Object.keys(SIZES);
+  const ALIAS = {};
+  function register(a) { ARCH[a.id] = a; for (const x of a.aliases || []) ALIAS[x] = a.id; }
+  const archetypeOf = c => { const id = (c && c.archetype) || "classic"; return ARCH[id] || ARCH[ALIAS[id]]; };
+  const weightOf = (a, size) => typeof a.weight === "function" ? a.weight(size) : (a.weight == null ? 1 : a.weight);
+  /* archetyp losujemy z osobnego strumienia, żeby nie zmieniać losowań samej sprawy */
+  function pickArchetype(seed, opts) {
+    if (opts.archetype && ARCH[opts.archetype]) return ARCH[opts.archetype];
+    const ok = Object.values(ARCH).filter(a => SIZE_ORDER.indexOf(opts.size) >= SIZE_ORDER.indexOf(a.minSize || "S") && weightOf(a, opts.size) > 0 && (!a.supports || a.supports(opts)));
+    if (!ok.length) throw new Error("No archetype for size " + opts.size);
+    if (ok.length === 1) return ok[0];
+    const R = makeRng(seed + "/arch"), total = ok.reduce((s, a) => s + weightOf(a, opts.size), 0);
+    let x = R.next() * total;
+    for (const a of ok) { x -= weightOf(a, opts.size); if (x < 0) return a; }
+    return ok[ok.length - 1];
+  }
+
+  /* ---------------- wspólny kontekst sprawy ---------------- */
+  /* Kolejność losowań jest częścią formatu: te same seedy muszą dawać te same sprawy. */
+  function context(world, seed, opts) {
+    const R = makeRng(seed);
+    const B = world.base;
+    const cityId = opts.city && world.cities[opts.city] ? opts.city : R.pick(Object.keys(world.cities));
+    const city = world.cities[cityId];
+    const year = opts.year || R.int(B.years[0], B.years[1]);
+    const monthIdx = R.int(0, 11);
+    const sizeKey = SIZES[opts.size] ? opts.size : R.pick(Object.keys(SIZES));
+    const N = SIZES[sizeKey].n, K = R.pick(SIZES[sizeKey].k);
+    const milicja = year === 1989 || (year === 1990 && monthIdx < 4);
+    const A = list => avail(list, year, monthIdx);
+
+    const streets = R.shuffle(city.streets);
+    const V = {
+      city: city.name, district: city.district.nom, district_gen: city.district.gen,
+      district_na: city.district.na, district_na_cap: cap(city.district.na), district_po: city.district.po,
+      street: streets[0], street2: streets[1],
+      market_on: city.market.on, market_from: city.market.from, market_to: city.market.to,
+      bar: R.pick(city.bars), church_at: city.church_at, team: R.pick(city.teams), cinema: city.cinema, gazeta: city.gazeta,
+      dworzec: city.dworzec, szpital: city.szpital, walk: city.walk, uni: city.uni,
+      zaklad_at: R.pick(A(city.zaklad_at)),
+      month: B.months[monthIdx], year, police_dat: t(milicja ? "gen.police_dat.militia" : "gen.police_dat.police"), money: price(B, R, year, "money"), ransom: price(B, R, year, "ransom")
+    };
+    V.money_gen = moneyGen(V.money); V.ransom_gen = moneyGen(V.ransom); // „z żądaniem 2 tysięcy złotych”
+    const T = (s, g, extra) => tx(s, g, extra ? Object.assign({}, V, extra) : V);
+    /* w jednej sprawie to samo zdanie nie trafia do dwóch osób (dopóki starcza wariantów) */
+    const usedTpl = new Set();
+    const pickU = list => { const free = list.filter(x => !usedTpl.has(x)); const c = R.pick(free.length ? free : list); usedTpl.add(c); return c; };
+    return { R, B, world, seed, opts, cityId, city, year, monthIdx, sizeKey, N, K, milicja, A, V, T, pickU, streets };
+  }
+
+  /* ---------------- solver i generator ---------------- */
+  const solver = () => root.SiatkaSolver || require("./solver.js");
+  function solve(c, opts) {
+    const A = archetypeOf(c);
+    if (!A) throw new Error("Unknown archetype: " + c.archetype);
+    return solver().solve(c, A, opts);
+  }
+
+  /* Znaczniki Kartoteki {g:hasło|tekst} w tekstach, które nie przeszły przez tx (nazwy i etykiety miejsc, przedmiotów,
+     dowodów i to, co z nich złożono), rozwiązuje SiatkaI18n.glossary. Pomijamy `used` (porównywane z surowymi danymi
+     przy unikaniu powtórek) i `facts`. Polskie treści nie mają znaczników, więc sprawy PL się nie zmieniają. */
+  const GLOSS = /\{g:([\w-]+)(?:\|([^{}]*))?\}/g;
+  function glossaryPass(c) {
+    const I = I18N(), fix = s => s.indexOf("{g:") < 0 ? s : s.replace(GLOSS, (m, id, label) => (I && I.glossary ? I.glossary(id, label) : (label != null ? label : id)));
+    const walk = v => {
+      if (typeof v === "string") return fix(v);
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = walk(v[i]); return v; }
+      if (v && typeof v === "object") for (const k of Object.keys(v)) if (k !== "used" && k !== "facts") v[k] = walk(v[k]);
+      return v;
+    };
+    walk(c);
+    /* Znaczniki z glossary() (niewidoczne, po tekście): w aktach, notatniku i podpowiedziach zostają jako „{g:id|tekst}”
+       (gra je podkreśla i otwiera hasło), wszędzie indziej (także w used i facts) zostaje sam tekst. */
+    if (!I || !I.glossaryResolve) return c;
+    const res = (v, keep) => {
+      if (typeof v === "string") return I.glossaryResolve(v, keep);
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = res(v[i], keep); return v; }
+      if (v && typeof v === "object") for (const k of Object.keys(v)) v[k] = res(v[k], keep);
+      return v;
+    };
+    const keep = { intro: 1, hints: 1, travel_note: 1 };
+    for (const k of Object.keys(c)) {
+      if (keep[k]) c[k] = res(c[k], true);
+      else if (k === "rules") c.rules.forEach(r => { for (const f of Object.keys(r)) r[f] = res(r[f], f === "text"); });
+      else if (k === "nodes") c.nodes.forEach(n => { for (const f of Object.keys(n)) n[f] = res(n[f], f === "text"); });
+      else c[k] = res(c[k], false);
+    }
+    return c;
+  }
+  function generateCase(world, seed, opts = {}) {
+    // miasto, rok i wielkość losujemy raz, żeby ponowne próby nie zmieniały proporcji
+    const R0 = makeRng(seed + "/opts");
+    opts = Object.assign({}, opts);
+    if (!world.cities[opts.city]) opts.city = R0.pick(Object.keys(world.cities));
+    if (!opts.year) opts.year = R0.int(world.base.years[0], world.base.years[1]);
+    if (!SIZES[opts.size]) opts.size = R0.pick(Object.keys(SIZES));
+    const Arch = pickArchetype(seed, opts);
+    let depthRejects = 0;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const c = Arch.build(context(world, `${seed}#${attempt}`, opts));
+      if (!c) continue;
+      c.archetype = Arch.id; c.question = c.question || Arch.question; c.gen = GEN_VERSION;
+      const res = solve(c);
+      if (!res.ok) continue;
+      // 2.2: odrzucamy sprawy, które rozwiązuje jedna reguła albo jeden wyjątkowo mocny fakt
+      const d = solver().depth(c, archetypeOf(c));
+      if (d.reject) { depthRejects++; continue; }
+      c.seed = String(seed); c.verify = { solutions: res.solutions.length, necessary: res.necessary, tries: attempt + 1, depthRejects,
+        depth: { minFacts: d.minFacts, strongRule: d.strongRule, strongFact: d.strongFact } };
+      return glossaryPass(c);
+    }
+    throw new Error("Could not generate a valid case for seed " + seed);
+  }
+
+  /* ---------------- sprawa dnia ---------------- */
+  const EPOCH = Date.UTC(2026, 10, 3); // 3 listopada 2026 = sprawa #1
+  /* pon. mała → niedz. ogromna */
+  const WEEK_SIZES = ["XL", "S", "S", "M", "M", "L", "L"]; // indeks = getDay(): 0 = niedziela
+  function dailyNumber(date = new Date()) {
+    const d = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    return Math.floor((d - EPOCH) / 86400000) + 1;
+  }
+  const dailySize = (date = new Date()) => WEEK_SIZES[date.getDay()];
+  /* ---------------- wersje generatora ----------------
+     Sprawa dnia ma być taka sama dla wszystkich i nie może się zmienić w trakcie dnia, więc każda
+     wersja generatora obowiązuje od podanego dnia (lokalna data sprawy dnia, RRRR-MM-DD).
+     Starsze wersje są zamrożone w engine/versions/ (tools/freeze-version.js) i rejestrują się
+     w SiatkaLegacy. Nowe wydanie: zamroź poprzednią wersję, dopisz nową z datą od NAJBLIŻSZEJ
+     północy po wdrożeniu (nigdy dziś), podbij GEN_VERSION. Sprawy z archiwum biorą zawsze bieżącą. */
+  const GEN_VERSION = "2.2.1";
+  const GENERATOR_VERSIONS = [
+    { id: "2.0", from: "2026-11-03", frozen: "engine/versions/v2_0.js" }, // commit 0879423
+    { id: "2.1", from: "2026-11-05", frozen: "engine/versions/v2_1.js" }, // commit c3e4f77
+    { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
+    { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
+    { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
+    { id: "2.2.1", from: "2026-11-18" }                                    // bieżący kod; data = północ po wdrożeniu we wtorek 17.11
+  ];
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function versionFor(date = new Date()) {
+    const day = ymd(date); let v = GENERATOR_VERSIONS[0].id;
+    for (const x of GENERATOR_VERSIONS) if (x.from <= day) v = x.id;
+    return v;
+  }
+  function legacy(id) {
+    const L = root.SiatkaLegacy && root.SiatkaLegacy[id];
+    if (L) return L;
+    const meta = GENERATOR_VERSIONS.find(x => x.id === id);
+    if (meta && meta.frozen && typeof module !== "undefined" && module.exports) { require("../" + meta.frozen); return root.SiatkaLegacy && root.SiatkaLegacy[id]; }
+    return null;
+  }
+  /* 2.2: oś czasu wchodzi do spraw dnia dopiero od TIMELINE_DAILY_FROM (zapowiedź dla graczy); wcześniej sprawa dnia
+     jest zawsze classic, a archiwum dostaje oś czasu od razu. */
+  const TIMELINE_DAILY_FROM = "2026-11-18";
+  const dailyOpts = date => Object.assign({ size: dailySize(date) }, ymd(date) < TIMELINE_DAILY_FROM ? { archetype: "classic" } : {});
+  function dailyCase(world, date = new Date()) {
+    const n = dailyNumber(date), ver = versionFor(date);
+    if (ver !== GEN_VERSION) {
+      const L = legacy(ver);
+      // język generatora idzie do zamrożonej wersji; wersje sprzed treści EN (2.0–2.2) go pomijają i dają sprawę po polsku
+      if (L) { const c = L.dailyCase(date, I18N() ? I18N().genLang() : "pl"); c.gen = ver; return c; }
+      // brak zamrożonej wersji (np. plik się nie wczytał): lepsza inna sprawa niż wywalona gra
+      if (typeof console !== "undefined") console.warn("Missing generator version " + ver + ", daily case from version " + GEN_VERSION);
+    }
+    const c = generateCase(world, "daily-" + n, dailyOpts(date));
+    c.number = n; return c;
+  }
+  /* wersja generatora, z której pochodzi sprawa (sprawy sprzed wersjonowania nie mają pola gen) */
+  const caseVersion = c => (c && c.gen) || GENERATOR_VERSIONS[0].id;
+
+  /* pola `used` z ostatnich spraw gracza → opts.avoid (imiona, nazwiska, role, sceny, smaczki).
+     Sprawa dnia nigdy nie dostaje avoid, żeby była taka sama dla wszystkich. */
+  const RECENT = 10;
+  function avoidFrom(usedList) {
+    const out = {};
+    for (const u of (usedList || []).slice(-RECENT)) for (const k in u || {}) out[k] = [...new Set([...(out[k] || []), ...u[k]])];
+    return out;
+  }
+
+  /* avoid niezależny od języka: teksty z `used` (sceny, komentarze, smaczki, alibi) jako ścieżki w danych
+     („b.crimes.kradziez.scenes.3.title”), bo dane PL i EN mają ten sam kształt. Imiona, nazwiska i role są wspólne.
+     Gra trzyma ostatnie sprawy i opcje sprawy z archiwum w tej postaci, a generatorowi podaje teksty bieżącego języka
+     (decodeAvoid), więc generator porównuje teksty jak dotąd. Tekst z kilku miejsc koduje się na wszystkie te ścieżki. */
+  const AVOID_TEXT = ["scenes", "quips", "flavor", "alibi"];
+  const textIx = new WeakMap();
+  function textIndex(world) {
+    let ix = textIx.get(world);
+    if (ix) return ix;
+    const byText = new Map(), byPath = new Map();
+    const walk = (v, p) => {
+      if (typeof v === "string") { (byText.get(v) || byText.set(v, []).get(v)).push(p); byPath.set(p, v); return; }
+      if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${p}.${i}`));
+      else if (v && typeof v === "object") for (const k in v) walk(v[k], `${p}.${k}`);
+    };
+    walk(world.base, "b"); walk(world.cities, "c");
+    textIx.set(world, ix = { byText, byPath });
+    return ix;
+  }
+  function encodeUsed(world, used) {
+    const ix = textIndex(world), out = {};
+    for (const key in used || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((used[key] || []).flatMap(s => ix.byText.get(s) || []))] : used[key];
+    return out;
+  }
+  function decodeAvoid(world, keys) {
+    const ix = textIndex(world), out = {};
+    for (const key in keys || {}) out[key] = AVOID_TEXT.includes(key) ? [...new Set((keys[key] || []).map(p => ix.byPath.get(p)).filter(s => s != null))] : keys[key];
+    return out;
+  }
+
+  const util = { itemRef, decimal, fitsAt, atTexts, hash, makeRng, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, money, moneyGen, smallMoney, price, prices, fitsWho, HEIGHT, heightOf, heightClass };
+  const api = { makeRng, tx, t, solve, generateCase, dailyCase, dailyNumber, dailySize, SIZES, util, register, archetypes: ARCH, context, avoidFrom, RECENT,
+    GEN_VERSION, GENERATOR_VERSIONS, versionFor, caseVersion, legacy, dailyOpts, TIMELINE_DAILY_FROM, encodeUsed, decodeAvoid };
+  root.Siatka = api;
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
+    // w Node dociągamy solver i archetypy (w przeglądarce ładuje je index.html)
+    require("../data/i18n/i18n.js");
+    require("../data/i18n/pl.js");
+    require("./solver.js");
+    require("./archetypes/classic.js");
+    require("./archetypes/timeline.js");
+  }
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== engine/solver.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — ogólny solver i wspólna biblioteka predykatów.
+ *
+ * Archetyp sprawy podaje przestrzeń hipotez (`hypotheses(c)`) i mówi, czy reguła zachodzi
+ * dla hipotezy (`holds(rule, hyp, ix, c)`). Solver sprawdza, które hipotezy spełniają wszystkie
+ * reguły, czy każda reguła jest potrzebna i czy jedyne rozwiązanie zgadza się z `c.solution`.
+ *
+ * Predykaty (PRED) działają na zindeksowanych faktach i są wspólne dla wszystkich archetypów.
+ * Hipoteza archetypu „classic” to {culprit, weapon}; predykaty biorą z niej osobę (`who`)
+ * i przedmiot (`item`) przez `subject()` archetypu.
+ *
+ * Dowody rzeczowe (fakt `evidence` + fakty `mark`): fakt niesiony przez dowód ma `src` = id dowodu,
+ * a właściciela dowodu wskazuje znak (inicjały, numer mieszkania). `checkEvidence` pilnuje,
+ * żeby znak pasował do dokładnie jednej osoby i żeby była to osoba z faktu.
+ */
+(function (root) {
+  const t = (key, vars) => root.SiatkaI18n.tg(key, vars);
+  const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+
+  function indexFacts(c, skip) {
+    const ix = { key: new Set(), pres: [], alibi: {}, trait: {}, origin: {}, moved: {}, fate: {}, debunked: new Set(), marks: [], evidence: {}, rel: new Set(), roster: new Set(), travel: {} };
+    for (const f of c.facts) {
+      if (skip && skip(f)) continue;
+      if (f.type === "has_key") ix.key.add(f.who + "|" + f.where);
+      else if (f.type === "presence") ix.pres.push(f);
+      else if (f.type === "alibi") (ix.alibi[f.who] = ix.alibi[f.who] || []).push(f);
+      else if (f.type === "trait") (ix.trait[f.who] = ix.trait[f.who] || {})[f.trait] = f.value;
+      else if (f.type === "item_origin") ix.origin[f.what] = f.where;
+      else if (f.type === "item_moved") ix.moved[f.what] = f;
+      else if (f.type === "item_fate") ix.fate[f.what] = f.value;
+      else if (f.type === "alibi_debunked") ix.debunked.add(f.who);
+      else if (f.type === "mark") ix.marks.push(f);
+      else if (f.type === "evidence") ix.evidence[f.id] = f;
+      else if (f.type === "relation") ix.rel.add(f.a + "|" + f.b + "|" + f.rel);
+      else if (f.type === "roster_entry") ix.roster.add(f.who);
+      else if (f.type === "travel") { ix.travel[f.a + "|" + f.b] = f.min; ix.travel[f.b + "|" + f.a] = f.min; }
+    }
+    return ix;
+  }
+
+  /* 2.2 (oś czasu): czy osoba z obserwacjami obs = [{w, t}] (posortowanymi) mogła spędzić w X co najmniej
+     stay minut w oknie [A, B]. d(a, b) = czas dojścia (Infinity, gdy nieznany). Przed pierwszą i po ostatniej
+     obserwacji czas jest wolny. */
+  function reachable(obs, X, A, B, d, stay = 0) {
+    if (!obs.length) return B - A >= stay;
+    if (obs.some(o => o.w === X && o.t >= A && o.t <= B)) return true;
+    const first = obs[0], last = obs[obs.length - 1];
+    if (Math.min(first.t - d(X, first.w), B) - A >= stay) return true;
+    if (B - Math.max(last.t + d(last.w, X), A) >= stay) return true;
+    for (let i = 0; i + 1 < obs.length; i++) {
+      const e = obs[i].t + d(obs[i].w, X), l = obs[i + 1].t - d(X, obs[i + 1].w);
+      if (Math.min(l, B) - Math.max(e, A) >= stay) return true;
+    }
+    return false;
+  }
+
+  /* ---------- biblioteka predykatów: s = {who, item} ---------- */
+  const PRED = {
+    alibi(rule, s, ix, c) {
+      const a = toMin(c.time.crime.from), b = toMin(c.time.crime.to);
+      if (ix.debunked.has(s.who)) return true; // alibi obalone w aktach innej osoby
+      return !(ix.alibi[s.who] || []).some(f => f.confirmed && toMin(f.from) <= a && toMin(f.to) >= b);
+    },
+    trait: (rule, s, ix) => !!ix.trait[s.who] && String(ix.trait[s.who][rule.trait]) === String(rule.value),
+    key: (rule, s, ix) => ix.key.has(s.who + "|" + ix.origin[s.item]),
+    fate: (rule, s, ix) => ix.fate[s.item] === rule.value,
+    /* 2.2: porównanie wzrostu z miarą w regule (refCm, dir = up/down), relacja z osobą spoza podejrzanych, zeszyt dozorcy (zamknięta lista) */
+    cmp: (rule, s, ix) => { const h = ix.trait[s.who] && ix.trait[s.who].height_cm; return h != null && (rule.dir === "down" ? h < rule.refCm : h > rule.refCm); },
+    relation: (rule, s, ix) => ix.rel.has(s.who + "|" + rule.refName + "|" + rule.rel),
+    absent: (rule, s, ix) => !ix.roster.has(s.who),
+    reach(rule, s, ix) {
+      const obs = ix.pres.filter(p => p.who === s.who && p.at).map(p => ({ w: p.where, t: toMin(p.at) })).sort((a, b) => a.t - b.t);
+      const d = (a, b) => a === b ? 0 : (ix.travel[a + "|" + b] ?? Infinity);
+      return reachable(obs, rule.where, toMin(rule.from), toMin(rule.to), d, rule.stay || 0);
+    },
+    dump: (rule, s, ix) => !!ix.trait[s.who] && ix.trait[s.who].habit === ix.fate[s.item],
+    window(rule, s, ix) {
+      const mv = ix.moved[s.item], loc = ix.origin[s.item]; if (!mv) return false;
+      const a = toMin(mv.from), b = toMin(mv.to);
+      return ix.pres.some(p => p.who === s.who && p.where === loc &&
+        (p.at ? (toMin(p.at) >= a && toMin(p.at) <= b) : (toMin(p.from) <= b && toMin(p.to) >= a)));
+    }
+  };
+  const pred = (rule, s, ix, c) => { const p = PRED[rule.type]; return p ? p(rule, s, ix, c) : false; };
+
+  /* Każdy dowód wskazuje znakiem dokładnie jedną osobę, a fakty z dowodu dotyczą właśnie jej. */
+  function checkEvidence(c, ix) {
+    const errors = [];
+    for (const id in ix.evidence) {
+      const ev = ix.evidence[id];
+      if (!ev.mark) continue; // dowód bez właściciela (np. książka wydań kluczy z miejsca)
+      const who = ix.marks.filter(m => m.kind === ev.mark.kind && m.value === ev.mark.value).map(m => m.who);
+      if (who.length !== 1) errors.push(t("gen.solver.id_znak_kind_value_pasuje_do", { id, kind: ev.mark.kind, value: ev.mark.value, length: who.length }));
+      else if (who[0] !== ev.owner) errors.push(t("gen.solver.id_znak_wskazuje_v_a_dowod", { id, v: who[0], owner: ev.owner }));
+      for (const f of c.facts) if (f.src === id && f.who && f.who !== ev.owner) errors.push(t("gen.solver.id_fakt_type_dotyczy_who_nie", { id, type: f.type, who: f.who }));
+    }
+    return errors;
+  }
+
+  /* {solutions, unique, necessary:{ruleId:bool}, ok, errors} */
+  function solve(c, A, opts = {}) {
+    const ix = indexFacts(c, opts.skip);
+    const hyps = A.hypotheses(c);
+    const sols = rules => hyps.filter(h => rules.every(r => A.holds(r, h, ix, c)));
+    const solutions = sols(c.rules);
+    const necessary = {};
+    for (const r of c.rules) necessary[r.id] = sols(c.rules.filter(x => x !== r)).length > 1;
+    const unique = solutions.length === 1;
+    const same = A.same || ((h, sol) => Object.keys(h).every(k => h[k] === sol[k]));
+    const matches = unique && c.solution && same(solutions[0], c.solution);
+    const errors = opts.skip ? [] : checkEvidence(c, ix);
+    return { solutions, unique, necessary, errors,
+      ok: unique && matches !== false && Object.values(necessary).every(Boolean) && !errors.length };
+  }
+
+  /* 2.2: metryka głębokości na poziomie faktów.
+     - strongRule: najwięcej niewinnych, których odcina jedna reguła sama,
+     - strongFact: najwięcej niewinnych, którzy „wracają” po usunięciu jednego faktu (fakt, od którego zależy ich eliminacja),
+     - minFacts: ile faktów zostaje po zachłannym usuwaniu tych, bez których rozwiązanie dalej jest jedno (głębokość),
+     - reject: jedna reguła albo jeden fakt eliminuje wszystkich niewinnych (przy co najmniej 2 niewinnych). */
+  function depth(c, A) {
+    const hyps = A.hypotheses(c), subj = A.subject || (h => h.culprit), culprit = c.solution.culprit;
+    const innocents = [...new Set(hyps.map(subj))].filter(p => p !== culprit);
+    const alive = (rules, ix) => new Set(hyps.filter(h => rules.every(r => A.holds(r, h, ix, c))).map(subj));
+    const ix0 = indexFacts(c);
+    let strongRule = 0;
+    for (const r of c.rules) { const al = alive([r], ix0); strongRule = Math.max(strongRule, innocents.filter(p => !al.has(p)).length); }
+    let strongFact = 0;
+    for (const f of c.facts) {
+      const al = alive(c.rules, indexFacts(c, x => x === f));
+      strongFact = Math.max(strongFact, innocents.filter(p => al.has(p)).length);
+    }
+    // zachłannie: fakty w stałej kolejności, usuwamy te, bez których zostaje jedna hipoteza
+    const removed = new Set();
+    for (const f of c.facts) {
+      removed.add(f);
+      const ix = indexFacts(c, x => removed.has(x));
+      if (hyps.filter(h => c.rules.every(r => A.holds(r, h, ix, c))).length !== 1) removed.delete(f);
+    }
+    const n = innocents.length;
+    return { strongRule, strongFact, minFacts: c.facts.length - removed.size, innocents: n,
+      reject: n >= 2 && (strongRule >= n || strongFact >= n) };
+  }
+
+  const api = { indexFacts, PRED, pred, solve, checkEvidence, depth, reachable };
+  root.SiatkaSolver = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== engine/archetypes/classic.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — archetyp „classic”: jeden sprawca, każdy niewinny odpada z dokładnie jednej reguły.
+ * Pytanie: kto i czym (culprit_weapon). Hipoteza: {culprit, weapon}.
+ *
+ * build(ctx) dostaje od silnika wspólny kontekst sprawy (RNG, miasto, rok, wielkość, wstawki V,
+ * funkcje tekstu T i pickU) i zwraca obiekt sprawy albo null (wtedy silnik losuje ponownie).
+ */
+(function (root) {
+  const Eng = root.Siatka || require("../engine.js");
+  const t = Eng.t;
+  const { itemRef, decimal, tx, cap, toMin, toHM, plList, plural, inYears, avail, slug, sameSet, smallMoney, prices, fitsWho, fitsAt, atTexts, HEIGHT, heightOf, heightClass } = Eng.util;
+  const Solver = root.SiatkaSolver || require("../solver.js");
+  const TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive", "known"];
+  /* 2.2: reguły nietypowe (przeczenie = cecha known, porównanie wzrostu, relacja, zeszyt dozorcy); limit na sprawę */
+  const UNUSUAL = ["known", "cmp", "relation", "absent"];
+  const RELS = ["workmate", "stairwell", "inlaw"];
+  const MAX_RULES = 6;
+  /* reguły o dowodzie: w = kto był na miejscu w czasie zniknięcia, k = kto ma klucz, f = co stało się z dowodem */
+  /* d = narzędzie porzucono tam, gdzie sprawca bywa codziennie (łączy akta przedmiotu z aktami osoby) */
+  const ITEM_PATTERNS = ["wk", "wk", "w", "k", "wf", "kf", "wd", "kd", "wd", "wkd"];
+  const DUMP = ["smietnik", "tory", "park", "budowa", "bazar"];
+  /* mała litera tylko na początku nazwy: „Łucznik”, „Sama” i inne nazwy własne zostają duże */
+  const lc1 = s => s.charAt(0).toLowerCase() + s.slice(1);
+  /* teksty tylko dla pasującej postaci: `ages` (emeryci bez firmowego Żuka), `k` kontra role.no
+     (licealista bez długów i zwolnień), `roles` (smaczki zawodu), `trait` (zdanie o własnym aucie tylko z autem) */
+  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, cm: Pp.cm, g: Pp.s.g, vt: Pp.vt });
+  const ofWho = (list, Pp) => (Array.isArray(list) ? list : [list]).filter(o => fitsWho(o, who(Pp)));
+  const txt = o => typeof o === "string" ? o : o.t;
+  /* rola pasuje do cech postaci: licealista bez auta, taksówkarz z autem */
+  const roleFitsTraits = (role, s) => !role.need || Object.entries(role.need).every(([t, v]) => s.traits[t] === v);
+  /* ile dowodów rzeczowych [min, max] na wielkość sprawy */
+  const EV_COUNT = { S: [1, 2], M: [1, 2], L: [2, 3], XL: [3, 4] };
+  const LIE_DOCS = 0.3; // szansa, że dokumenty alibi w sprawie obalają alibi zamiast je potwierdzać
+
+  function build(ctx) {
+    /* 0. Wspólny kontekst z silnika: miasto, rok, wielkość, wstawki i teksty */
+    const { R, B, seed, opts, cityId, city, year, monthIdx, sizeKey, N, K, milicja, A, V, T, pickU } = ctx;
+    /* opts.avoid: imiona, nazwiska, role, sceny i smaczki z ostatnich spraw gracza (tylko archiwum).
+       Omijamy je, dopóki starcza innych; przy pustym avoid losowania są takie same jak bez niego. */
+    const AV = opts.avoid || {}, avoidOf = k => new Set(AV[k] || []);
+    const avN = avoidOf("names"), avSur = avoidOf("surnames"), avR = avoidOf("roles"), avS = avoidOf("scenes"), avF = avoidOf("flavor");
+    const prefer = (list, bad) => { const f = list.filter(x => !bad(x)); return f.length ? f : list; };
+
+    /* 1. Reguły o dowodzie i układ miejsc */
+    const pattern = R.pick(ITEM_PATTERNS);
+    const hasW = pattern.includes("w"), hasK = pattern.includes("k"), hasF = pattern.includes("f"), hasD = pattern.includes("d");
+    // dwa dowody w jednym miejscu da się rozróżnić tylko godziną zniknięcia albo losem przedmiotu
+    const share = K >= 2 && (hasW || hasF || hasD) && R.chance(.5);
+    const nLoc = share ? K - 1 : K;
+
+    /* 2. Zbrodnia, podtyp, scena, miejsca i dowody */
+    const items = B.items.filter(it => inYears(it, year, monthIdx));
+    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
+    const allLocs = [...B.locations, ...cityLocs];
+    const locIdSet = new Set(allLocs.map(l => l.id));
+    const accessOf = role => [...(role.access || []), ...cityLocs.filter(l => (l.roles || []).includes(role.id)).map(l => l.id)];
+    const locsFor = (sub, exclude) => {
+      const m = {};
+      for (const it of items) if (it.tags.includes(sub)) for (const o of it.origins) {
+        if (!locIdSet.has(o) || (exclude && exclude.includes(o))) continue;
+        (m[o] = m[o] || []).push(it);
+      }
+      return m;
+    };
+    const viable = m => Object.keys(m).length >= nLoc && (!share || Object.values(m).some(a => a.length >= 2));
+    const combos = [];
+    for (const cid of Object.keys(B.crimes)) {
+      if (opts.crime && cid !== opts.crime) continue;
+      const cr = B.crimes[cid];
+      for (const sub of cr.subtags) for (const sc of cr.scenes.filter(s => inYears(s, year, monthIdx)))
+        if (viable(locsFor(sub, sc.exclude))) combos.push([cid, sub, sc]);
+    }
+    if (!combos.length) return null;
+    const crimeId = R.pick([...new Set(combos.map(c => c[0]))]);
+    const [, sub, scene] = R.pick(prefer(combos.filter(c => c[0] === crimeId), c => avS.has(c[2].title)));
+    const crime = B.crimes[crimeId];
+    const itemsByLoc = locsFor(sub, scene.exclude);
+    const avLoc = Object.keys(itemsByLoc);
+    const localAv = avLoc.filter(id => cityLocs.some(l => l.id === id));
+    let locs = [];
+    if (share) locs.push(R.pick(avLoc.filter(id => itemsByLoc[id].length >= 2)));
+    if (localAv.length && R.chance(.6)) { const c = R.pick(localAv.filter(id => !locs.includes(id))); if (c) locs.push(c); }
+    locs = locs.concat(R.sample(avLoc.filter(id => !locs.includes(id)), nLoc - locs.length));
+    if (locs.length < nLoc) return null;
+    const LOCS = locs.map(id => allLocs.find(l => l.id === id));
+    // przedmioty: z miejsca dzielonego dwa, z pozostałych po jednym
+    const I = [], locOf = [];
+    LOCS.forEach((loc, li) => {
+      const n = share && li === 0 ? 2 : 1;
+      const cand = R.sample(itemsByLoc[loc.id].filter(it => !I.includes(it)), n);
+      cand.forEach(it => { I.push(it); locOf.push(li); });
+    });
+    if (I.length !== K) return null;
+
+    /* 3. Czas: zbrodnia + po jednym 30-minutowym oknie zniknięcia na dowód */
+    // scena może nadpisać godziny zbrodni (time:[od, do]), np. poczta przed zamknięciem
+    const C = scene.time ? R.int(toMin(scene.time[0]) / 30, toMin(scene.time[1]) / 30 - 1) * 30 : R.int(18, 21) * 60 + R.pick([0, 30]);
+    const crimeWin = [C, C + 30];
+    const order = R.shuffle([...Array(K).keys()]);
+    const win = [];
+    order.forEach((i, p) => { win[i] = [C - 30 * (K + 1) + 30 * p, C - 30 * K + 30 * p]; });
+    const inWin = i => { const [a, b] = win[i]; return R.int((a + 5) / 5, (b - 5) / 5) * 5; };
+    /* poza wszystkimi oknami: przed pierwszym albo po ostatnim, przed zbrodnią. Alibi (potwierdzone
+       i „twierdzi”) zaczyna się najwcześniej o C-10, więc późna gałąź kończy się przed nim (2.1.2). */
+    const ALIBI_FROM = C - 10, MIN_GAP = 15;
+    const outT = () => R.chance(.5) ? C - 30 * (K + 1) - R.int(3, 8) * 5 : C - 30 + R.int(1, 3) * 5;
+    /* 2.1.2: obecność nigdy nie wypada w trakcie alibi ani mniej niż 15 min od obecności tej osoby w innym
+       miejscu. Przy kolizji losuje czas od nowa (do 10 razy); zwraca false, gdy się nie udało. */
+    const addPresence = (s, loc, gen) => {
+      for (let k = 0; k < 10; k++) {
+        const t = gen();
+        if (t >= ALIBI_FROM || s.pres.some(p => p.loc !== loc && Math.abs(p.t - t) < MIN_GAP)) continue;
+        if (s.yard != null && loc !== -1 && Math.abs(s.yard - t) < MIN_GAP) continue;
+        if (loc === -1) s.yard = t; else s.pres.push({ loc, t });
+        return true;
+      }
+      return false;
+    };
+
+    /* 4. Sprawca, narzędzie, fałszywe tropy */
+    const sameLoc = (a, b) => locOf[a] === locOf[b];
+    let wIdx = R.int(0, K - 1);
+    if (share && R.chance(.7)) wIdx = R.pick([...Array(K).keys()].filter(i => locOf[i] === 0));
+    const herrings = [...Array(K).keys()].filter(i => i !== wIdx);
+    const hMethod = {};
+    for (const h of herrings) {
+      const ok = [];
+      if (hasW) ok.push("window");
+      if (hasK && !sameLoc(h, wIdx)) ok.push("key");
+      if (hasF) ok.push("fate");
+      if (hasD) ok.push("dump");
+      if (!ok.length) return null;
+      hMethod[h] = R.pick(ok);
+    }
+    const H = new Set(Object.values(hMethod));
+    // los przedmiotów
+    const fateIds = hasD ? DUMP : Object.keys(B.fates);
+    const fateV = R.pick(fateIds);
+    const fate = [];
+    I.forEach((_, i) => {
+      if (i === wIdx) fate[i] = fateV;
+      else if (hMethod[i] === "fate" || hMethod[i] === "dump") fate[i] = R.pick(fateIds.filter(f => f !== fateV));
+      else fate[i] = R.pick(fateIds);
+    });
+    // reguła o losie musi coś eliminować: gdy nie odcina sprawcy od tropu, potrzebny trop z innym losem dla któregoś niewinnego
+    if (hasF && !H.has("fate")) { const h = R.pick(herrings); fate[h] = R.pick(fateIds.filter(f => f !== fateV)); }
+
+    /* 5. Reguły osobowe: alibi nie zawsze, za to więcej cech */
+    const nInn = N - 1;
+    const itemRules = [hasW && "window", hasK && "key", hasF && "fate", hasD && "dump"].filter(Boolean);
+    const nonH = itemRules.filter(r => !H.has(r)).length;
+    let P = nInn - nonH;
+    if (P < 1) return null;
+    if (P >= 3 && R.chance(.3)) P--;
+    P = Math.min(P, MAX_RULES - itemRules.length);
+    if (P < 1) return null;
+    const useAlibi = R.chance(.6);
+    const traitIds = R.sample(TRAITS.filter(t => t !== "known"), useAlibi ? P - 1 : P);
+    const rules = [...(useAlibi ? [{ type: "alibi" }] : []), ...itemRules.map(t => ({ type: t, value: t === "fate" ? fateV : undefined })),
+      ...traitIds.map(t => ({ type: "trait", trait: t, value: t === "shoe" ? null : R.pick(B.traits[t].ruleValues || B.traits[t].values) }))];
+    /* 2.2: reguły nietypowe zastępują reguły cech: najwyżej 1 w S–M, 2 w L–XL */
+    {
+      const uMax = sizeKey === "S" || sizeKey === "M" ? 1 : 2;
+      let nU = R.chance(.6) ? R.int(1, uMax) : 0;
+      for (const kind of R.shuffle(UNUSUAL).slice(0, nU)) {
+        const pool = rules.filter(r => r.type === "trait" && !r.u);
+        if (!pool.length) break;
+        const old = (kind === "cmp" && pool.find(r => r.trait === "height")) || R.pick(pool);
+        rules[rules.indexOf(old)] = kind === "known" ? { type: "trait", trait: "known", value: R.pick(B.traits.known.ruleValues), u: 1 }
+          : kind === "cmp" ? { type: "cmp", u: 1 } : kind === "relation" ? { type: "relation", rel: R.pick(RELS), u: 1 } : { type: "absent", u: 1 };
+      }
+    }
+    if (rules.some(r => r.type === "cmp") && rules.some(r => r.trait === "height")) return null;
+    if (rules.some(r => r.trait === "known") && rules.some(r => r.trait === "motive")) return null;
+    if (!rules.some(r => r.type === "alibi" || r.type === "trait" || r.u)) return null;
+    const ruleKey = r => r.type === "trait" ? "trait:" + r.trait : r.type;
+
+    /* 6. Podejrzani */
+    const S = [...Array(N)].map(() => ({ g: R.chance(.5) ? "m" : "f", keys: new Set(), pres: [], alibi: false, fakeAlibi: false, traits: {} }));
+    const cIdx = R.int(0, N - 1);
+    const shoeRule = rules.find(r => r.trait === "shoe");
+    if (shoeRule) shoeRule.value = R.pick(B.traits.shoe.values[S[cIdx].g]);
+    const shoeFits = g => !shoeRule || B.traits.shoe.values[g].includes(shoeRule.value);
+    const valuesOf = (t, g) => t === "shoe" ? B.traits.shoe.values[g] : B.traits[t].values;
+    const otherVal = (t, v, g) => R.pick(valuesOf(t, g).filter(x => x !== v));
+    S.forEach((s, i) => {
+      for (const t of TRAITS) {
+        const r = rules.find(x => x.trait === t);
+        if (r) s.traits[t] = t === "shoe" ? (shoeFits(s.g) ? r.value : R.pick(valuesOf(t, s.g))) : r.value;
+        else if (t === "motive") s.traits[t] = i === cIdx ? "yes" : (R.chance(.35) ? "yes" : "no");
+        else s.traits[t] = R.pick(valuesOf(t, s.g));
+      }
+    });
+    const satisfyItem = (s, i) => { if (hasW && !addPresence(s, locOf[i], () => inWin(i))) return false; if (hasK) s.keys.add(locOf[i]); return true; };
+
+    const cul = S[cIdx];
+    if (!satisfyItem(cul, wIdx)) return null;
+    cul.traits.habit = hasD ? fate[wIdx] : R.pick(DUMP);
+    for (const h of herrings) {
+      if (hMethod[h] === "window") { if (hasK) cul.keys.add(locOf[h]); if (!sameLoc(h, wIdx) && R.chance(.55)) addPresence(cul, locOf[h], outT); }
+      else if (hMethod[h] === "key") { if (hasW && !addPresence(cul, locOf[h], () => inWin(h))) return null; }
+      // "fate"/"dump": sprawca może mieć wszystko do tropu, bo i tak odpada z reguły o losie
+      else if (R.chance(.5) && !sameLoc(h, wIdx)) satisfyItem(cul, h); // opcjonalne: przy kolizji pomijamy
+    }
+
+    // niewinni: każdy łamie dokładnie jedną regułę; każda reguła spoza H musi kogoś wyeliminować
+    const innocents = [...Array(N).keys()].filter(i => i !== cIdx);
+    const assign = {}, free = [];
+    for (const i of R.shuffle(innocents)) { if (!shoeFits(S[i].g)) assign[i] = shoeRule; else free.push(i); }
+    const covered = new Set(Object.values(assign).map(ruleKey));
+    const must = R.shuffle(rules.filter(r => !H.has(r.type) && !covered.has(ruleKey(r))));
+    if (must.length > free.length) return null;
+    must.forEach((r, k) => { assign[free[k]] = r; });
+    for (const i of free.slice(must.length)) assign[i] = R.pick(rules);
+    // 2.2: porównanie wzrostu w L–XL odcina co najmniej 2 osoby: drugiego odpadającego bierzemy z wolnych niewinnych
+    { const cr = rules.find(r => r.type === "cmp");
+      if (cr && (sizeKey === "L" || sizeKey === "XL")) { const extra = free.slice(must.length).filter(i => assign[i] !== cr);
+        while (innocents.filter(i => assign[i] === cr).length < 2 && extra.length) assign[extra.pop()] = cr; } }
+
+    const fateOk = i => !hasF || fate[i] === fateV;
+    const okTraps = [...Array(K).keys()].filter(fateOk);
+    const elim = {};
+    for (const sIdx of innocents) {
+      const s = S[sIdx], r = assign[sIdx];
+      let trap;
+      const habitFor = t => { s.traits.habit = hasD ? fate[t] : R.pick(DUMP); };
+      if (r.type === "dump") {
+        trap = R.pick(okTraps); if (!satisfyItem(s, trap)) return null;
+        s.traits.habit = R.pick(DUMP.filter(d => d !== fate[trap]));
+      } else if (r.type === "fate") {
+        // ktoś, kto mógł zabrać przedmiot, ale nie ten, którego los się zgadza
+        const c = herrings.filter(h => !fateOk(h) && (hasW || !sameLoc(h, wIdx)));
+        if (!c.length) return null;
+        trap = R.pick(c); if (!satisfyItem(s, trap)) return null; habitFor(trap);
+      } else {
+        const pool = okTraps.filter(i => i !== wIdx);
+        trap = pool.length && R.chance(.7) ? R.pick(pool) : R.pick(okTraps);
+        if (r.type === "alibi") { s.alibi = true; if (!satisfyItem(s, trap)) return null; }
+        else if (r.type === "trait") { s.traits[r.trait] = otherVal(r.trait, r.value, s.g); if (!satisfyItem(s, trap)) return null; }
+        else if (r.u) { if (!satisfyItem(s, trap)) return null; } // cmp, relation, absent: wartości po tożsamościach
+        else if (r.type === "window") { if (hasK) s.keys.add(locOf[trap]); if (!addPresence(s, locOf[trap], outT)) return null; }
+        else if (r.type === "key") { if (hasK && s.keys.has(locOf[trap])) return null; if (!addPresence(s, locOf[trap], hasW ? () => inWin(trap) : outT)) return null; }
+        habitFor(trap);
+      }
+      elim[sIdx] = { rule: r, trap };
+    }
+    /* 2.2: zeszyt dozorcy. Przed zbrodnią, poza alibi i co najmniej 15 min od innych obecności tej osoby.
+       Lista nie może sama eliminować większości podejrzanych. */
+    const absentRule = rules.find(r => r.type === "absent");
+    if (absentRule) {
+      absentRule.a = C - 90; absentRule.b = C - 30;
+      const on = innocents.filter(i => assign[i] === absentRule);
+      if (on.length > Math.max(1, Math.floor((N - 1) / 2))) return null;
+      for (const i of on) if (!addPresence(S[i], -1, () => R.int((absentRule.a + 5) / 5, (absentRule.b - 5) / 5) * 5)) return null;
+    }
+    // bez reguły o alibi część niewinnych i tak ma świadków (to tylko tło)
+    if (!useAlibi) for (const i of innocents) if (R.chance(.35)) S[i].alibi = true;
+    /* ZMYŁKA: fałszywe alibi. Brzmi jak potwierdzone, ale obala je zdanie w aktach innej osoby.
+       Najczęściej kłamie sprawca, czasem niewinny, który i tak odpada z innego powodu. */
+    if (useAlibi && R.chance(.55)) cul.fakeAlibi = true;
+    if (useAlibi && R.chance(.3)) { const c = innocents.filter(i => assign[i].type !== "alibi"); if (c.length) S[R.pick(c)].fakeAlibi = true; }
+
+    /* 7. Tożsamości */
+    const roles = [...A(B.roles), ...A(city.roles || []), city.worker].filter(r => r && inYears(r, year, monthIdx));
+    const usedFirst = new Set(), usedSur = new Set(), usedRoles = new Set(), ids = [];
+    /* imię z pokolenia roli (emerytka to raczej Leokadia, studentka Agnieszka) */
+    const AGES = ["young", "mid", "old"];
+    const agesOf = role => !role || !role.age ? AGES : Array.isArray(role.age) ? role.age : [role.age];
+    const pickName = (g, age) => {
+      const pool = (age ? [age] : AGES).flatMap(a => B.names[g][a]).filter(n => !usedFirst.has(n));
+      const first = R.pick(prefer(pool, n => avN.has(n))); usedFirst.add(first);
+      const sur = R.pick(prefer(B.surnames.filter(x => !usedSur.has(x[0])), x => avSur.has(x[0]))); usedSur.add(sur[0]);
+      return { first, last: g === "f" ? sur[1] : sur[0] };
+    };
+    // siwizna u starszych, bez siwych włosów u młodych (indeksy z SiatkaSprites.HAIR_C)
+    const HAIR_BY_AGE = { young: [0, 1, 2, 5], mid: [0, 1, 2, 3, 5], old: [3, 4, 4] };
+    const SP = sprites();
+    const persons = S.map((s, idx) => {
+      const keyLocs = [...s.keys].map(li => LOCS[li].id);
+      const fits = role => role[s.g] && !usedRoles.has(role.id) && roleFitsTraits(role, s);
+      const inter = role => accessOf(role).filter(a => locs.includes(a));
+      let pool = roles.filter(r => fits(r) && sameSet(inter(r), keyLocs));
+      if (!pool.length) pool = roles.filter(r => fits(r) && inter(r).length === 0);
+      if (!pool.length) return null;
+      const role = R.pick(prefer(pool, r => avR.has(r.id))); usedRoles.add(role.id);
+      const age = R.pick(agesOf(role));
+      const { first, last } = pickName(s.g, age);
+      let id = slug(first); while (ids.includes(id)) id += "2"; ids.push(id);
+      const hw = (role.headwear && role.headwear[s.g]) || [];
+      const head = hw.length ? R.pick(hw) : "";
+      return { idx, s, id, first, last, role, age, vt: scene.vt,
+        sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
+          head: head || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
+          mustache: s.g === "m" && R.chance(.35) } };
+    });
+    if (persons.some(p => !p)) return null;
+    const victim = (() => { const n = pickName(scene.vg || "m", scene.vage || R.pick(["mid", "old"])); return `${n.first} ${n.last}`; })();
+    /* 2.2: wzrost w cm z realnego rozkładu wg płci, niezależnie od reguł. Tylko gdy wzrost opisowy jest regułą,
+       losujemy z klasy wylosowanej wcześniej (wysoki/niski); opis zawsze wynika z liczby. */
+    const heightRule = rules.some(r => r.trait === "height");
+    persons.forEach(Pp => { Pp.cm = heightOf(R, Pp.s.g, heightRule ? Pp.s.traits.height : null); Pp.s.traits.height = heightClass(Pp.s.g, Pp.cm); });
+    /* porównanie: miarą jest świadek spoza podejrzanych, ze wzrostem w regule. Kierunek losowy. Nikt z podejrzanych
+       nie jest w promieniu 3 cm od miary; odpadają co najmniej 1 (L–XL: 2) podejrzani, ale nie wszyscy niewinni. */
+    const cmpRule = rules.find(r => r.type === "cmp");
+    if (cmpRule) {
+      const fail = innocents.filter(i => assign[i] === cmpRule), need = Math.max(fail.length, sizeKey === "L" || sizeKey === "XL" ? 2 : 1);
+      const refG = R.chance(.5) ? "m" : "f", H = HEIGHT[refG];
+      let opts = [];
+      // wzrosty są z tego samego rozkładu co zawsze; gdy żadna miara nie pasuje do układu, losujemy je od nowa (do 40 razy)
+      // najlepiej, gdy porównanie odcina dokładnie przypisanych mu niewinnych (inaczej ich druga reguła przestaje być konieczna)
+      let exact = [];
+      for (let k = 0; k < 40 && !exact.length; k++) {
+        if (k) persons.forEach(Pp => { Pp.cm = heightOf(R, Pp.s.g, null); Pp.s.traits.height = heightClass(Pp.s.g, Pp.cm); });
+        for (const dir of ["up", "down"]) for (let v = H.lo; v <= H.hi; v++) {
+          if (persons.some(Pp => Math.abs(Pp.cm - v) <= 3)) continue;
+          const pass = Pp => dir === "up" ? Pp.cm > v : Pp.cm < v;
+          if (!pass(persons[cIdx]) || fail.some(i => pass(persons[i]))) continue;
+          const nf = innocents.filter(i => !pass(persons[i])).length;
+          if (nf >= need && nf < innocents.length) opts.push([dir, v, nf]);
+        }
+        exact = opts.filter(o => o[2] === fail.length);
+        if (!exact.length && k < 39) opts = [];
+      }
+      if (exact.length) opts = exact;
+      if (!opts.length) return null;
+      const least = Math.min(...opts.map(o => o[2])), [dir, v] = R.pick(opts.filter(o => o[2] === least));
+      const n = pickName(refG, R.pick(["young", "mid", "old"]));
+      Object.assign(cmpRule, { dir, refCm: v, refName: `${n.first} ${n.last}`, refG });
+    }
+    /* relacja z osobą spoza podejrzanych. Kto nie odpada z tej reguły, ma z nią relację z reguły (sprawca też),
+       odpadający mają inną relację, więc nazwisko pada w teczkach wielu osób i samo niczego nie zdradza. */
+    const relRule = rules.find(r => r.type === "relation");
+    if (relRule) {
+      const refG = R.chance(.5) ? "m" : "f", n = pickName(refG, R.pick(["mid", "old"]));
+      Object.assign(relRule, { refName: `${n.first} ${n.last}`, refG });
+      const fitsT = (Pp, t) => t !== "workmate" || fitsWho({ k: ["job"] }, who(Pp));
+      const fail = innocents.filter(i => assign[i] === relRule), keep = persons.filter(Pp => !fail.includes(Pp.idx));
+      // relacja z reguły musi pasować do wszystkich, którzy ją mają (student nie pracuje w zakładzie)
+      const okRel = RELS.filter(t => keep.every(Pp => fitsT(Pp, t)));
+      if (!okRel.length) return null;
+      if (!okRel.includes(relRule.rel)) relRule.rel = R.pick(okRel);
+      for (const Pp of keep) Pp.rel = relRule.rel;
+      const others = R.shuffle(RELS.filter(t => t !== relRule.rel));
+      fail.forEach((i, k) => { const Pp = persons[i], ok = others.filter(t => fitsT(Pp, t)); if (!ok.length) return; Pp.rel = ok[k % ok.length]; });
+      // nazwisko pada w co najmniej 2 (S–M) albo 3 (L–XL) teczkach i co najmniej jeden odpadający ma inną relację
+      if (persons.filter(Pp => Pp.rel).length < (sizeKey === "L" || sizeKey === "XL" ? 3 : 2) || !fail.some(i => persons[i].rel)) return null;
+    }
+
+    /* 8. Fakty strukturalne */
+    const facts = [];
+    const crimeFrom = toHM(crimeWin[0]), crimeTo = toHM(crimeWin[1]);
+    persons.forEach(Pp => {
+      const s = Pp.s;
+      if (hasK) for (const li of s.keys) facts.push({ type: "has_key", who: Pp.id, where: LOCS[li].id });
+      for (const p of s.pres) facts.push({ type: "presence", who: Pp.id, where: LOCS[p.loc].id, at: toHM(p.t) });
+      facts.push(s.alibi || s.fakeAlibi ? { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - R.int(1, 2) * 5), to: toHM(crimeWin[1] + R.int(6, 18) * 5), confirmed: true }
+                         : { type: "alibi", who: Pp.id, from: toHM(crimeWin[0] - 10), to: toHM(crimeWin[1] + 60), confirmed: false });
+      if (s.fakeAlibi) facts.push({ type: "alibi_debunked", who: Pp.id });
+      for (const t of [...TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: s.traits[t] });
+      facts.push({ type: "trait", who: Pp.id, trait: "height_cm", value: Pp.cm });
+      if (Pp.rel) facts.push({ type: "relation", a: Pp.id, b: relRule.refName, rel: Pp.rel });
+      if (s.yard != null) facts.push({ type: "roster_entry", who: Pp.id, where: "podworko", at: toHM(s.yard) });
+    });
+    if (absentRule) facts.push({ type: "roster", where: "podworko", from: toHM(absentRule.a), to: toHM(absentRule.b) });
+    I.forEach((it, i) => {
+      facts.push({ type: "item_origin", what: it.id, where: LOCS[locOf[i]].id });
+      if (hasW) facts.push({ type: "item_moved", what: it.id, from: toHM(win[i][0]), to: toHM(win[i][1]) });
+      facts.push({ type: "item_fate", what: it.id, value: fate[i] });
+    });
+
+    /* 8b. Dowody rzeczowe. Fakt przechodzi z teczki na dowód, a właściciela wskazuje znak:
+       inicjały (z nazwiska w teczce) albo numer mieszkania (w teczce każdego podejrzanego).
+       Osobny strumień losowań, żeby dowody nie przestawiały reszty sprawy. */
+    const RE = Eng.util.makeRng(seed + "/ev");
+    /* 2.2: przy regule z zeszytem dozorcy jedynym źródłem wiedzy dozorcy jest ten zeszyt: bez dowodów i świadków-dozorców */
+    const noJanitor = list => absentRule ? list.filter(x => !new RegExp(B.textRe.janitor, "i").test(typeof x === "string" ? x : x.name + " " + x.text.join(" "))) : list;
+    const ini = Pp => `${Pp.first.charAt(0)}.${Pp.last.charAt(0)}.`;
+    const evs = [];
+    {
+      const [lo, hi] = EV_COUNT[sizeKey]; let want = RE.int(lo, hi);
+      const iniN = {}; persons.forEach(Pp => { iniN[ini(Pp)] = (iniN[ini(Pp)] || 0) + 1; });
+      const iniOk = Pp => iniN[ini(Pp)] === 1;
+      const byPid = Object.fromEntries(persons.map(Pp => [Pp.id, Pp]));
+      const wLocId = LOCS[locOf[wIdx]].id;
+      const ruleTraits = new Set(rules.filter(r => r.type === "trait").map(r => r.trait));
+      // w części spraw dokument alibi obala alibi zamiast je potwierdzać (ton teczki jest ten sam)
+      const lieMode = RE.chance(LIE_DOCS);
+      const cands = [];
+      for (const f of facts) {
+        const Pp = byPid[f.who]; if (!Pp) continue;
+        const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
+        if (f.type === "presence" && iniOk(Pp))
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => fitsAt(d, (LOCS[li] || {}).pt))),
+            ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
+        // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
+        else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
+          cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
+        else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
+          const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
+          // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
+          if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
+          else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
+        }
+        else if (f.type === "trait" && ruleTraits.has(f.trait) && iniOk(Pp) && (f.trait === "shoe" || f.value === "yes")) {
+          // listy z motywem i kwity tylko pasujące do osoby (licealista bez weksla i wymówienia z pracy)
+          const defs = ofWho((f.trait === "motive" ? crime.letters : B.traits[f.trait].evidence) || [], Pp);
+          if (defs.length) cands.push({ kind: "trait:" + f.trait, f, Pp, li: -1, mark: "initials", defs, ess: isC });
+        }
+      }
+      // najpierw (zwykle) dowód potrzebny do rozwiązania, potem różne rodzaje, na końcu cokolwiek
+      // w jednej sprawie każdy szablon (nazwa) i każda etykieta najwyżej raz
+      const labels = new Set(), names = new Set(), per = {}, kinds = {}, keyLocs = new Set();
+      const take = (c, strict) => {
+        if (evs.length >= want || evs.some(x => x.f === c.f)) return;
+        if ((per[c.Pp.id] || 0) >= (strict ? 1 : 2) || (strict && kinds[c.kind])) return;
+        if (c.kind === "keys" && keyLocs.has(c.li)) return;
+        const def = RE.shuffle(c.defs).find(d => !labels.has(d.label) && !names.has(d.name));
+        if (!def) return;
+        labels.add(def.label); names.add(def.name); per[c.Pp.id] = (per[c.Pp.id] || 0) + 1; kinds[c.kind] = 1;
+        if (c.kind === "keys") keyLocs.add(c.li);
+        evs.push(Object.assign({ def }, c));
+      };
+      const ess = RE.shuffle(cands.filter(c => c.ess));
+      if (ess.length && RE.chance(.9)) take(ess[0], false);
+      const rest = RE.shuffle(cands);
+      for (const strict of [true, false]) for (const c of rest) take(c, strict);
+      // co najmniej jeden dowód dotyczy niewinnego: gdy wszystkie są sprawcy, ostatni ustępuje miejsca
+      const innocentEv = () => evs.some(c => c.Pp.idx !== cIdx);
+      if (evs.length && !innocentEv()) {
+        if (evs.length >= hi && evs.length > 1) { const d = evs.pop(); labels.delete(d.def.label); names.delete(d.def.name); per[d.Pp.id]--; if (d.kind === "keys") keyLocs.delete(d.li); }
+        want = Math.max(want, evs.length + 1);
+        for (const c of rest) { if (c.Pp.idx !== cIdx) take(c, false); if (innocentEv()) break; }
+        if (!innocentEv()) return null;
+      }
+      if (evs.length < lo) return null;
+      // dokument, który obala alibi: fakt alibi dostaje godziny z dokumentu (nie pokrywają zbrodni)
+      // albo zostaje niepotwierdzony, a dokument jest z innego dnia; teczka podaje godziny z zeznania
+      for (const c of evs.filter(c => c.lie)) {
+        c.claim = { from: c.f.from, to: c.f.to };
+        c.lie = !new RegExp(B.textRe.thatEvening, "i").test(c.def.text.join(" ")) && RE.chance(.4) ? "day" : "hours";
+        if (c.lie === "hours") {
+          const [a, b] = crimeWin, span = RE.int(6, 14) * 5;
+          // „ostatni seans”, „nocna zmiana”: godziny po zbrodni, bo przed nią brzmiałyby nieprawdopodobnie
+          const late = new RegExp(B.textRe.lateDoc).test(c.def.text.join(" ") + c.def.alibi.text);
+          const early = () => a - RE.int(2, 6) * 5 - span, after = () => b + RE.int(1, 4) * 5;
+          // 2.1.2: dokument nie obejmuje czasu, w którym ta osoba ma obecność gdzie indziej
+          const hit = from => [...c.Pp.s.pres, ...(c.Pp.s.yard != null ? [{ t: c.Pp.s.yard }] : [])].some(p => p.t >= from - 5 && p.t <= from + span + 5);
+          let from = !late && RE.chance(.6) ? early() : after();
+          for (let k = 0; k < 10 && hit(from) && !late; k++) from = early();
+          if (hit(from)) from = after();
+          Object.assign(c.f, { from: toHM(from), to: toHM(from + span), confirmed: true });
+        } else c.f.day = "other";
+        c.otherDay = c.lie === "day" ? RE.pick(B.docOtherDay) : null;
+      }
+      evs.forEach((c, k) => { c.id = "ev" + (k + 1); c.f.src = c.id; });
+      if (evs.some(c => c.mark === "initials")) persons.forEach(Pp => facts.push({ type: "mark", who: Pp.id, kind: "initials", value: ini(Pp) }));
+      if (evs.some(c => c.mark === "flat")) {
+        const nums = RE.sample([...Array(44).keys()].map(x => x + 2), persons.length);
+        persons.forEach((Pp, i) => { Pp.flat = nums[i]; facts.push({ type: "mark", who: Pp.id, kind: "flat", value: String(nums[i]) }); });
+      }
+      for (const c of evs) facts.push({ type: "evidence", id: c.id, kind: c.kind, owner: c.Pp.id, ...(c.lie ? { lie: c.lie } : {}),
+        mark: { kind: c.mark, value: c.mark === "flat" ? String(c.Pp.flat) : ini(c.Pp) } });
+    }
+    /* 2.1.2: kontrola spójności. Nikt nie jest w dwóch miejscach naraz ani w trakcie własnego alibi. */
+    for (const Pp of persons) {
+      const ps = facts.filter(f => (f.type === "presence" || f.type === "roster_entry") && f.who === Pp.id).map(f => ({ w: f.where, t: toMin(f.at) }));
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      for (let i = 0; i < ps.length; i++) {
+        if (ps[i].t >= ALIBI_FROM) return null;
+        if (al && al.confirmed && ps[i].t >= toMin(al.from) && ps[i].t <= toMin(al.to)) return null;
+        for (let j = i + 1; j < ps.length; j++) if (ps[i].w !== ps[j].w && Math.abs(ps[i].t - ps[j].t) < MIN_GAP) return null;
+      }
+    }
+    // alibi zawodowe (pole roles) tylko dla pasującej roli, reszta dla każdego
+    function alibisFor(Pp) { return A(B.alibiConfirmed).filter(a => (!a.roles || a.roles.includes(Pp.role.id)) && fitsWho({ k: a.k }, who(Pp))); }
+    const usedAlibi = [];
+    const evOf = (Pp, kind, test) => evs.find(c => c.Pp === Pp && c.kind === kind && (!test || test(c.f)));
+
+    /* 9. Reguły: kolejność i teksty */
+    const sh = R.shuffle(rules);
+    sh.forEach((r, k) => { r.id = "r" + (k + 1); r.text = ruleText(B, R, crime, crimeId, scene, r, crimeFrom, crimeTo, T, sub); });
+
+    /* 10. Węzły i teksty dla gracza */
+    const nodes = [];
+    const debunks = [];
+    const motiveRule = rules.some(r => r.trait === "motive");
+    // smaczki z ostatnich spraw gracza (avoid) idą na koniec kolejki; zostają obiektami, żeby było widać ich tagi
+    const flavorPool = (p => [...p.filter(x => !avF.has(txt(x))), ...p.filter(x => avF.has(txt(x)))])(R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx))));
+    const usedLines = new Set();
+    const fresh = list => { const sh = R.shuffle(list), c = sh.find(x => !usedLines.has(x) && !avF.has(x)) || sh.find(x => !usedLines.has(x)); if (c) usedLines.add(c); return c; };
+    const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx); // teksty dla tej osoby i tego roku, jako napisy
+    persons.forEach(Pp => {
+      const s = Pp.s, g = s.g, text = [];
+      LOCS.forEach((loc, li) => {
+        const parts = [];
+        if (hasK && s.keys.has(li) && !evOf(Pp, "keys", f => f.where === loc.id))
+          parts.push(pickU(accessOf(Pp.role).includes(loc.id) ? forP(B.keyTpl, Pp) : B.spareKeyTpl).replace(/\{gen\}/g, loc.gen));
+        for (const p of s.pres.filter(p => p.loc === li && !evOf(Pp, "presence", f => f.where === loc.id && f.at === toHM(p.t))))
+          parts.push(pickU(noJanitor(atTexts(B.presenceTpl, loc.pt))).replace("{in}", loc.in).replace("{t}", toHM(p.t)));
+        if (parts.length) text.push(T(parts.join(" "), g));
+      });
+      if (Pp.flat) text.push(T(pickU(forP(B.flatTpl, Pp)), g, { flat: Pp.flat }));
+      const al = facts.find(f => f.type === "alibi" && f.who === Pp.id);
+      const evAl = evOf(Pp, "alibi");
+      if (evAl) { // alibi potwierdza dopiero dowód rzeczowy
+        const said = evAl.claim || al; // przy dokumencie, który obala alibi, teczka podaje godziny z zeznania
+        text.push(T(pickU(B.alibiPaperTpl).replace("{x}", evAl.def.alibi.text), g, { from: said.from, to: said.to })); Pp.alibiTxt = T(evAl.def.alibi.text, g);
+        usedAlibi.push(evAl.def.alibi.text);
+      }
+      else if (al.confirmed) {
+        // alibi z pracy tylko dla pasującej roli; zawodowe wybieramy mniej więcej co drugi raz, gdy rola je ma
+        const pool = alibisFor(Pp).filter(x => !s.fakeAlibi || x.debunk), own = pool.filter(x => x.roles);
+        const a = pickU(own.length && R.chance(.5) ? own : pool);
+        usedAlibi.push(a.text);
+        text.push(T(t("gen.classic.alibi_from_to", { from: al.from, to: al.to, text: a.text }), g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);
+        if (s.fakeAlibi) debunks.push({ who: Pp.idx, line: a.debunk });
+      }
+      else text.push(T(pickU(noJanitor(forP(B.claimFrame, Pp))).replace("{x}", pickU(A(B.alibiClaim))), g, { from: al.from }));
+      for (const r of rules.filter(r => r.type === "trait")) if (!evOf(Pp, "trait:" + r.trait)) text.push(traitFact(B, crime, pickU, r.trait, s.traits[r.trait], Pp, year, T, monthIdx));
+      if (cmpRule) text.push(T(pickU(forP(B.rules2.heightCm, Pp)), g, { cm: Pp.cm, cmm: decimal(Pp.cm / 100, 2) }));
+      if (Pp.rel) text.push(T(pickU(forP(B.rules2.relation[Pp.rel].fact, Pp)), g, { ref: relRule.refName, szw: relRule.refG === "f" ? t("gen.classic.szwagierka") : t("gen.classic.szwagier") }));
+      if (s.yard != null) text.push(T(pickU(B.rules2.absent.fact), g, { t: toHM(s.yard) }));
+      if (hasD || R.chance(.25)) text.push(T(pickU(forP(B.habits[s.traits.habit], Pp)), g));
+      const nTraitRules = rules.filter(r => r.type === "trait").length;
+      const decoy = R.pick(TRAITS.filter(t => t !== "motive" && t !== "known" && !(t === "height" && (cmpRule || s.traits.height === "mid")) && !rules.some(r => r.trait === t)));
+      if (decoy && nTraitRules < 3 && R.chance(.6)) text.push(traitFact(B, crime, pickU, decoy, s.traits[decoy], Pp, year, T, monthIdx));
+      // motyw jako tło: gdy nie jest regułą, część osób z motywem dostaje podejrzane zdanie
+      if (!motiveRule && s.traits.motive === "yes" && (Pp.idx !== cIdx || R.chance(.5))) text.push(T(pickU(forP(crime.suspicion, Pp)), g));
+      else {
+        // smaczek roli albo epoki i miasta, ale tylko pasujący do tej osoby (wiek, rola, cechy)
+        const l = R.chance(.5) ? fresh(forP(Pp.role.flavor || [], Pp)) : (f => f && txt(f))(flavorPool.find(x => !usedLines.has(txt(x)) && fitsWho(x, who(Pp))));
+        if (l && R.chance(nTraitRules >= 3 ? .6 : .85)) { usedLines.add(l); text.push(T(l, g)); }
+      }
+      nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
+    });
+    for (const d of debunks) {
+      const others = nodes.filter(n => n.type === "person" && n.id !== persons[d.who].id);
+      const n = R.pick(others);
+      n.text.splice(Math.min(n.text.length, 2), 0, T(d.line, n.g));
+    }
+    // klucz, który jest tylko na dowodzie, nie trafia na listę posiadaczy w aktach miejsca
+    const holders = li => persons.filter(Pp => Pp.s.keys.has(li) && !evOf(Pp, "keys", f => f.where === LOCS[li].id)).map(Pp => `${Pp.first} ${Pp.last}`);
+    LOCS.forEach((loc, li) => {
+      const text = [T(R.pick(loc.desc))];
+      const here = I.filter((_, i) => locOf[i] === li);
+      if (here.length > 1) text.push(t("gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy", { plList: plList(here.map(itemRef)) }));
+      if (hasK) {
+        const h = holders(li), book = evs.some(c => c.kind === "keys" && c.li === li);
+        if (book) text.push(h.length ? t("gen.classic.v_pllist_others_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h), others: B.keyBookNote.others }) : t("gen.classic.only_zamek_nieuszkodzony", { only: B.keyBookNote.only }));
+        else text.push(h.length ? t("gen.classic.v_pllist_zamek_nieuszkodzony", { v: h.length > 1 ? t("gen.classic.klucze_maja") : t("gen.classic.klucz_ma"), plList: plList(h) }) : t("gen.classic.nikt_z_podejrzanych_nie_ma_tu"));
+      }
+      else text.push(T(R.pick(loc.open || [t("gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl")])));
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: t("gen.classic.miejsce"), sprite: { kind: "loc", icon: loc.icon }, text,
+        forms: [loc.gen, loc.in, loc.from].filter(Boolean) }); // formy do wyróżniania w tekście
+    });
+    I.forEach((it, i) => {
+      const gone = { m: t("gen.classic.zniknal"), f: t("gen.classic.zniknela"), n: t("gen.classic.zniknelo"), pl: t("gen.classic.zniknely") }[it.g];
+      const from = LOCS[locOf[i]].from;
+      const text = [R.pick(it.desc), hasW ? t("gen.classic.gone_from_miedzy_tohm_a_tohm2", { gone, from, toHM: toHM(win[i][0]), toHM2: toHM(win[i][1]) }) : t("gen.classic.gone_from_tego_dnia", { gone, from }), T(B.fates[fate[i]].item, it.g)];
+      nodes.push({ id: it.id, type: "item", g: it.g, label: it.label, name: it.name, kind: t("gen.classic.przedmiot"), sprite: { kind: "item", shape: it.icon.shape, pal: it.icon.p }, text });
+    });
+    for (const c of evs) {
+      const loc = c.li >= 0 ? LOCS[c.li] : null, f = c.f;
+      // losowe szczegóły (imię psa, film, zespół, papierosy, towar, kwota), z osobnego strumienia dowodów
+      const D = B.details;
+      const vars = { ini: ini(c.Pp), flat: c.Pp.flat, t: f.at, in: loc && loc.in, gen: loc && loc.gen, from: f.from, to: f.to, v: f.value,
+        dogname: RE.pick(D.dogs), dogbreed: RE.pick(D.breeds), film: RE.pick(A(D.films)), band: RE.pick(A(D.bands)),
+        cig: RE.pick(A(D.cigs)), packs: RE.pick(D.packs), goods: RE.pick(A(D.goods)), kwota: smallMoney(RE, year) };
+      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.classic.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
+        text: [...c.def.text, ...(c.otherDay ? [c.otherDay] : [])].map(x => T(prices(B, RE, year, x), c.Pp.g, vars).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) }); // „M.M..” → „M.M.”
+    }
+
+    /* 11. Połączenia zgodne z faktami, obwód sprawcy */
+    const supported = [];
+    persons.forEach(Pp => LOCS.forEach((loc, li) => {
+      if (Pp.s.keys.has(li) || Pp.s.pres.some(p => p.loc === li)) {
+        supported.push([Pp.id, loc.id]);
+        I.forEach((it, i) => { if (locOf[i] === li) supported.push([Pp.id, it.id]); });
+      }
+    }));
+    I.forEach((it, i) => supported.push([LOCS[locOf[i]].id, it.id]));
+    // dowód łączy się z właścicielem, a zapiski z miejsca także z tym miejscem
+    for (const c of evs) { supported.push([c.Pp.id, c.id]); if (c.li >= 0) supported.push([LOCS[c.li].id, c.id]); }
+    const C0 = persons[cIdx], wLoc = LOCS[locOf[wIdx]];
+    const chain = [[C0.id, wLoc.id], [wLoc.id, I[wIdx].id], [C0.id, I[wIdx].id]];
+
+    /* 12. Podpowiedzi, rozumowanie, epilog */
+    const ruleNo = r => r.id.slice(1);
+    const hintRules = [...new Set([...innocents.map(i => elim[i].rule), ...rules.filter(r => H.has(r.type))])];
+    let hints = R.shuffle(hintRules).map(r => hintText(B, r, ruleNo(r), crimeFrom, crimeTo, hasW));
+    if (debunks.length) hints.splice(R.int(0, 1), 0, t("gen.classic.nie_kazde_alibi_sie_trzyma_porownaj"));
+    if (evs.some(c => c.ess)) hints.splice(RE.int(0, 2), 0, evs.some(c => c.mark === "flat")
+      ? t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly")
+      : t("gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
+    if (useAlibi && evs.some(c => c.kind === "alibi")) hints.splice(RE.int(0, 2), 0, t("gen.classic.papiery_nie_zawsze_mowia_to_samo"));
+    hints = hints.slice(0, 3);
+    // 2.2.1: para zapisana rzeczownikami w mianowniku, po dwukropku, z pełnymi nazwiskami obu osób („Piotr Kowal i Alicja Baran: szwagrostwo”),
+    // bo „Piotr i Alicja Baran to szwagrostwo” czyta się jak dwie osoby o tym samym nazwisku; bez odmiany nazwisk (zbyt ryzykowna)
+    const relNoun = (rel, g1, g2, neg) => rel === "workmate" ? t("gen.classic.wspolpracownicy_z_jednego_zakladu")
+      : rel === "stairwell" ? (neg ? t("gen.classic.sasiedzi_z_klatki") : t("gen.classic.sasiedzi_z_jednej_klatki"))
+      : (g1 === "m" && g2 === "m" ? t("gen.classic.szwagrowie") : g1 === "f" && g2 === "f" ? t("gen.classic.szwagierki") : t("gen.classic.szwagrostwo"));
+    const why = innocents.map(sIdx => {
+      const Pp = persons[sIdx], e = elim[sIdx], n = ruleNo(e.rule), g = Pp.s.g;
+      if (e.rule.type === "cmp") return [Pp.first, t("gen.classic.ma_cm_cm_a_sprawca_jest", { cm: Pp.cm, v: e.rule.dir === "up" ? t("gen.classic.wyzszy") : t("gen.classic.nizszy"), refName: e.rule.refName, refCm: e.rule.refCm, n })];
+      if (e.rule.type === "relation") return [t("gen.classic.pair_names", { a: `${Pp.first} ${Pp.last}`, b: e.rule.refName }), Pp.rel ? t("gen.classic.relnoun_a_nie_relnoun2_regula_n", { relNoun: relNoun(Pp.rel, g, e.rule.refG), relNoun2: relNoun(e.rule.rel, g, e.rule.refG, true), n })
+        : t("gen.classic.w_teczce_nie_ma_nic_co", { n })];
+      if (e.rule.type === "absent") return [Pp.first, T(t("gen.classic.jest_w_zeszycie_dozorcy_o_tohm", { toHM: toHM(Pp.s.yard), n }), g)];
+      return [Pp.first, whyText(B, Pp, e, LOCS[locOf[e.trap]], locOf[e.trap], I[e.trap], fate[e.trap], ruleNo(e.rule), hasW, hasK, T)];
+    });
+    const extraBits = [];
+    if (cmpRule) extraBits.push(t("gen.classic.ma_cm_cm_v_niz_refname", { cm: C0.cm, v: cmpRule.dir === "up" ? t("gen.classic.wiecej") : t("gen.classic.mniej"), refName: cmpRule.refName, refCm: cmpRule.refCm }));
+    if (relRule) extraBits.push(t("gen.classic.relacja_z_osoba_refname_what", { refName: relRule.refName, what: B.rules2.relation[relRule.rel].what }));
+    if (absentRule) extraBits.push(t("gen.classic.nie_ma_go_jej_w_zeszycie"));
+    why.push([C0.first, T(t("gen.classic.spelnia_wszystkie_reguly_join", { join: [describeCulprit(B, rules, wLoc, hasW, hasK, useAlibi, C0.s.fakeAlibi, T(B.fates[fate[wIdx]].place || ""), (evs.find(c => c.Pp === C0 && c.lie) || {}).lie), ...extraBits].filter(Boolean).join(", ") }), C0.s.g)]);
+    if (evs.length) {
+      const owners = evs.map(c => t("gen.classic.owner_is", { what: lc1(c.def.name), mark: c.mark === "flat" ? t("gen.classic.flat_short", { n: c.Pp.flat }) : ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` }));
+      why.push([evs.length > 1 ? t("gen.classic.dowody_rzeczowe") : t("gen.classic.dowod_rzeczowy"), owners.join("; ") + "."]);
+    }
+    const hNames = herrings.map(h => itemRef(I[h]));
+    why.push([cap(plList(hNames)), hNames.length > 1
+      ? t("gen.classic.to_falszywe_tropy_zaden_nie_pasuje")
+      : t("gen.classic.to_falszywy_trop_nie_pasuje_do")]);
+    const tTake = C0.s.pres.find(p => p.loc === locOf[wIdx] && p.t >= win[wIdx][0] && p.t <= win[wIdx][1]);
+    const sceneTo = T(scene.to);
+    // gdy odpis testamentu wskazuje kogoś innego niż sprawcę, epilog nie może mówić o spadku ani mieszkaniu po ofierze (heir)
+    const heirTaken = evs.some(c => c.kind === "trait:motive" && c.def.heir && c.Pp.idx !== cIdx);
+    const mList = heirTaken ? crime.motives.filter(o => !(o && o.heir)) : crime.motives;
+    // gdy nic nie pasuje do osoby, zapasowo tylko motywy bez tagów (nigdy dorosłe sprawy u licealisty)
+    const motives = (m => m.length ? m : avail(mList.filter(o => typeof o === "string" || !(o.k || o.ages || o.roles || o.trait || o.vt)), year, monthIdx))(forP(mList, C0)); // motyw pasujący do sprawcy (licealista nie mści się za zwolnienie z pracy)
+    const epilogue = T(t("gen.classic.first_pick_v_zabral_zabrala_acc", { first: C0.first, pick: R.pick(motives.length ? motives : avail(mList, year, monthIdx)), v: tTake ? t("gen.classic.at_time", { toHM: toHM(tTake.t) }) : t("gen.classic.tego_wieczoru"), acc: I[wIdx].acc, from: wLoc.from, epilogueEnd: crime.epilogueEnd }), C0.s.g, { to: sceneTo });
+
+    const vg = scene.vg || "m";
+    const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, vg, { victim }), T(crime.cause[sub], vg), crime.itemsSentence].join(" ");
+    let quipRaw; const avQ = avoidOf("quips"), quips = prefer(A([...B.quips, ...(city.quips || [])]), x => avQ.has(x)); // 2.2.1: komentarze sezonowe (months) tylko w pasującym miesiącu
+
+    return {
+      case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
+      city: cityId, city_name: city.name, district: city.district.nom, year, month: V.month, size: sizeKey,
+      crime: crimeId, title: T(scene.title), intro, tool_label: crime.toolLabel,
+      time: { crime: { from: crimeFrom, to: crimeTo } },
+      nodes, facts, rules: sh.map(r => ({ id: r.id, type: r.type, trait: r.trait, value: r.value, ref: r.ref, refName: r.refName, refCm: r.refCm, dir: r.dir, rel: r.rel, text: r.text })),
+      solution: { culprit: C0.id, weapon: I[wIdx].id },
+      eliminations: Object.fromEntries(innocents.map(sIdx => [persons[sIdx].id, elim[sIdx].rule.id])),
+      red_herrings: herrings.map(h => I[h].id),
+      supported_connections: supported, culprit_chain: chain,
+      hints, why, epilogue, quip: T(quipRaw = R.pick(quips)),
+      detective: milicja ? t("gen.classic.porucznik_detective_z_mo", { detective: B.detective }) : t("gen.classic.komisarz_detective", { detective: B.detective }),
+      culprit_name: `${C0.first} ${C0.last}`, weapon_name: I[wIdx].name,
+      // co ta sprawa zużyła z pul treści: gra zapamiętuje to i podaje kolejnym sprawom z archiwum jako opts.avoid
+      used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: usedAlibi }
+    };
+  }
+
+  /* ---------------- pomocnicze teksty ---------------- */
+  function ruleText(B, R, crime, crimeId, scene, r, a, b, T, sub) {
+    const pickL = x => R.pick(Array.isArray(x) ? x : [x]);
+    if (r.type === "alibi") return pickL(crime.alibiRule).replace("{ev}", crime.alibiEvent).replace("{a}", a).replace("{b}", b);
+    if (r.type === "window") return pickL(crime.windowRule);
+    if (r.type === "key") return pickL(crime.keyRule);
+    if (r.type === "fate") return T(B.fates[r.value].rule, "m");
+    if (r.type === "dump") return pickL(B.dumpRule);
+    const f = r.refG === "f";
+    if (r.type === "cmp") return T(pickL(B.rules2.cmp.rule[r.dir]), "m", { ref: r.refName, refm: decimal(r.refCm / 100, 2), ref_od: f ? t("gen.classic.niej") : t("gen.classic.niego"),
+      stal: f ? t("gen.classic.stala") : t("gen.classic.stal"), widzial: f ? t("gen.classic.widziala") : t("gen.classic.widzial"), ktory: f ? t("gen.classic.ktora") : t("gen.classic.ktory") });
+    if (r.type === "relation") return T(pickL(B.rules2.relation[r.rel].rule), "m", { ref: r.refName, zeznal: f ? t("gen.classic.zeznala") : t("gen.classic.zeznal"), ref_jego: f ? t("gen.classic.jej") : t("gen.classic.jego") });
+    if (r.type === "absent") return T(pickL(B.rules2.absent.rule), "m", { a: toHM(r.a), b: toHM(r.b) });
+    if (r.trait === "motive") return pickL(crime.motiveRule);
+    const def = B.traits[r.trait];
+    // przy uduszeniu nie ma rany ani ciosu: osobne zdania o tym, która ręka zaciągnęła sznur
+    if (r.trait === "hand" && crimeId === "zabojstwo") return pickL((sub === "sznur" ? def.ruleStrangle : def.ruleMurder)[r.value]);
+    // typ zbrodni może podać własne zdania reguły cechy (np. psia sierść przy porwaniu psa); jedno losowanie, jak niżej
+    const own = crime.traitRule && crime.traitRule[r.trait], rule = own || def.rule;
+    const tpl = pickL(Array.isArray(rule) || typeof rule === "string" ? rule : rule[r.value]);
+    return cap(T(tpl, "m", { v: r.value, where: scene.where }));
+  }
+  /* zdanie o cesze osoby: tylko warianty pasujące do jej wieku, roli i roku */
+  function traitFact(B, crime, pickU, trait, value, Pp, year, T, monthIdx) {
+    const def = B.traits[trait], g = Pp.s.g;
+    const list = def.fromCrime ? (value === "yes" ? crime.suspicion : crime.noMotive) : (Array.isArray(def.facts) ? def.facts : def.facts[value]);
+    return T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: value, cm: Pp.cm });
+  }
+  function hintText(B, r, n, a, b, hasW) {
+    if (r.type === "alibi") return t("gen.classic.regula_n_kto_ma_potwierdzone_alibi", { n, a, b });
+    if (r.type === "window") return t("gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi", { n });
+    if (r.type === "key") return hasW ? t("gen.classic.regula_n_kto_byl_przy_przedmiocie", { n }) : t("gen.classic.regula_n_sprawdz_kto_ma_klucze", { n });
+    if (r.type === "fate") return t("gen.classic.regula_n_sprawdz_w_aktach_przedmiotow", { n });
+    if (r.type === "dump") return t("gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot", { n });
+    if (r.type === "cmp") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.cmp.hint.replace("{ref}", r.refName).replace("{refm}", decimal(r.refCm / 100, 2)) });
+    if (r.type === "relation") return t("gen.classic.regula_n_replace", { n, replace: B.rules2.relation.hint.replace("{ref}", r.refName) });
+    if (r.type === "absent") return t("gen.classic.regula_n_hint", { n, hint: B.rules2.absent.hint });
+    const h = B.traits[r.trait].hint; return t("gen.classic.regula_n_v", { n, v: h.charAt(0).toLowerCase() + h.slice(1) });
+  }
+  function whyText(B, Pp, e, loc, li, item, itemFate, n, hasW, hasK, T) {
+    const r = e.rule, g = Pp.s.g;
+    if (r.type === "alibi") return T(t("gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n", { alibiTxt: Pp.alibiTxt, n }), g);
+    if (r.type === "dump") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_nie", { acc: item.acc, T: T(B.fates[itemFate].place, g), n, it: t("gen.classic.it_" + item.g) }), g); // it = „go / ją / je / je” wg rodzaju przedmiotu
+    if (r.type === "window") {
+      const p = Pp.s.pres.find(x => x.loc === li);
+      return T(t("gen.classic.v_byl_byla_in_o_tohm", { v: hasK ? t("gen.classic.ma_klucz_do_gen_ale", { gen: loc.gen }) : "", in: loc.in, toHM: toHM(p.t), n }), g);
+    }
+    if (r.type === "key") return T(t("gen.classic.byl_byla_in_v_ale_nie", { in: loc.in, v: hasW ? t("gen.classic.we_wlasciwym_czasie") : "", n }), g);
+    if (r.type === "fate") return T(t("gen.classic.mogl_mogla_zabrac_acc_ale_t", { acc: item.acc, T: T(B.fates[itemFate].why, g), n }), g);
+    const def = B.traits[r.trait];
+    const wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
+    return T(t("gen.classic.wf_regula_n", { wf, n }), g, { v: Pp.s.traits[r.trait] });
+  }
+  function describeCulprit(B, rules, loc, hasW, hasK, useAlibi, fake, dumpPlace, lie) {
+    const bits = [];
+    if (hasK) bits.push(t("gen.classic.ma_klucz_do_gen", { gen: loc.gen }));
+    if (hasW) bits.push(t("gen.classic.byl_byla_in_we_wlasciwym_czasie", { in: loc.in }));
+    if (useAlibi) bits.push(fake ? t("gen.classic.jego_jej_alibi_okazalo_sie_klamstwem")
+      : lie === "hours" ? t("gen.classic.jego_jej_papiery_pokazuja_inne_godziny")
+      : lie === "day" ? t("gen.classic.jego_jej_papiery_sa_z_innego") : t("gen.classic.nie_ma_alibi"));
+    for (const r of rules.filter(r => r.type === "trait")) {
+      const w = B.traits[r.trait].why;
+      bits.push(typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]);
+    }
+    if (rules.some(r => r.type === "fate")) bits.push(t("gen.classic.a_los_narzedzia_zgadza_sie_z"));
+    if (rules.some(r => r.type === "dump")) bits.push(t("gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa", { dumpPlace }));
+    return bits.join(", ");
+  }
+
+  function sprites() {
+    if (root.SiatkaSprites) return root.SiatkaSprites;
+    if (typeof require !== "undefined") return require("../sprites.js");
+    throw new Error(t("gen.classic.brak_modulu_sprites"));
+  }
+
+  const classic = {
+    id: "classic",
+    aliases: ["single_culprit_one_reason_each"], // nazwa z ręcznej case_001.json
+    name: t("gen.classic.klasyczna_sprawa"),
+    minSize: "S",
+    weight: 3, // oś czasu ma wagę 1 od M: ok. 25% spraw M–XL
+    question: "culprit_weapon",
+    build,
+    hypotheses(c) {
+      const people = c.nodes.filter(n => n.type === "person").map(n => n.id);
+      const items = c.nodes.filter(n => n.type === "item").map(n => n.id);
+      const out = [];
+      for (const p of people) for (const i of items) out.push({ culprit: p, weapon: i });
+      return out;
+    },
+    holds: (rule, h, ix, c) => Solver.pred(rule, { who: h.culprit, item: h.weapon }, ix, c)
+  };
+  Eng.register(classic);
+  if (typeof module !== "undefined" && module.exports) module.exports = classic;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== engine/archetypes/timeline.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — archetyp „Oś czasu” (timeline, wydanie 2.2).
+ * Nikt nie jest w dwóch miejscach naraz. W teczkach są obserwacje „X widziany w Y o T” (co do minuty),
+ * w notatniku tabela czasów dojścia i reguła „sprawca był na miejscu zdarzenia między A a B”.
+ * Trasę na miejsce zdarzenia w oknie ma sprawca i 1–2 niewinnych, którzy odpadają z reguł cech;
+ * pozostali niewinni nie zdążą (co najmniej 1, w L–XL 2 z nich brakuje tylko 5 minut: pułapka).
+ * Pytanie: kto (bez narzędzia). Hipoteza: {culprit}.
+ */
+(function (root) {
+  const Eng = root.Siatka || require("../engine.js");
+  const t = Eng.t;
+  const { cap, toMin, toHM, plList, inYears, avail, slug, fitsWho, fitsAt, atTexts, prices } = Eng.util;
+  const Solver = root.SiatkaSolver || require("../solver.js");
+  /* typy zbrodni, w których liczy się chwila na miejscu (bez szantażu, fałszerstwa i otrucia człowieka) */
+  const CRIMES = ["zabojstwo", "kradziez", "napad", "podpalenie", "wandalizm", "porwanie_psa", "sabotaz", "otrucie"];
+  const NLOC = { M: 3, L: 4, XL: 5 };               // miejsca razem z miejscem zdarzenia
+  const NTRAIT = { M: [1, 1], L: [1, 2], XL: [2, 2] }; // niewinni z trasą, którzy odpadają z reguł cech
+  const TRAPS = { M: 1, L: 2, XL: 2 };              // ilu niewinnym brakuje tylko 5 minut
+  const EV = { M: [1, 1], L: [1, 2], XL: [2, 3] };
+  const RULE_TRAITS = ["height", "smoker", "glasses", "dog", "jacket"];
+  const ALL_TRAITS = ["hand", "shoe", "height", "smoker", "car", "glasses", "dog", "jacket", "motive"];
+  const MIN_GAP = 15, WIN = 20, STAY = 10; // STAY: najkrótszy pobyt sprawcy na miejscu zdarzenia w oknie
+  const who = Pp => ({ age: Pp.age, role: Pp.role, traits: Pp.s.traits, g: Pp.s.g, cm: Pp.cm, vt: Pp.vt });
+  const ofWho = (list, Pp) => (Array.isArray(list) ? list : [list]).filter(o => fitsWho(o, who(Pp)));
+  const txt = o => typeof o === "string" ? o : o.t;
+  const lc1 = s => s.charAt(0).toLowerCase() + s.slice(1);
+  const round5 = x => Math.max(5, Math.round(x / 5) * 5);
+
+  function build(ctx) {
+    const { R, B, seed, opts, cityId, city, year, monthIdx, sizeKey, N, milicja, A, V, T, pickU } = ctx;
+    if (!NLOC[sizeKey]) return null;
+    const TL = B.timeline;
+    const AV = opts.avoid || {}, avoidOf = k => new Set(AV[k] || []);
+    const avN = avoidOf("names"), avSur = avoidOf("surnames"), avR = avoidOf("roles"), avS = avoidOf("scenes"), avF = avoidOf("flavor");
+    const prefer = (list, bad) => { const f = list.filter(x => !bad(x)); return f.length ? f : list; };
+
+    /* 1. Zbrodnia i scena (tylko typy, w których liczy się chwila na miejscu) */
+    const crimeIds = CRIMES.filter(id => B.crimes[id] && (!opts.crime || id === opts.crime));
+    if (!crimeIds.length) return null;
+    const crimeId = R.pick(crimeIds), crime = B.crimes[crimeId];
+    const scenes = crime.scenes.filter(s => inYears(s, year, monthIdx));
+    if (!scenes.length) return null;
+    const scene = R.pick(prefer(scenes, s => avS.has(s.title)));
+    const sub = R.pick(crime.subtags);
+
+    /* 2. Miejsca i czasy dojścia: punkty na płaszczyźnie, zaokrąglone do 5 min, potem najkrótsze drogi (nierówność trójkąta) */
+    const cityLocs = (city.locations || []).filter(l => inYears(l, year, monthIdx));
+    const pool = [...B.locations, ...cityLocs];
+    const others = R.sample(pool, NLOC[sizeKey] - 1);
+    const X = Object.assign({ desc: [scene.where ? t("gen.timeline.tu_to_sie_stalo_where", { where: scene.where }) : t("gen.timeline.tu_to_sie_stalo")] }, TL.scene);
+    // miejsce zbrodni nosi nazwę ze sceny („Magiel przy Mariackiej”); „Miejsce zdarzenia” zostaje tylko jako rodzaj węzła i w tekstach reguł
+    // nazwa i rodzaj miejsca (pt: dobiera pasujących świadków i dowody) po indeksie sceny, więc tak samo w każdym języku
+    const P = TL.places[crimeId][crime.scenes.indexOf(scene)];
+    X.name = T(P.name);
+    X.label = X.name.split(new RegExp(t("gen.timeline.label_split_re")))[0];
+    X.pt = P.pt;
+    if (others.some(o => o.name === X.name)) X.name += t("gen.timeline.miejsce_zdarzenia_2");
+    if (others.some(o => o.label === X.label)) X.label = t("gen.timeline.miejsce_zdarz");
+    const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
+    const L = LOCS.length;
+    const pt = LOCS.map((_, i) => i === 0 ? [0, 0] : (a => { const r = R.int(8, 30); return [r * Math.cos(a), r * Math.sin(a)]; })(R.next() * 2 * Math.PI));
+    const D = LOCS.map((_, i) => LOCS.map((_, j) => i === j ? 0 : round5(Math.hypot(pt[i][0] - pt[j][0], pt[i][1] - pt[j][1]))));
+    for (let k = 0; k < L; k++) for (let i = 0; i < L; i++) for (let j = 0; j < L; j++) if (D[i][k] + D[k][j] < D[i][j]) D[i][j] = D[i][k] + D[k][j];
+    const d = (a, b) => D[a][b];
+
+    /* 3. Czas zdarzenia: okno 20 minut (scena może nadpisać godziny) */
+    const Cst = scene.time ? R.int(toMin(scene.time[0]) / 30, toMin(scene.time[1]) / 30 - 1) * 30 : R.int(18, 21) * 60 + R.pick([0, 30]);
+    const A0 = Cst, B0 = Cst + WIN;
+
+    /* 4. Kto odpada skąd */
+    const cIdx = R.int(0, N - 1);
+    const innocents = [...Array(N).keys()].filter(i => i !== cIdx);
+    const sh = R.shuffle(innocents);
+    const nT = Math.min(R.int(...NTRAIT[sizeKey]), N - 3);
+    if (nT < 1) return null;
+    const traitFail = sh.slice(0, nT), routeFail = sh.slice(nT);
+    const traps = new Set(routeFail.slice(0, Math.min(TRAPS[sizeKey], routeFail.length)));
+    const nRules = Math.min(nT, sizeKey === "XL" ? 2 : R.int(1, nT));
+    const traitIds = R.sample(RULE_TRAITS, nRules);
+    const rules = [{ type: "reach", where: X.id, from: toHM(A0), to: toHM(B0), stay: STAY },
+      ...traitIds.map(t => ({ type: "trait", trait: t, value: R.pick(B.traits[t].ruleValues || B.traits[t].values) }))];
+    const tRules = rules.filter(r => r.type === "trait");
+    const assign = {};
+    traitFail.forEach((i, k) => { assign[i] = tRules[k % tRules.length]; });
+    for (const i of routeFail) assign[i] = rules[0];
+
+    /* 5. Podejrzani: cechy (sprawca i niewinni z „trasy” spełniają reguły cech) */
+    const S = [...Array(N)].map(() => ({ g: R.chance(.5) ? "m" : "f", traits: {}, obs: [] }));
+    const valuesOf = (t, g) => t === "shoe" ? B.traits.shoe.values[g] : B.traits[t].values;
+    S.forEach((s, i) => {
+      for (const t of ALL_TRAITS) {
+        const r = tRules.find(x => x.trait === t);
+        if (r) s.traits[t] = assign[i] === r ? R.pick(valuesOf(t, s.g).filter(v => v !== r.value)) : r.value;
+        else s.traits[t] = t === "motive" ? (i === cIdx ? "yes" : R.chance(.35) ? "yes" : "no") : R.pick(valuesOf(t, s.g));
+      }
+      s.traits.habit = "park";
+    });
+
+    /* 6. Obserwacje. Każdy ma 2–4 (rozkład nie zależy od winy). Dwie z nich obejmują okno zdarzenia:
+       ostatnia przed (p, tb) i pierwsza po (q, ta). Czas, który zostaje na miejscu zdarzenia w oknie:
+       len = min(ta − d(X,q), B) − max(tb + d(p,X), A). Sprawca 10–15 min, niewinni z trasą 10–20,
+       pułapka 5 (o 5 min za mało przy wymogu 10), reszta od −30 do −5. */
+    const nonX = [...Array(L).keys()].slice(1);
+    const free = (s, loc, t) => s.obs.every(o => o.w === loc ? o.t !== t : Math.abs(o.t - t) >= Math.max(MIN_GAP, d(o.w, loc)));
+    function schedule(i) {
+      const s = S[i], mode = i === cIdx || traitFail.includes(i) ? "ok" : traps.has(i) ? "trap" : "far";
+      for (let tries = 0; tries < 30; tries++) {
+        s.obs = [];
+        const p = R.pick(nonX), q = R.chance(.4) ? p : R.pick(nonX);
+        const len = i === cIdx ? R.int(2, 3) * 5 : mode === "ok" ? R.int(2, 4) * 5 : mode === "trap" ? STAY - 5 : STAY - R.int(3, 8) * 5;
+        // dojście α i wyjście λ = α + len; przy len > 0 cały pobyt mieści się w oknie
+        const alpha = len > 0 ? R.int(A0 / 5, (B0 - len) / 5) * 5 : R.int(A0 / 5, B0 / 5) * 5, lambda = alpha + len;
+        const tb = alpha - d(p, 0), ta = lambda + d(0, q);
+        if (ta - tb < (p === q ? 10 : Math.max(MIN_GAP, d(p, q)))) continue;
+        // niewinny bez trasy nie może spędzić 10 min na miejscu przed pierwszą ani po ostatniej obserwacji
+        if (mode !== "ok" && (tb - d(p, 0) >= A0 + STAY || ta + d(q, 0) <= B0 - STAY)) continue;
+        s.obs.push({ w: p, t: tb }, { w: q, t: ta });
+        const k = R.int(2, 4);
+        for (let e = 2; e < k; e++) {
+          const before = R.chance(.5), w = R.pick(nonX);
+          const t = before ? tb - Math.max(MIN_GAP, d(w, p)) - R.int(1, 6) * 5 : ta + Math.max(MIN_GAP, d(q, w)) + R.int(1, 6) * 5;
+          if (free(s, w, t)) s.obs.push({ w, t });
+        }
+        s.obs.sort((a, b) => a.t - b.t);
+        // zgodność: między kolejnymi obserwacjami da się przejść
+        if (!s.obs.every((o, j) => j === 0 || o.t - s.obs[j - 1].t >= (o.w === s.obs[j - 1].w ? 5 : Math.max(MIN_GAP, d(s.obs[j - 1].w, o.w))))) continue;
+        const can = Solver.reachable(s.obs.map(o => ({ w: o.w, t: o.t })), 0, A0, B0, d, STAY);
+        if (can !== (mode === "ok")) continue;
+        s.bracket = { p, q, tb, ta, len };
+        return true;
+      }
+      return false;
+    }
+    for (let i = 0; i < N; i++) if (!schedule(i)) return null;
+
+    /* 7. Tożsamości (jak w classic: rola, imię z pokolenia roli, portret) */
+    const roles = [...A(B.roles), ...A(city.roles || []), city.worker].filter(r => r && inYears(r, year, monthIdx));
+    const usedFirst = new Set(), usedSur = new Set(), usedRoles = new Set(), ids = [];
+    const AGES = ["young", "mid", "old"];
+    const agesOf = role => !role || !role.age ? AGES : Array.isArray(role.age) ? role.age : [role.age];
+    const pickName = (g, age) => {
+      const pool = (age ? [age] : AGES).flatMap(a => B.names[g][a]).filter(n => !usedFirst.has(n));
+      const first = R.pick(prefer(pool, n => avN.has(n))); usedFirst.add(first);
+      const sur = R.pick(prefer(B.surnames.filter(x => !usedSur.has(x[0])), x => avSur.has(x[0]))); usedSur.add(sur[0]);
+      return { first, last: g === "f" ? sur[1] : sur[0] };
+    };
+    const HAIR_BY_AGE = { young: [0, 1, 2, 5], mid: [0, 1, 2, 3, 5], old: [3, 4, 4] };
+    const SP = root.SiatkaSprites || require("../sprites.js");
+    const persons = S.map((s, idx) => {
+      const pool = roles.filter(r => r[s.g] && !usedRoles.has(r.id) && (!r.need || Object.entries(r.need).every(([t, v]) => s.traits[t] === v)));
+      if (!pool.length) return null;
+      const role = R.pick(prefer(pool, r => avR.has(r.id))); usedRoles.add(role.id);
+      const age = R.pick(agesOf(role)), { first, last } = pickName(s.g, age);
+      let id = slug(first); while (ids.includes(id) || id === X.id) id += "2"; ids.push(id);
+      const hw = (role.headwear && role.headwear[s.g]) || [];
+      return { idx, s, id, first, last, role, age, vt: scene.vt,
+        sprite: { kind: "portrait", g: s.g, skin: R.int(0, 3), hair: R.pick(SP.HAIR_BY_G[s.g]), hairC: R.pick(HAIR_BY_AGE[age]),
+          head: (hw.length && R.pick(hw)) || null, headC: R.int(0, 4), outfit: role.outfit, glasses: s.traits.glasses === "yes", smoker: s.traits.smoker === "yes",
+          mustache: s.g === "m" && R.chance(.35) } };
+    });
+    if (persons.some(p => !p)) return null;
+    const victim = (() => { const n = pickName(scene.vg || "m", scene.vage || R.pick(["mid", "old"])); return `${n.first} ${n.last}`; })();
+    const C0 = persons[cIdx];
+    const { heightOf, heightClass } = Eng.util, heightRule = tRules.some(r => r.trait === "height");
+    persons.forEach(Pp => { Pp.cm = heightOf(R, Pp.s.g, heightRule ? Pp.s.traits.height : null); Pp.s.traits.height = heightClass(Pp.s.g, Pp.cm); });
+
+    /* 8. Fakty */
+    const facts = [];
+    for (let i = 0; i < L; i++) for (let j = i + 1; j < L; j++) facts.push({ type: "travel", a: LOCS[i].id, b: LOCS[j].id, min: d(i, j) });
+    persons.forEach(Pp => {
+      for (const o of Pp.s.obs) facts.push({ type: "presence", who: Pp.id, where: LOCS[o.w].id, at: toHM(o.t) });
+      for (const t of [...ALL_TRAITS, "habit"]) facts.push({ type: "trait", who: Pp.id, trait: t, value: Pp.s.traits[t] });
+      facts.push({ type: "trait", who: Pp.id, trait: "height_cm", value: Pp.cm });
+    });
+
+    /* 8b. Dowody rzeczowe: obserwacja z godziną przechodzi z teczki na dowód (inicjały) */
+    const RE = Eng.util.makeRng(seed + "/ev");
+    const ini = Pp => `${Pp.first.charAt(0)}.${Pp.last.charAt(0)}.`;
+    const iniN = {}; persons.forEach(Pp => { iniN[ini(Pp)] = (iniN[ini(Pp)] || 0) + 1; });
+    const evs = [];
+    {
+      const want = RE.int(...EV[sizeKey]);
+      const cands = RE.shuffle(facts.filter(f => f.type === "presence" && iniN[ini(persons.find(p => p.id === f.who))] === 1));
+      const defs = RE.shuffle(TL.evidence), per = {}, usedDefs = new Set();
+      // co najmniej jeden dowód dotyczy niewinnego
+      const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
+      for (const f of order) {
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, LOCS[li].pt)); // dowód pasuje do rodzaju miejsca
+        if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
+        per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
+      }
+      evs.forEach((c, k) => { c.id = "ev" + (k + 1); c.f.src = c.id; });
+      if (evs.length) persons.forEach(Pp => facts.push({ type: "mark", who: Pp.id, kind: "initials", value: ini(Pp) }));
+      for (const c of evs) facts.push({ type: "evidence", id: c.id, kind: "presence", owner: c.Pp.id, mark: { kind: "initials", value: ini(c.Pp) } });
+    }
+
+    /* 9. Reguły */
+    const pickL = x => R.pick(Array.isArray(x) ? x : [x]);
+    const shR = R.shuffle(rules);
+    shR.forEach((r, k) => {
+      r.id = "r" + (k + 1);
+      if (r.type === "reach") r.text = T(pickL(TL.reachRule), "m", { a: r.from, b: r.to, stay: r.stay });
+      else {
+        const def = B.traits[r.trait], own = crime.traitRule && crime.traitRule[r.trait], rl = own || def.rule;
+        r.text = cap(T(pickL(Array.isArray(rl) || typeof rl === "string" ? rl : rl[r.value]), "m", { v: r.value, where: scene.where }));
+      }
+    });
+
+    /* 10. Węzły */
+    let quipRaw;
+    const nodes = [], usedLines = new Set();
+    const forP = (list, Pp) => avail(ofWho(list, Pp), year, monthIdx);
+    const flavorPool = R.shuffle([...B.eraFlavor, ...(city.flavor || [])].filter(o => typeof o === "string" || inYears(o, year, monthIdx)));
+    /* Zdania obserwacji z kotwicami czasu. Kotwica miejsca (anc: close, lunch, break) najwyżej raz na miejsce,
+       kotwica ogólna (radio, bells, watch, clock) najwyżej raz na sprawę. Po zamknięciu sklepu (close) o T
+       nie ma już świadków, którzy zakładają, że jest otwarty (open:true): zostają świadkowie z zewnątrz. */
+    const PLACE_ANC = ["close", "lunch", "break"], obsText = new Map(), placeUsed = new Set(), genUsed = new Set(), closedAt = {}, lastOpen = {};
+    const allObs = [];
+    persons.forEach(Pp => { for (const o of Pp.s.obs) if (!evs.some(c => c.Pp === Pp && c.f.at === toHM(o.t) && c.li === o.w)) allObs.push({ Pp, o }); });
+    allObs.sort((x, y) => x.o.t - y.o.t);
+    for (const { Pp, o } of allObs) {
+      const loc = LOCS[o.w], meta = new Map(), pool = [];
+      for (const e of TL.obsTpl) {
+        if (!fitsAt(e, loc.pt)) continue;
+        const m = typeof e === "string" ? {} : e, str = typeof e === "string" ? e : e.t;
+        if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
+        if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
+        if (m.anc === "close" && lastOpen[o.w] !== undefined && lastOpen[o.w] >= o.t) continue; // ktoś o tej porze jeszcze był w otwartym sklepie
+        meta.set(str, m); pool.push(str);
+      }
+      const pickedT = pickU(pool), m = meta.get(pickedT);
+      if (m.open) lastOpen[o.w] = Math.max(lastOpen[o.w] === undefined ? -1 : lastOpen[o.w], o.t);
+      if (m.anc) {
+        if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && loc.pt === "shop") closedAt[o.w] = o.t; }
+        else genUsed.add(m.anc);
+      }
+      obsText.set(o, T(pickedT.replace("{in}", loc.in).replace("{t}", toHM(o.t)), Pp.s.g));
+    }
+    persons.forEach(Pp => {
+      const s = Pp.s, g = s.g, text = [];
+      for (const o of s.obs) if (obsText.has(o)) text.push(obsText.get(o));
+      for (const r of tRules) {
+        const def = B.traits[r.trait], list = Array.isArray(def.facts) ? def.facts : def.facts[s.traits[r.trait]];
+        text.push(T(pickU(avail(ofWho(list, Pp), year, monthIdx)), g, { v: s.traits[r.trait], cm: Pp.cm }));
+      }
+      const l = R.chance(.5) ? (x => x && !usedLines.has(x) ? x : null)(R.pick(forP(Pp.role.flavor || [], Pp).concat([null])))
+        : (f => f && txt(f))(flavorPool.find(x => !usedLines.has(txt(x)) && !avF.has(txt(x)) && fitsWho(x, who(Pp))));
+      if (l && R.chance(.8)) { usedLines.add(l); text.push(T(l, g)); }
+      nodes.push({ id: Pp.id, type: "person", g, age: Pp.age, label: `${Pp.first} ${Pp.last.charAt(0)}.`, name: `${Pp.first} ${Pp.last}`, kind: T(Pp.role[g], g), sprite: Pp.sprite, text });
+    });
+    LOCS.forEach((loc, li) => {
+      const near = LOCS.map((o, j) => j !== li ? t("gen.timeline.name_d_min", { name: o.name, d: d(li, j) }) : null).filter(Boolean);
+      const text = [T(R.pick(loc.desc)), t("gen.timeline.stad_pieszo_join", { join: near.join(", ") })];
+      nodes.push({ id: loc.id, type: "location", label: loc.label, name: loc.name, kind: li === 0 ? t("gen.timeline.miejsce_zdarzenia") : t("gen.timeline.miejsce"),
+        sprite: { kind: "loc", icon: loc.icon }, text, forms: [loc.gen, loc.in, loc.from].filter(Boolean) });
+    });
+    for (const c of evs) {
+      const loc = LOCS[c.li];
+      nodes.push({ id: c.id, type: "evidence", label: c.def.label, name: c.def.name, kind: t("gen.timeline.dowod_rzeczowy_2"), sprite: { kind: "ev", icon: c.def.icon },
+        text: c.def.text.map(x => T(prices(B, RE, year, x), c.Pp.g, { ini: ini(c.Pp), t: c.f.at, in: loc.in }).replace(/(\p{Lu}\.\p{Lu}\.)\./gu, "$1")) });
+    }
+
+    /* 11. Połączenia: osoba ↔ miejsce obserwacji (trasa), sprawca ↔ miejsce zdarzenia, dowód ↔ osoba i miejsce */
+    const supported = [];
+    persons.forEach(Pp => { for (const li of new Set(Pp.s.obs.map(o => o.w))) supported.push([Pp.id, LOCS[li].id]); });
+    supported.push([C0.id, X.id]);
+    for (const c of evs) supported.push([c.Pp.id, c.id], [LOCS[c.li].id, c.id]);
+    const chain = [[C0.id, X.id]];
+
+    /* 12. Podpowiedzi, rozumowanie, epilog */
+    const ruleNo = r => r.id.slice(1), reach = rules[0];
+    const hints = R.shuffle([TL.hint.replace("{n}", ruleNo(reach)).replace("{a}", reach.from).replace("{b}", reach.to).replace("{stay}", reach.stay),
+      ...tRules.map(r => t("gen.timeline.regula_ruleno_lc1", { ruleNo: ruleNo(r), lc1: lc1(B.traits[r.trait].hint) }))]);
+    if (evs.length) hints.splice(RE.int(0, 1), 0, t("gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj"));
+    const route = Pp => { const b = Pp.s.bracket, p = LOCS[b.p], q = LOCS[b.q];
+      return { p, q, tb: toHM(b.tb), ta: toHM(b.ta), dp: d(b.p, 0), dq: d(0, b.q), gap: b.ta - b.tb }; };
+    const why = innocents.map(i => {
+      const Pp = persons[i], g = Pp.s.g, r = assign[i];
+      if (r.type === "reach") {
+        const x = route(Pp), b = Pp.s.bracket, E = Math.max(b.tb + x.dp, A0), Lx = Math.min(b.ta - x.dq, B0), len = Lx - E;
+        const where = len > 0 ? t("gen.timeline.moglby_moglaby_tam_byc_najwyzej_od", { toHM: toHM(E), toHM2: toHM(Lx), len }) : t("gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w");
+        return [Pp.first, T(t("gen.timeline.o_tb_byl_byla_in_a", { tb: x.tb, in: x.p.in, ta: x.ta, v: x.q === x.p ? t("gen.timeline.nadal_tam") : x.q.in, dp: x.dp, dq: x.dq, where, stay: reach.stay, ruleNo: ruleNo(r) }), g)];
+      }
+      const def = B.traits[r.trait], wf = typeof def.whyFail === "string" ? def.whyFail : def.whyFail[r.value];
+      return [Pp.first, T(t("gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia", { wf, ruleNo: ruleNo(r) }), g, { v: Pp.s.traits[r.trait] })];
+    });
+    {
+      const x = route(C0), b = C0.s.bracket, arr = toHM(Math.max(b.tb + x.dp, A0)), back = toHM(Math.min(b.ta - x.dq, B0));
+      const tw = tRules.map(r => { const w = B.traits[r.trait].why; return typeof w === "string" ? w.replace("{v}", r.value) : w[r.value]; });
+      why.push([C0.first, T(t("gen.timeline.zdazyl_a_o_tb_in_dp", { tb: x.tb, in: x.p.in, dp: x.dp, arr, back, len: b.len, from: reach.from, to: reach.to, dq: x.dq, ta: x.ta, in2: x.q.in, v: tw.length ? t("gen.timeline.also", { tw: tw.join(", ") }) : "" }), C0.s.g)]);
+    }
+    if (evs.length) why.push([evs.length > 1 ? t("gen.timeline.dowody_rzeczowe") : t("gen.timeline.dowod_rzeczowy"), evs.map(c => t("gen.timeline.owner_is", { what: lc1(c.def.name), mark: ini(c.Pp), who: `${c.Pp.first} ${c.Pp.last}` })).join("; ") + "."]);
+    const motives = (m => m.length ? m : avail(crime.motives.filter(o => typeof o === "string"), year, monthIdx))(avail(ofWho(crime.motives, C0), year, monthIdx));
+    const bq = C0.s.bracket;
+    const epilogue = T(t("gen.timeline.first_pick_o_tohm_byl_byla", { first: C0.first, pick: R.pick(motives), toHM: toHM(bq.tb), in: LOCS[bq.p].in, toHM2: toHM(bq.tb + d(bq.p, 0)), toHM3: toHM(bq.ta), in2: LOCS[bq.q].in }), C0.s.g);
+    const intro = [`${V.district}, ${V.city}, ${V.month} ${year}.`, T(scene.intro, scene.vg || "m", { victim }), T(crime.cause[sub], scene.vg || "m"),
+      t("gen.timeline.nikt_nie_jest_w_dwoch_miejscach")].join(" ");
+
+    return {
+      case_id: "case_" + seed.replace(/[^a-z0-9]+/gi, "_"),
+      city: cityId, city_name: city.name, district: city.district.nom, year, month: V.month, size: sizeKey,
+      crime: crimeId, title: T(scene.title), intro, tool_label: null,
+      time: { crime: { from: toHM(A0), to: toHM(B0) } },
+      travel: (() => { const out = []; for (let i = 0; i < L; i++) for (let j = i + 1; j < L; j++) out.push([LOCS[i].id, LOCS[j].id, d(i, j)]); return out; })(),
+      travel_note: TL.tableNote,
+      nodes, facts, rules: shR.map(r => ({ id: r.id, type: r.type, trait: r.trait, value: r.value, where: r.where, from: r.from, to: r.to, stay: r.stay, text: r.text })),
+      solution: { culprit: C0.id },
+      eliminations: Object.fromEntries(innocents.map(i => [persons[i].id, assign[i].id])),
+      red_herrings: [], supported_connections: supported, culprit_chain: chain,
+      hints: hints.slice(0, 3), why, epilogue, quip: T(quipRaw = R.pick(prefer(A([...B.quips, ...(city.quips || [])]), x => avoidOf("quips").has(x)))),
+      detective: milicja ? t("gen.timeline.porucznik_detective_z_mo", { detective: B.detective }) : t("gen.timeline.komisarz_detective", { detective: B.detective }),
+      culprit_name: `${C0.first} ${C0.last}`, weapon_name: null,
+      used: { names: persons.map(Pp => Pp.first), surnames: persons.map(Pp => B.surnames.find(x => x[0] === Pp.last || x[1] === Pp.last)[0]),
+        roles: persons.map(Pp => Pp.role.id), scenes: [scene.title], quips: [quipRaw], flavor: [...usedLines], alibi: [] }
+    };
+  }
+
+  const timeline = {
+    id: "timeline",
+    name: t("gen.timeline.os_czasu"),
+    minSize: "M",
+    weight: size => size === "S" ? 0 : 1, // ok. 25% spraw M–XL (classic ma wagę 3)
+    question: "culprit",
+    supports: opts => !opts.crime || CRIMES.includes(opts.crime),
+    build,
+    hypotheses: c => c.nodes.filter(n => n.type === "person").map(n => ({ culprit: n.id })),
+    same: (h, sol) => h.culprit === sol.culprit,
+    holds: (rule, h, ix, c) => Solver.pred(rule, { who: h.culprit }, ix, c)
+  };
+  Eng.register(timeline);
+  if (typeof module !== "undefined" && module.exports) module.exports = timeline;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/pl/base.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — warstwa epoki: Polska 1989–1999.
+ * Wspólne dla wszystkich miast: imiona, role, miejsca, przedmioty, cechy,
+ * alibi, typy zbrodni i sceny. Realia konkretnych lat mają zakres `years`.
+ *
+ * Konwencje tekstowe:
+ *   [męska|żeńska]    wariant wg płci postaci; dla przedmiotów [m|f|n]
+ *   {klucz}           wstawka z miasta, roku lub sprawy, np. {street}, {market_on},
+ *                     {team}, {church_at}, {money}, {police_dat}, {district_na}
+ *   {t:"…", years:[od,do]}   tekst tylko dla danych lat (włącznie)
+ *
+ * Wszystko, co wpływa na logikę (klucze, cechy, przedmioty, miejsca), jest danymi.
+ * Smaczki tylko ubierają fakty i niczego nie przesądzają.
+ */
+(function (root) {
+  const BASE = {
+    years: [1989, 1999],
+    /* wyrażenia, którymi silnik rozpoznaje treść (classic.js): wspomina dozorcę (noJanitor), „tamten wieczór” w dokumencie
+       (bez kłamstwa „inny dzień”), późny dokument (ostatni seans, nocna zmiana). Muszą trafiać w te same wpisy w każdym
+       języku (pilnuje tego tools/i18n-check.js). janitor i thatEvening bez rozróżniania wielkości liter, lateDoc z rozróżnianiem. */
+    textRe: { janitor:"dozorc", thatEvening:"tamt", lateDoc:"ostatni|nocn" },
+  /* Cennik (2.2): rodzaj kwoty → [od, do] w złotych dla 1989, 1990–1994 (stare złote) i od 1995 (nowe złote).
+     W tekście {kwota_<rodzaj>} (dowody rzeczowe) albo {money} / {ransom} (sceny, motywy; z _gen w dopełniaczu). */
+  prices: {
+    parking: [[300, 1000], [10000, 40000], [3, 8]],          // doba na parkingu strzeżonym
+    fine:    [[2000, 10000], [50000, 300000], [20, 100]],    // mandat
+    shoes:   [[8000, 25000], [250000, 700000], [60, 160]],   // półbuty skórzane
+    repair:  [[10000, 40000], [300000, 900000], [80, 250]],  // naprawa auta w warsztacie
+    oc:      [[10000, 30000], [600000, 2500000], [200, 600]],// składka OC na rok
+    optic:   [[1000, 4000], [30000, 120000], [10, 30]],      // drobna naprawa okularów
+    lenses:  [[5000, 20000], [200000, 600000], [60, 200]],   // nowe szkła
+    vet:     [[1000, 5000], [50000, 200000], [20, 60]],      // wizyta w lecznicy
+    dogtax:  [[500, 2000], [30000, 100000], [20, 50]],       // roczna opłata za psa
+    sewing:  [[500, 2000], [20000, 80000], [5, 15]],         // wszycie zamka
+    jacket:  [[10000, 40000], [300000, 900000], [50, 150]],  // kurtka z ortalionu
+    keycopy: [[200, 800], [10000, 40000], [4, 12]],          // dorobienie klucza
+    bribe:   [[5000, 20000], [500000, 2000000], [50, 200]],  // łapówka za zwolnienie lekarskie
+    money:   [[200000, 900000], [3000000, 60000000], [500, 8000]], // dług, żądanie szantażysty, straty
+    ransom:  [[100000, 500000], [3000000, 20000000], [300, 2000]]  // okup za psa
+  },
+    months: ["styczeń","luty","marzec","kwiecień","maj","czerwiec","lipiec","sierpień","wrzesień","październik","listopad","grudzień"],
+    detective: "Wacław Grzyb",
+
+    /* ------------------------------------------------------------------ */
+    /* IMIONA I NAZWISKA                                                    */
+    /* ------------------------------------------------------------------ */
+    /* Imiona wg pokolenia (w latach 90.): old = urodzeni do ok. 1935, mid = 1936–1960, young = po 1960.
+       Rola ma `age` (jedno albo lista); bez `age` imię może być z każdego pokolenia. */
+    names: {
+      m: {
+        old:   ["Henryk","Tadeusz","Stanisław","Kazimierz","Edward","Józef","Czesław","Mieczysław","Zenon","Eugeniusz",
+                "Bronisław","Witold","Władysław","Bolesław","Alojzy","Zygmunt","Ludwik","Florian","Antoni","Stefan",
+                "Feliks","Ignacy","Franciszek","Wincenty","Leon","Walenty","Teodor"],
+        mid:   ["Roman","Zbigniew","Mirosław","Ryszard","Jerzy","Wiesław","Andrzej","Marek","Zdzisław","Bogdan",
+                "Leszek","Janusz","Waldemar","Lech","Sławomir","Jan","Ireneusz","Bogusław","Edmund","Romuald",
+                "Lucjan","Gerard","Marian","Karol","Bernard"],
+        young: ["Grzegorz","Krzysztof","Jacek","Wojciech","Dariusz","Tomasz","Piotr","Adam","Jarosław","Robert",
+                "Artur","Mariusz","Paweł","Marcin","Michał","Rafał","Sebastian","Łukasz","Przemysław","Radosław",
+                "Daniel","Bartosz","Maciej","Szymon","Damian","Jakub","Arkadiusz","Kamil"]
+      },
+      f: {
+        old:   ["Jadwiga","Wanda","Stanisława","Zofia","Genowefa","Kazimiera","Helena","Leokadia","Czesława","Marianna",
+                "Regina","Janina","Bronisława","Henryka","Ludmiła","Aniela","Apolonia","Józefa","Franciszka","Rozalia",
+                "Eugenia","Władysława","Stefania","Cecylia","Pelagia","Waleria","Michalina"],
+        mid:   ["Bożena","Halina","Grażyna","Krystyna","Danuta","Teresa","Barbara","Elżbieta","Irena","Bogumiła",
+                "Lucyna","Mirosława","Jolanta","Urszula","Ewa","Hanna","Alicja","Wiesława","Celina","Sabina",
+                "Gabriela","Lidia","Zdzisława","Bogusława","Mariola","Elwira","Ryszarda"],
+        young: ["Renata","Beata","Dorota","Iwona","Agnieszka","Małgorzata","Joanna","Anna","Edyta","Aneta",
+                "Monika","Katarzyna","Marzena","Violetta","Magdalena","Justyna","Sylwia","Ilona","Kinga","Izabela",
+                "Marta","Ewelina","Agata","Dominika","Karolina","Paulina","Patrycja"]
+      }
+    },
+    /* [forma męska, forma żeńska] */
+    surnames: [
+      ["Kulesza","Kulesza"],["Sitek","Sitek"],["Morawski","Morawska"],["Wrzos","Wrzos"],["Pawlak","Pawlak"],
+      ["Kowalczyk","Kowalczyk"],["Zając","Zając"],["Wróblewski","Wróblewska"],["Majewski","Majewska"],["Jabłoński","Jabłońska"],
+      ["Sowa","Sowa"],["Malinowski","Malinowska"],["Grabowski","Grabowska"],["Kaczmarek","Kaczmarek"],["Piątek","Piątek"],
+      ["Szczepański","Szczepańska"],["Borkowski","Borkowska"],["Lis","Lis"],["Dudek","Dudek"],["Wieczorek","Wieczorek"],
+      ["Sadowski","Sadowska"],["Kurek","Kurek"],["Czarnecki","Czarnecka"],["Ostrowski","Ostrowska"],["Cieślak","Cieślak"],
+      ["Rogalski","Rogalska"],["Nowicki","Nowicka"],["Gajewski","Gajewska"],["Mazur","Mazur"],["Jasiński","Jasińska"],
+      ["Wilk","Wilk"],["Kalinowski","Kalinowska"],["Bąk","Bąk"],["Sobczak","Sobczak"],["Rutkowski","Rutkowska"],
+      ["Michalak","Michalak"],["Krawczyk","Krawczyk"],["Przybylski","Przybylska"],["Gołębiowski","Gołębiowska"],["Kozłowski","Kozłowska"],
+      ["Wysocki","Wysocka"],["Adamczyk","Adamczyk"],["Ziółkowski","Ziółkowska"],["Baran","Baran"],["Sikora","Sikora"],
+      ["Chmielewski","Chmielewska"],["Tomaszewski","Tomaszewska"],["Zawadzki","Zawadzka"],["Kubiak","Kubiak"],["Pietrzak","Pietrzak"],
+      ["Malina","Malina"],["Kos","Kos"],["Cichy","Cicha"],["Szulc","Szulc"],["Frankowski","Frankowska"]
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* ROLE (wspólne). Miasta dokładają własne role i „robotnika”.          */
+    /* access: miejsca, do których rola naturalnie ma klucz.               */
+    /* ------------------------------------------------------------------ */
+    roles: [
+      { id:"dozorca", age:["mid","old"], m:"Dozorca kamienicy", f:"Dozorczyni kamienicy", access:["piwnica","pralnia","kotlownia"],
+        outfit:{shape:"apron",c:"#6c7a8a",d:"#a9b4c0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Zna każdego lokatora po krokach na schodach.","Prowadzi zeszyt, w którym zapisuje, kto o której wraca."] },
+      { id:"administrator", age:"mid", m:"Administrator domu", f:"Administratorka domu", access:["piwnica","kotlownia","pralnia"],
+        outfit:{shape:"collar",c:"#4f5560",d:"#d8d2c4"}, headwear:{m:[],f:[]},
+        flavor:["Nosi przy pasku pęk kluczy, który dzwoni na całą klatkę."] },
+      { id:"aptekarz", age:["mid","old"], m:"Aptekarz", f:"Aptekarka", access:["apteka"],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#3e6b5c"}, headwear:{m:[],f:[]},
+        flavor:["Pamięta, kto i kiedy kupował co mocniejszego.","Mówi powoli i bardzo dokładnie."] },
+      { id:"mechanik", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"Mechanik", f:null, access:["garaz"],
+        outfit:{shape:"plain",c:"#3d5a85",d:"#2b3f5e"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Ma czarne od smaru paznokcie.","Naprawia sąsiadom Maluchy po godzinach.",
+                {t:"Przerabia auta sprowadzone z Niemiec, żeby przeszły przegląd.", years:[1991,1999]}] },
+      { id:"stolarz", age:["mid","old"], m:"Stolarz", f:null, access:["warsztat"],
+        outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Pachnie trocinami i pokostem.","Od trzydziestu lat robi meble na zamówienie."] },
+      { id:"fryzjer", age:["young","mid"], m:"Fryzjer", f:"Fryzjerka", access:["fryzjer"],
+        outfit:{shape:"collar",c:"#e6d3dd",d:"#8c3b4a"}, headwear:{m:[],f:[]},
+        flavor:["Wie o wszystkich plotkach w dzielnicy.","Robi trwałą i strzyże na „Bonda”."] },
+      { id:"sklepowa", age:"mid", m:"Sprzedawca w spożywczym", f:"Sprzedawczyni w spożywczym", access:["sklep"],
+        outfit:{shape:"apron",c:"#f1f1ea",d:"#b0423a"}, headwear:{m:[],f:[""]},
+        flavor:["Zna godziny dostaw lepiej niż kierowca.",
+                {t:"Wciąż odkłada spod lady dla znajomych.", years:[1989,1990]},
+                {t:"Odkąd półki są pełne, narzeka, że ludzie nie mają pieniędzy.", years:[1990,1999]}] },
+      { id:"kioskarz", age:["mid","old"], m:"Kioskarz", f:"Kioskarka", access:["kiosk"],
+        outfit:{shape:"jacket",c:"#5d6b4f",d:"#c9b98f"}, headwear:{m:["beret"],f:["beret"]},
+        flavor:["Odkłada stałym klientom poranną prasę.","Sprzedaje też żetony do budki telefonicznej.",
+                {t:"Sprzedaje kupony Totka i zdrapki.", years:[1993,1999]}] },
+      { id:"palacz", age:"mid", m:"Palacz w kotłowni", f:null, access:["kotlownia"],
+        outfit:{shape:"plain",c:"#3a3a3a",d:"#5a5a5a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Ma twarz szarą od miału.","Od października mieszka właściwie w kotłowni."] },
+      { id:"dzialkowiec", age:"old", m:"Działkowiec", f:"Działkowiczka", access:["dzialka"],
+        outfit:{shape:"jacket",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Hoduje pomidory, o których mówi z czułością.","Co roku wygrywa konkurs na największą dynię."] },
+      { id:"hydraulik", age:"mid", m:"Hydraulik", f:null, access:["kotlownia","piwnica"],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Zawsze ma przy sobie klucz nastawny.","Za fuchy bierze w markach."] },
+      { id:"maglarka", age:"old", m:null, f:"Maglarka", access:["pralnia"],
+        outfit:{shape:"apron",c:"#7d6a8f",d:"#d8cfe3"}, headwear:{f:["chustka"]},
+        flavor:["Pierze i magluje dla połowy kamienicy.","Wie, kto ma nową pościel, a kto łata starą."] },
+      { id:"emeryt", age:"old", no:["job","fired"], m:"Emerytowany kolejarz", f:"Emerytowana nauczycielka", access:[],
+        outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["kolejarz",""],f:[""]},
+        flavor:["Cały dzień spędza przy oknie z poduszką pod łokciami.","Pisze listy do miejscowej gazety o dziurach w chodnikach."] },
+      { id:"taksowkarz", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"Taksówkarz", f:null, access:[],
+        outfit:{shape:"jacket",c:"#2b2b2b",d:"#d9a648"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Jeździ na kursy z postoju przy {dworzec}.","Zna każdy skrót w mieście.",
+                {t:"Jeździ na „radio taxi” i ma w aucie krótkofalówkę.", years:[1991,1999]}] },
+      { id:"listonosz", age:["young","mid"], m:"Listonosz", f:"Listonoszka", access:[],
+        outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+        flavor:["Zna wszystkie skrzynki na pamięć.","Roznosi renty i wie, kto ile dostaje."] },
+      { id:"student", age:"young", no:["job","fired"], m:"Student {uni}", f:"Studentka {uni}", access:[],
+        outfit:{shape:"jacket",c:"#7a3b3b",d:"#d8c3a5"}, headwear:{m:[""],f:[""]},
+        flavor:["Wynajmuje pokój u starszej pani na trzecim piętrze.","Słucha Kultu na kaseciaku tak głośno, że słychać na podwórku."] },
+      { id:"handlarz", age:["young","mid"], m:"Handlarz {market_from}", f:"Handlarka {market_from}", access:[], years:[1989,1999],
+        outfit:{shape:"jacket",c:"#7a6a3b",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Liczy pieniądze szybciej niż kasa fiskalna.",
+                {t:"Sprzedaje dżinsy „prosto z Turcji”.", years:[1990,1997]},
+                {t:"Wozi towar z Berlina Zachodniego w torbach w kratę.", years:[1989,1990]}] },
+      { id:"pielegniarka", age:["young","mid"], m:"Pielęgniarz", f:"Pielęgniarka", access:[],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#6f8fae"}, headwear:{m:[""],f:[""]},
+        flavor:["Pracuje na zmiany w {szpital}.","Ma zawsze przy sobie plastry i miętówki."] },
+      { id:"motorniczy", age:"mid", m:"Motorniczy", f:"Motorniczka", access:[],
+        outfit:{shape:"collar",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+        flavor:["Zna rozkład jazdy na pamięć.","Po służbie jeszcze godzinę słyszy dzwonek tramwaju."] },
+      { id:"lokator", age:["young","mid","old"], m:"Lokator z parteru", f:"Lokatorka z parteru", access:[],
+        outfit:{shape:"jacket",c:"#5a5f6a",d:"#b9bcc2"}, headwear:{m:[""],f:[""]},
+        flavor:["Mieszka tuż przy bramie i słyszy każde wejście.","Hoduje kanarka, który śpiewa od szóstej rano."] },
+      { id:"cinkciarz", age:["young","mid"], m:"Cinkciarz", f:"Cinkciarka", access:[], years:[1989,1989],
+        outfit:{shape:"jacket",c:"#3b3054",d:"#c0b0d8"}, headwear:{m:[""],f:[""]},
+        flavor:["Pod hotelem pyta przechodniów, czy mają dolary.","Nosi złoty sygnet, a w kieszeni gruby plik banknotów."] },
+      { id:"bylycinkciarz", age:"mid", m:"Były cinkciarz", f:"Była cinkciarka", access:[], years:[1990,1995],
+        outfit:{shape:"jacket",c:"#3b3054",d:"#c0b0d8"}, headwear:{m:[""],f:[""]},
+        flavor:["Wciąż zna kurs dolara na pamięć, choć kantory odebrały [mu|jej] zarobek.","Nosi złoty sygnet, a w kieszeni gruby plik banknotów."] },
+      { id:"krawcowa", age:["mid","old"], m:"Krawiec", f:"Krawcowa", access:[],
+        outfit:{shape:"collar",c:"#8a6d55",d:"#e8d9c1"}, headwear:{m:[""],f:[""]},
+        flavor:["Przerabia płaszcze po rodzicach na modne kurtki.","Szpilki trzyma w ustach podczas rozmowy."] },
+      { id:"organista", age:["mid","old"], m:"Organista z parafii", f:null, access:[],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#e6e6e6"}, headwear:{m:[""]},
+        flavor:["Gra na mszy wieczornej {church_at}.","Zna wszystkie śluby i pogrzeby w dzielnicy."] },
+      { id:"wideo", age:"young", m:"Właściciel wypożyczalni kaset", f:"Właścicielka wypożyczalni kaset", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#1f3a5a",d:"#e0662b"}, headwear:{m:[""],f:[""]},
+        flavor:["Zna na pamięć wszystkie filmy z Van Damme’em.","Kasety z hitami trzyma pod ladą dla stałych klientów."] },
+      { id:"akwizytor", age:"young", m:"Akwizytor", f:"Akwizytorka", access:[], years:[1991,1999],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#d8d2c4"}, headwear:{m:[""],f:[""]},
+        flavor:["Chodzi po domach z garnkami, odkurzaczami i wielkim uśmiechem.","Nie przyjmuje odmowy za odpowiedź."] },
+      { id:"ochroniarz", age:"young", m:"Ochroniarz", f:null, access:[], years:[1992,1999],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:[""]},
+        flavor:["Pilnuje hurtowni na nocną zmianę.","Nawet w lipcu chodzi w wysokich czarnych butach."] },
+      { id:"prywaciarz", age:["young","mid"], m:"Właściciel szczęki z ciuchami", f:"Właścicielka szczęki z ciuchami", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:[""]},
+        flavor:["Rano rozkłada blaszaną budkę, wieczorem ją zamyka na kłódkę.","Zawsze ma drobne, ale nigdy nie daje paragonu."] },
+      /* --- wydanie 2.1.1: kolejne role (każda ma alibi zawodowe w alibiConfirmed) --- */
+      { id:"kaowiec", age:["young","mid"], m:"Instruktor świetlicy", f:"Instruktorka świetlicy", access:["swietlica"],
+        outfit:{shape:"jacket",c:"#6b4a8a",d:"#d8cfe3"}, headwear:{m:["beret",""],f:[""]},
+        flavor:["Prowadzi kółko plastyczne i zespół wokalny dla dzieci z osiedla.","Na każde święto maluje transparenty i dekoracje."] },
+      { id:"ksiegowa", age:"mid", m:"Księgowy spółdzielni", f:"Księgowa spółdzielni", access:["administracja"],
+        outfit:{shape:"collar",c:"#4f5560",d:"#e6e6e6"}, headwear:{m:[],f:[]},
+        flavor:["Liczy na arytmometrze szybciej niż inni na kalkulatorze.","Wie, kto z lokatorów zalega z czynszem i od kiedy."] },
+      { id:"maszynistka", age:["mid","old"], m:null, f:"Maszynistka z biura spółdzielni", access:["administracja"],
+        outfit:{shape:"collar",c:"#8c3b4a",d:"#eee8dc"}, headwear:{f:[""]},
+        flavor:["Pisze na maszynie bez patrzenia na klawisze.","Pod biurkiem trzyma kapcie, a w szufladzie herbatniki."] },
+      { id:"inkasent", age:"mid", m:"Inkasent gazowni", f:"Inkasentka gazowni", access:["piwnica"],
+        outfit:{shape:"jacket",c:"#3e4a6b",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["beret"]},
+        flavor:["Spisuje liczniki w każdej piwnicy w dzielnicy.","Ma zeszyt z odczytami i każdą wizytę zapisuje co do minuty."] },
+      { id:"zegarmistrz", age:["mid","old"], m:"Zegarmistrz", f:null, access:[],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#c9a646"}, headwear:{m:[""]},
+        flavor:["Nosi w oku lupę nawet na ulicy.","Mówi, że po tykaniu pozna każdy zegar w kamienicy."] },
+      { id:"szewc", age:["mid","old"], m:"Szewc", f:null, access:[],
+        outfit:{shape:"apron",c:"#5a3a2a",d:"#a5835a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Ma zakład w suterenie i zna każdego po butach.","Gwoździki trzyma w ustach, kiedy rozmawia."] },
+      { id:"kucharka", age:["mid","old"], m:"Kucharz ze stołówki", f:"Kucharka ze stołówki", access:[],
+        outfit:{shape:"apron",c:"#f1f1ea",d:"#d8d2c4"}, headwear:{m:[""],f:["chustka"]},
+        flavor:["Gotuje obiady w stołówce zakładowej i zna wszystkich po apetycie.","Do domu zawsze niesie słoik zupy."] },
+      { id:"nauczyciel", age:["mid","old"], m:"Nauczyciel matematyki", f:"Nauczycielka matematyki", access:[],
+        outfit:{shape:"collar",c:"#59493b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+        flavor:["Uczy w podstawówce za rogiem połowę dzieci z kamienicy.","Poprawia klasówki czerwonym długopisem przy kuchennym stole."] },
+      { id:"lekarz", age:["mid","old"], m:"Lekarz z przychodni", f:"Lekarka z przychodni", access:[],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#6f8fae"}, headwear:{m:[""],f:[""]},
+        flavor:["Przyjmuje w przychodni rejonowej i chodzi na wizyty domowe.","Pisze recepty tak, że odczyta je tylko aptekarka."] },
+      { id:"weterynarz", age:"mid", no:["dogfear"], m:"Weterynarz", f:"Lekarka weterynarii", access:[],
+        outfit:{shape:"collar",c:"#3f6b3a",d:"#e6e6e6"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Leczy psy i koty z całej dzielnicy, często za darmo.","W kieszeni nosi smakołyki dla pacjentów z poczekalni."] },
+      { id:"kierowca", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"Kierowca autobusu MPK", f:null, access:[],
+        outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["kolejarz"]},
+        flavor:["Jeździ nocną linią i zna każdego pasażera, który wraca o północy.","Na przystanku czeka dokładnie minutę, ani sekundy dłużej."] },
+      { id:"kombatant", age:"old", no:["job","fired"], m:"Emerytowany chorąży", f:null, access:[],
+        outfit:{shape:"collar",c:"#4c6b3a",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+        flavor:["Chodzi wyprostowany jak na defiladzie.","Na każdą rocznicę przypina do marynarki medale."] },
+      { id:"konduktor", age:["young","mid"], m:"Konduktor PKP", f:"Konduktorka PKP", access:[],
+        outfit:{shape:"collar",c:"#2b3f5e",d:"#c9a646"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+        flavor:["Zna na pamięć rozkład pociągów do Warszawy i z powrotem.","W kieszeni nosi szczypce do kasowania biletów."] },
+      { id:"bibliotekarka", age:["mid","old"], m:"Bibliotekarz", f:"Bibliotekarka", access:["swietlica"],
+        outfit:{shape:"collar",c:"#7d6a8f",d:"#e8d9c1"}, headwear:{m:[""],f:[""]},
+        flavor:["Prowadzi osiedlową bibliotekę na zapleczu świetlicy.","Wie, kto od roku nie oddał „Trędowatej”."] },
+      { id:"sprzataczka", age:["mid","old"], m:"Sprzątacz w biurze", f:"Sprzątaczka w biurze", access:["administracja"],
+        outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Sprząta biura po godzinach i wie, kto zostawia na biurku papiery.","Pęk kluczy nosi na sznurku przy fartuchu."] },
+      { id:"elektryk", age:["young","mid"], m:"Elektryk", f:null, access:["kotlownia","piwnica"],
+        outfit:{shape:"plain",c:"#5a5f6a",d:"#c9a646"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Ma w kieszeni próbnik i zwój taśmy izolacyjnej.","Naprawia sąsiadom telewizory, choć mówi, że to nie jego fach."] },
+      { id:"malarz", age:["young","mid"], m:"Malarz pokojowy", f:null, access:[],
+        outfit:{shape:"plain",c:"#e8e8e0",d:"#c9c2b0"}, headwear:{m:["kaszkiet"]},
+        flavor:["Ma na rękach plamy farby, których nie domyje żaden rozpuszczalnik.","Maluje mieszkania na zlecenie, płatne do ręki."] },
+      { id:"kominiarz", age:["young","mid"], m:"Kominiarz", f:null, access:["kotlownia"],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kolejarz"]},
+        flavor:["Ludzie łapią się za guzik, kiedy go mijają.","Zna każdy dach w dzielnicy, od strychu po komin."] },
+      { id:"kwiaciarka", age:["mid","old"], m:"Kwiaciarz", f:"Kwiaciarka", access:[],
+        outfit:{shape:"apron",c:"#4c6b3a",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
+        flavor:["Sprzedaje kwiaty z budki przy cmentarzu.","Na Wszystkich Świętych wiąże wieńce przez całą noc."] },
+      { id:"pewex", age:["young","mid"], m:"Ekspedient w Peweksie", f:"Ekspedientka w Peweksie", access:[], years:[1989,1990],
+        outfit:{shape:"collar",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+        flavor:["Pachnie zachodnimi perfumami, których nie da się kupić za złotówki.","Zna kurs bonu lepiej niż ktokolwiek w kamienicy."] },
+      { id:"komis", age:"mid", m:"Właściciel komisu RTV", f:"Właścicielka komisu RTV", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#2b2b33",d:"#c9a646"}, headwear:{m:[""],f:[""]},
+        flavor:["W komisie przy {street2} ma magnetowidy, walkmany i telewizory z Niemiec.","Nie pyta, skąd towar, jeśli cena jest dobra."] },
+      { id:"strazak", age:["young","mid"], m:"Strażak", f:null, access:[],
+        outfit:{shape:"jacket",c:"#2b2b2b",d:"#c9a646"}, headwear:{m:[""]},
+        flavor:["Pracuje w jednostce straży na dobę, potem ma dwie wolne.","Zawsze pierwszy wbiega do płonącej piwnicy."] },
+      { id:"smieciarz", age:["young","mid"], m:"Pracownik MPO", f:null, access:[],
+        outfit:{shape:"plain",c:"#e0662b",d:"#5a5f6a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Jeździ śmieciarką i wie, co kto wyrzuca.","Wstaje o czwartej i o tej porze zna już całą ulicę."] },
+      { id:"licealista", age:"young", no:["job","fired","debt","adult"], need:{car:"no"}, m:"Licealista", f:"Licealistka", access:[],
+        outfit:{shape:"jacket",c:"#1f3a5a",d:"#c9d9e0"}, headwear:{m:[""],f:[""]},
+        flavor:["Na zeszytach ma naklejki z zespołami rockowymi.","Po lekcjach przesiaduje z kolegami pod blokiem."] },
+      { id:"bezrobotny", age:["young","mid"], no:["job"], m:"Bezrobotny", f:"Bezrobotna", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#5a5f6a",d:"#8a8f99"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Od kiedy zamknęli [mu|jej] zakład, co tydzień chodzi do pośredniaka.","Dorabia, gdzie się da, najczęściej na czarno."] },
+      { id:"szklarz", age:["mid","old"], m:"Szklarz", f:null, access:[],
+        outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"]},
+        flavor:["Nosi diament do cięcia szkła w kieszonce na piersi.","Po każdej wybitej szybie w dzielnicy ma ruch w interesie."] },
+      { id:"gospodyni", age:["mid","old"], no:["job","fired"], m:null, f:"Gospodyni domowa", access:[],
+        outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{f:["chustka",""]},
+        flavor:["Śpiewa w chórze parafialnym i nie opuściła żadnej próby.","Z okna kuchni widzi całe podwórko."] },
+      { id:"drukarz", age:["mid","old"], m:"Drukarz", f:null, access:[],
+        outfit:{shape:"apron",c:"#2b2b2b",d:"#5a5f6a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Pracuje w drukarni, gdzie składa się miejscową gazetę.","Palce ma szare od farby drukarskiej."] },
+      { id:"fotograf", age:["young","mid"], m:"Fotograf", f:"Fotografka", access:[],
+        outfit:{shape:"jacket",c:"#3a3a3a",d:"#c9a646"}, headwear:{m:["beret",""],f:["beret",""]},
+        flavor:["Ma zakład fotograficzny i robi zdjęcia do legitymacji.","Na szyi nosi Zenita, nawet kiedy idzie po chleb."] },
+      { id:"kasjer", age:"mid", m:"Kasjer z banku", f:"Kasjerka z banku", access:[],
+        outfit:{shape:"collar",c:"#2f4f6f",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+        flavor:["Pracuje w okienku oddziału banku przy {street2}.","Pieniądze przelicza dwa razy, nawet własne."] },
+      { id:"ogrodnik", age:["mid","old"], m:"Ogrodnik z zieleni miejskiej", f:"Ogrodniczka z zieleni miejskiej", access:[],
+        outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Przycina żywopłoty w parku i zna każdą ławkę.","Jesienią grabi liście w parku od świtu."] },
+      { id:"cpn", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"Pracownik stacji CPN", f:"Pracownica stacji CPN", access:[],
+        outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Nalewa benzynę na stacji CPN przy wylotówce.",{t:"Wie, kto tankuje do pełna, a kto za dwadzieścia tysięcy.", years:[1989,1994]},{t:"Wie, kto tankuje do pełna, a kto za dwadzieścia złotych.", years:[1995,1999]}] },
+      { id:"portier", age:["mid","old"], m:"Portier hotelowy", f:"Portierka hotelowa", access:[],
+        outfit:{shape:"collar",c:"#5c2f2f",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+        flavor:["Pracuje na nocnej zmianie w hotelu przy dworcu.","Wie, kto z dzielnicy wynajmuje pokój na godziny."] }
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* MIEJSCA (skąd mogą zniknąć przedmioty)                              */
+    /* ------------------------------------------------------------------ */
+    locations: [
+      { id:"garaz", pt:"yard", name:"Garaż na podwórku", label:"Garaż", gen:"garażu", in:"w garażu", from:"z garażu", icon:"garage",
+        open:["Zamek od dawna zepsuty, drzwi domyka się na drut.", "Brama garażu stoi uchylona, bo zacina się na mrozie.",
+              "Kłódka wisi na skoblu tylko dla ozdoby, nikt jej nie zatrzaskuje.", "Właściciel trzyma bramę otwartą, bo sąsiedzi ciągle pożyczają narzędzia."],
+        desc:["Murowany boks w oficynie, z kanałem i półkami pełnymi narzędzi.","Blaszane drzwi, w środku zapach smaru i benzyny.",
+              "Na ścianie wisi kalendarz z Pewexu, a pod nim rzędem stoją opony.","W kącie stary Maluch na klockach, czekający na części od roku."] },
+      { id:"apteka", pt:"shop", name:"Apteka „Pod Orłem”", label:"Apteka", gen:"apteki", in:"w aptece", from:"z zaplecza apteki", icon:"pharmacy",
+        open:["Tylne drzwi od podwórka nie domykają się, wie o tym cała kamienica.", "Wieczorem zaplecze stoi otwarte dla dostawców.",
+              "Okno zaplecza jest uchylone przez całą dobę, bo w środku duszno od lekarstw.", "Na zaplecze przechodzi się przez sień, w której nikt nie pilnuje drzwi."],
+        desc:["Apteka na rogu {street2}, z drewnianymi szufladami i zapleczem od podwórka.","Zamykana o 19:00, tylne drzwi wychodzą na podwórko.",
+              "Za ladą rzędy porcelanowych słojów z łacińskimi napisami.","Na zapleczu stół do robienia maści i stos kartonów z hurtowni."] },
+      { id:"piwnica", pt:"cellar", name:"Piwnica pod kamienicą", label:"Piwnica", gen:"piwnicy", in:"w piwnicy", from:"z piwnicy", icon:"cellar",
+        open:["Drzwi do piwnic nie mają zamka od czasów wojny.", "Kłódkę na drzwiach ktoś dawno przeciął i nikt nie założył nowej.",
+              "Drzwi do piwnic podpiera cegła, żeby lokatorzy nie szukali klucza.", "Zamek w drzwiach piwnicy wyrwano przy ostatniej powodzi i tak zostało."],
+        desc:["Wilgotny korytarz z komórkami lokatorów i jedną gołą żarówką.","Zejście od podwórka, zapach ziemniaków i stęchlizny.",
+              "Na półkach słoiki z ogórkami i kompotem, podpisane rokiem.","Pod sufitem biegną rury, a pod nimi stoją stare rowery i sanki."] },
+      { id:"warsztat", pt:"work", name:"Warsztat stolarski", label:"Warsztat", gen:"warsztatu", in:"w warsztacie", from:"z warsztatu", icon:"workshop",
+        open:["Stolarz zostawia klucz pod wycieraczką, o czym wie cała kamienica.", "Drzwi stoją otwarte, żeby schły świeżo lakierowane meble.",
+              "Do warsztatu wchodzi się przez szopę, w której drzwi nigdy się nie zamyka.", "Stolarz wpuszcza każdego, kto przyniesie krzesło do sklejenia."],
+        desc:["Ciasny warsztat w oficynie, wióry po kostki.","Strug, imadło i tablica z obrysami narzędzi.",
+              "Pod oknem heblarka, a na krokwiach suszą się deski.","Na stole niedokończona komoda, a obok garnek z klejem kostnym."] },
+      { id:"pralnia", pt:"cellar", name:"Pralnia na strychu", label:"Pralnia", gen:"pralni", in:"w pralni", from:"z pralni", icon:"laundry",
+        open:["Drzwi na strych nigdy się nie zamyka.", "Klucz do pralni wisi na gwoździu tuż przy drzwiach.",
+              "Na strych wchodzi, kto chce, bo lokatorzy suszą tam pranie o każdej porze.", "Drzwi pralni trzymają się na jednym zawiasie i nie da się ich zamknąć."],
+        desc:["Wspólna pralnia pod dachem, z kotłem i sznurami do suszenia.","Grafik prania przypięty pinezką do drzwi.",
+              "Pod oknem stoi pralka Frania, a obok tara i balia.","Pod belkami wiszą prześcieradła, sztywne od krochmalu."] },
+      { id:"dzialka", pt:"field", name:"Altana na działkach", label:"Altana", gen:"altany", in:"w altanie", from:"z altany", icon:"shed",
+        open:["Altana zamyka się na skobel, który otworzy każdy.", "W płocie działek jest dziura od strony torów.",
+              "Drzwi altany wiszą krzywo i wystarczy je unieść, żeby wejść.", "Działkowicze zostawiają altanę otwartą, żeby sąsiad mógł podlać pomidory."],
+        desc:["Drewniana altana przy torach, z beczką na deszczówkę.","Na ogródkach działkowych na skraju {district_gen}.",
+              "W środku leżak, kuchenka turystyczna i skrzynka z narzędziami.","Na grządkach koper i ogórki, a na płocie suszą się worki."] },
+      { id:"kiosk", pt:"shop", name:"Kiosk Ruchu", label:"Kiosk", gen:"kiosku", in:"w kiosku", from:"z kiosku", icon:"kiosk",
+        open:["Kioskarz wpuszcza na zaplecze każdego, kto pomoże nosić paczki z prasą.", "Tylne drzwiczki kiosku od dawna nie mają zamka.",
+              "Kiedy kioskarka wychodzi na chwilę, drzwiczki zostawia tylko przymknięte.", "Tylne drzwiczki trzyma tylko haczyk, który podważy się palcem."],
+        desc:["Zielony kiosk z okienkiem, pełen gazet i papierosów.","Stoi przy przystanku tramwajowym na {street2}.",
+              "Na szybie przypięte klamerkami krzyżówki i kolorowe pisma.","W środku ciasno: stołek, grzejnik farelka i paczki prasy pod sufit."] },
+      { id:"sklep", pt:"work", name:"Sklep spożywczy „Społem”", label:"Sklep", gen:"sklepu", in:"na zapleczu sklepu", from:"z zaplecza sklepu", icon:"shop",
+        open:["Drzwi na zaplecze stoją otwarte, bo ciągle ktoś wnosi skrzynki.", "Na zaplecze wchodzi się prosto z podwórka, bez żadnego zamka.",
+              "Zaplecze dzieli od podwórka tylko zasłona z koralików.", "Kierowniczka zostawia zaplecze otwarte do wieczornej dostawy mleka."],
+        desc:["Spożywczy z ladą chłodniczą i zapleczem pełnym skrzynek.","Dostawa chleba o szóstej, kolejka jeszcze przed otwarciem.",
+              "Na zapleczu waga dziesiętna, beczka z kapustą i stos pustych butelek.","Nad ladą wisi tabliczka „Towar ze skrzynek wydajemy tylko w obecności kierownika”."] },
+      { id:"fryzjer", pt:"shop", name:"Zakład fryzjerski", label:"Fryzjer", gen:"zakładu fryzjerskiego", in:"w zakładzie fryzjerskim", from:"z zakładu fryzjerskiego", icon:"barber",
+        open:["Zakład jest otwarty do wieczora i każdy może wejść.", "W zakładzie ciągle ktoś czeka w kolejce, a zaplecza nikt nie pilnuje.",
+              "Drzwi na zaplecze zakładu są tylko przymknięte, bo przez nie ucieka para.", "Fryzjerka wpuszcza na zaplecze każdą klientkę, która chce poprawić makijaż."],
+        desc:["Dwa fotele, suszarka-hełm i lustro z pęknięciem.","Na szybie wywieszka „Trwała ondulacja”.",
+              "Na półce rzędem stoją butelki wody brzozowej i puszki lakieru.","Na ścianie wiszą zdjęcia fryzur z zachodnich żurnali."] },
+      { id:"kotlownia", pt:"work", name:"Kotłownia", label:"Kotłownia", gen:"kotłowni", in:"w kotłowni", from:"z kotłowni", icon:"boiler",
+        open:["Drzwi do kotłowni stoją otwarte, żeby piec miał ciąg.", "Zamek od kotłowni zepsuł się zeszłej zimy.",
+              "Do kotłowni schodzi się prosto z piwnic, przez przejście bez drzwi.", "Palacz wietrzy kotłownię i zostawia drzwi szeroko otwarte."],
+        desc:["Gorąca, ciemna kotłownia z pryzmą koksu.","Piec huczy przez cały sezon grzewczy.",
+              "Na ścianie wisi zegar z kukułką, którym palacz mierzy czas między dorzucaniem.","Pod sufitem plątanina rur, a w kącie kozetka palacza."] },
+      /* wydanie 2.1.1: miejsca dla szantażu i fałszerstwa (maszyny do pisania, pieczątki, farby) */
+      { id:"administracja", pt:"shop", name:"Biuro administracji osiedla", label:"Administracja", gen:"biura administracji", in:"w biurze administracji", from:"z biura administracji", icon:"office",
+        open:["Sprzątaczka zostawia biuro otwarte, kiedy wynosi śmieci.", "Drzwi biura stoją otwarte do wieczora, bo lokatorzy przychodzą płacić czynsz.",
+              "Okno biura od podwórka nie domyka się od zeszłej zimy.", "Kierownik wychodzi na papierosa i zostawia biuro otwarte."],
+        desc:["Dwa biurka, szafa z segregatorami i maszyna do pisania pod pokrowcem.","Na drzwiach tabliczka „Interesantów przyjmujemy we wtorki i czwartki”.",
+              "Na parapecie paprotka, a na ścianie plan osiedla z numerami klatek.","Na biurku kierownika stoi pudełko z pieczątkami i poduszka z tuszem."] },
+      { id:"swietlica", pt:"shop", name:"Świetlica spółdzielni", label:"Świetlica", gen:"świetlicy", in:"w świetlicy", from:"ze świetlicy", icon:"hall",
+        open:["Świetlica jest otwarta do wieczora, bo w środku ćwiczy zespół.", "Drzwi świetlicy podpiera krzesło, żeby wywietrzyć salę po zebraniu.",
+              "Na zajęcia kółka plastycznego wchodzi każdy, kto ma ochotę.", "Instruktorka zostawia świetlicę otwartą, kiedy biegnie do kiosku."],
+        desc:["Sala z pianinem, stołem do ping-ponga i gazetką ścienną.","Na ścianie wiszą prace kółka plastycznego i dyplomy z przeglądu piosenki.",
+              "W szafie farby plakatowe, papier pakowy i stara maszyna do pisania.","Na scenie składane krzesła, a za kulisami dekoracje z jasełek."] }
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* PRZEDMIOTY                                                           */
+    /* tags: tepe | ostre | sznur | wlam | trucizna | ogien                 */
+    /*       pismo | pieczec | sabotaz | farba | klatka                     */
+    /* g: rodzaj gramatyczny (m/f/n, pl = liczba mnoga: widły, nożyce)      */
+    /*    teksty o przedmiocie: [m|f|n|pl], np. [Znaleziony|…|Znalezione]   */
+    /* ------------------------------------------------------------------ */
+    items: [
+      { id:"lewar", name:"Żeliwny lewar", label:"Lewar", acc:"lewar", g:"m", tags:["tepe"], origins:["garaz"],
+        icon:{shape:"bar",p:{a:"#2b2b2e",l:"#6b6b72"}}, desc:["Ciężki, żeliwny, z wytartym uchwytem."] },
+      { id:"klucz", name:"Klucz francuski", label:"Klucz", acc:"klucz francuski", g:"m", tags:["tepe"], origins:["garaz","warsztat"],
+        icon:{shape:"wrench",p:{a:"#8a8f99",l:"#c9ced6"}}, desc:["Duży klucz nastawny, prawie kilo żelaza."] },
+      { id:"lom", name:"Stalowy łom", label:"Łom", acc:"łom", g:"m", tags:["wlam","tepe"], origins:["garaz","kotlownia","piwnica"],
+        icon:{shape:"bar",p:{a:"#7a2b2b",l:"#b04a4a"}}, desc:["Czerwony łom, zagięty na końcu."] },
+      { id:"lyzka", name:"Łyżka do opon", label:"Łyżka", acc:"łyżkę do opon", g:"f", tags:["wlam"], origins:["garaz"],
+        icon:{shape:"bar",p:{a:"#3d5a85",l:"#8a8f99"}}, desc:["Płaska, stalowa łyżka do zdejmowania opon."] },
+      { id:"kanister", name:"Kanister benzyny", label:"Kanister", acc:"kanister benzyny", g:"m", tags:["ogien"], origins:["garaz"],
+        icon:{shape:"can",p:{a:"#2b2b2b",b:"#3f6b3a",w:"#c9d9a8"}}, desc:["Wojskowy kanister, pełny w trzech czwartych."] },
+      { id:"linka", name:"Linka holownicza", label:"Linka", acc:"linkę holowniczą", g:"f", tags:["sznur"], origins:["garaz"],
+        icon:{shape:"rope",p:{a:"#c9772b"}}, desc:["Gruba pomarańczowa linka z hakami."] },
+      { id:"mozdzierz", name:"Mosiężny moździerz", label:"Moździerz", acc:"moździerz", g:"m", tags:["tepe"], origins:["apteka"],
+        icon:{shape:"mortar",p:{p:"#a8823a",y:"#c99a3e",o:"#f1d27a"}}, desc:["Ciężki mosiężny moździerz z tłuczkiem."] },
+      { id:"luminal", name:"Fiolka luminalu", label:"Luminal", acc:"fiolkę luminalu", g:"f", tags:["trucizna"], origins:["apteka"],
+        icon:{shape:"vial",p:{a:"#3a3a3a",b:"#7a5a2b",w:"#e8dcc0"}}, desc:["Brązowa fiolka z silnym środkiem nasennym."] },
+      { id:"trutka", name:"Trutka na szczury", label:"Trutka", acc:"trutkę na szczury", g:"f", tags:["trucizna"], origins:["piwnica","sklep"],
+        icon:{shape:"box",p:{b:"#b0423a",w:"#eee8dc",h:"#2b2b2b"}}, desc:["Czerwone pudełko z trupią czaszką na etykiecie."] },
+      { id:"siekiera", name:"Siekiera", label:"Siekiera", acc:"siekierę", g:"f", tags:["ostre","tepe"], origins:["piwnica","dzialka"],
+        icon:{shape:"axe",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["Stara siekiera do rąbania podpałki."] },
+      { id:"nafta", name:"Butelka nafty", label:"Nafta", acc:"butelkę nafty", g:"f", tags:["ogien"], origins:["piwnica"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#5e8aa0",w:"#e8dcc0"}}, desc:["Butelka po oranżadzie, a w niej nafta do lampy."] },
+      { id:"mlotek", name:"Młotek ciesielski", label:"Młotek", acc:"młotek", g:"m", tags:["tepe"], origins:["warsztat"],
+        icon:{shape:"hammer",p:{h:"#5a5f6a",a:"#a5835a"}}, desc:["Młotek z rozwidlonym obuchem do wyciągania gwoździ."] },
+      { id:"dluto", name:"Dłuto", label:"Dłuto", acc:"dłuto", g:"n", tags:["ostre"], origins:["warsztat"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#a5835a"}}, desc:["Ostro naostrzone dłuto z bukową rączką."] },
+      { id:"srubokret", name:"Duży śrubokręt", label:"Śrubokręt", acc:"śrubokręt", g:"m", tags:["wlam"], origins:["warsztat"],
+        icon:{shape:"blade",p:{h:"#8a8f99",a:"#c22a2a"}}, desc:["Śrubokręt płaski, długi na łokieć."] },
+      { id:"rozpuszczalnik", name:"Puszka rozpuszczalnika", label:"Rozpuszczalnik", acc:"puszkę rozpuszczalnika", g:"f", tags:["ogien"], origins:["warsztat"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#c9a646",w:"#2b2b2b"}}, desc:["Blaszana puszka rozcieńczalnika do farb."] },
+      { id:"sznur", name:"Sznur do bielizny", label:"Sznur", acc:"sznur", g:"m", tags:["sznur"], origins:["pralnia"],
+        icon:{shape:"rope",p:{a:"#d8d2c4"}}, desc:["Konopny sznur, odcięty z suszarni."] },
+      { id:"zelazko", name:"Żeliwne żelazko", label:"Żelazko", acc:"żelazko", g:"n", tags:["tepe"], origins:["pralnia"],
+        icon:{shape:"iron",p:{a:"#2b2b2b",h:"#5a5f6a"}}, desc:["Stare żelazko na duszę, ciężkie jak cegła."] },
+      { id:"sekator", name:"Sekator", label:"Sekator", acc:"sekator", g:"m", tags:["ostre"], origins:["dzialka"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#3f6b3a"}}, desc:["Sekator do róż z zielonymi rączkami."] },
+      { id:"mszyce", name:"Środek na mszyce", label:"Środek", acc:"środek na mszyce", g:"m", tags:["trucizna"], origins:["dzialka"],
+        icon:{shape:"box",p:{b:"#3f6b3a",w:"#eee8dc",h:"#c9a646"}}, desc:["Proszek w torebce z napisem „Trucizna! Chronić przed dziećmi”."] },
+      { id:"lopata", name:"Łopata", label:"Łopata", acc:"łopatę", g:"f", tags:["tepe"], origins:["dzialka","kotlownia"],
+        icon:{shape:"shovel",p:{h:"#6b6b72",a:"#7a5232"}}, desc:["Szeroka łopata z drewnianym trzonkiem."] },
+      { id:"nozyk", name:"Nożyk do kartonów", label:"Nożyk", acc:"nożyk", g:"m", tags:["ostre"], origins:["kiosk"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#c9a646"}}, desc:["Nożyk z wysuwanym ostrzem do rozcinania paczek z prasą."] },
+      { id:"zapalki", name:"Pudełko zapałek", label:"Zapałki", acc:"pudełko zapałek", g:"n", tags:["ogien"], origins:["kiosk","kotlownia"],
+        icon:{shape:"box",p:{b:"#c9a646",w:"#eee8dc",h:"#b0423a"}}, desc:["Duże kuchenne pudełko zapałek."] },
+      { id:"denaturat", name:"Butelka denaturatu", label:"Denaturat", acc:"butelkę denaturatu", g:"f", tags:["ogien","trucizna"], origins:["sklep"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#6b4a8a",w:"#e8dcc0"}}, desc:["Fioletowa butelka z etykietą „Nie do picia”."] },
+      { id:"noz", name:"Nóż do wędlin", label:"Nóż", acc:"nóż do wędlin", g:"m", tags:["ostre"], origins:["sklep"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#2b2b2b"}}, desc:["Długi nóż z czarną rączką, ostrzony co rano."] },
+      { id:"brzytwa", name:"Brzytwa", label:"Brzytwa", acc:"brzytwę", g:"f", tags:["ostre"], origins:["fryzjer"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#d8d2c4"}}, desc:["Brzytwa z rączką z kości, ostrzona na pasku."] },
+      { id:"lakier", name:"Lakier do włosów", label:"Lakier", acc:"lakier do włosów", g:"m", tags:["ogien"], origins:["fryzjer"],
+        icon:{shape:"bottle",p:{a:"#b0423a",h:"#e6e6e6",b:"#d48aa8",w:"#f5e9ef"}}, desc:["Puszka lakieru w sprayu, łatwopalny."] },
+      { id:"pogrzebacz", name:"Pogrzebacz", label:"Pogrzebacz", acc:"pogrzebacz", g:"m", tags:["tepe","wlam"], origins:["kotlownia"],
+        icon:{shape:"bar",p:{a:"#1f1f22",l:"#4a4a52"}}, desc:["Długi, kuty pogrzebacz od pieca."] }
+      ,
+      /* --- uduszenia: sznury i kable w wielu miejscach --- */
+      { id:"przedluzacz", name:"Przedłużacz", label:"Przedłużacz", acc:"przedłużacz", g:"m", tags:["sznur"], origins:["warsztat","garaz","zajezdnia"],
+        icon:{shape:"rope",p:{a:"#e8e8e0"}}, desc:["Pięciometrowy przedłużacz z gumową wtyczką."] },
+      { id:"lina", name:"Lina konopna", label:"Lina", acc:"linę konopną", g:"f", tags:["sznur"], origins:["piwnica","kotlownia","lampownia"],
+        icon:{shape:"rope",p:{a:"#a5835a"}}, desc:["Gruba konopna lina, zwinięta na haku."] },
+      { id:"pasek", name:"Pasek do ostrzenia brzytwy", label:"Pasek", acc:"pasek do ostrzenia brzytwy", g:"m", tags:["sznur"], origins:["fryzjer"],
+        icon:{shape:"rope",p:{a:"#6b4a2e"}}, desc:["Skórzany pasek, wygładzony latami ostrzenia."] },
+      { id:"szpagat", name:"Szpagat do paczek", label:"Szpagat", acc:"szpagat", g:"m", tags:["sznur"], origins:["kiosk","sklep","piekarnia"],
+        icon:{shape:"rope",p:{a:"#c9b98f"}}, desc:["Gruby sznurek, którym wiąże się paczki."] },
+      { id:"drut", name:"Zwój drutu", label:"Drut", acc:"zwój drutu", g:"m", tags:["sznur"], origins:["dzialka","golebnik"],
+        icon:{shape:"rope",p:{a:"#8a8f99"}}, desc:["Miękki, ocynkowany drut do podwiązywania i łatania siatki."] },
+
+      /* --- przedmioty z miejsc, które mają tylko niektóre miasta (data/cities.js) --- */
+      { id:"wioslo", name:"Wiosło", label:"Wiosło", acc:"wiosło", g:"n", tags:["tepe"], origins:["przystan"],
+        icon:{shape:"shovel",p:{h:"#a5835a",a:"#7a5232"}}, desc:["Drewniane wiosło z okutym piórem."] },
+      { id:"lina_cum", name:"Lina cumownicza", label:"Cuma", acc:"linę cumowniczą", g:"f", tags:["sznur"], origins:["przystan","szopa_rybacka","magazyn_port"],
+        icon:{shape:"rope",p:{a:"#3e4a6b"}}, desc:["Mokra, granatowa lina do cumowania łodzi."] },
+      { id:"bosak", name:"Bosak", label:"Bosak", acc:"bosak", g:"m", tags:["ostre","tepe"], origins:["przystan","szopa_rybacka"],
+        icon:{shape:"bar",p:{a:"#7a5232",l:"#8a8f99"}}, desc:["Długi drąg z żelaznym hakiem na końcu."] },
+      { id:"banka", name:"Bańka z ropą", label:"Bańka", acc:"bańkę z ropą", g:"f", tags:["ogien"], origins:["przystan","magazyn_port","zajezdnia"],
+        icon:{shape:"can",p:{a:"#2b2b2b",b:"#7a2b2b",w:"#e8dcc0"}}, desc:["Blaszana bańka pełna ropy do silnika."] },
+      { id:"odwaznik", name:"Żeliwny odważnik", label:"Odważnik", acc:"odważnik", g:"m", tags:["tepe"], origins:["szczeka"],
+        icon:{shape:"weight",p:{a:"#5a5f6a",h:"#2b2b2e"}}, desc:["Kilogramowy odważnik od wagi szalkowej."] },
+      { id:"noz_kapusta", name:"Nóż do kapusty", label:"Nóż", acc:"nóż do kapusty", g:"m", tags:["ostre"], origins:["szczeka"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#7a5232"}}, desc:["Szeroki nóż, którym kroi się kapustę na wagę."] },
+      { id:"plandeka", name:"Linka od plandeki", label:"Linka", acc:"linkę od plandeki", g:"f", tags:["sznur"], origins:["szczeka"],
+        icon:{shape:"rope",p:{a:"#4c6b3a"}}, desc:["Zielona linka, którą przywiązuje się plandekę do budki."] },
+      { id:"walek", name:"Wałek do ciasta", label:"Wałek", acc:"wałek do ciasta", g:"m", tags:["tepe"], origins:["piekarnia"],
+        icon:{shape:"bar",p:{a:"#c9a66b",l:"#e8d3a5"}}, desc:["Ciężki bukowy wałek, biały od mąki."] },
+      { id:"noz_piekarski", name:"Nóż piekarski", label:"Nóż", acc:"nóż piekarski", g:"m", tags:["ostre"], origins:["piekarnia"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#c9a66b"}}, desc:["Długi nóż z ząbkami do krojenia chleba."] },
+      { id:"podkowa", name:"Podkowa", label:"Podkowa", acc:"podkowę", g:"f", tags:["tepe"], origins:["stajnia"],
+        icon:{shape:"horseshoe",p:{a:"#5a5f6a"}}, desc:["Zużyta podkowa, wisiała nad drzwiami na szczęście."] },
+      { id:"bat", name:"Bat dorożkarski", label:"Bat", acc:"bat", g:"m", tags:["sznur"], origins:["stajnia"],
+        icon:{shape:"rope",p:{a:"#2b2b2b"}}, desc:["Długi bat z plecionym rzemieniem."] },
+      { id:"widly", name:"Widły", label:"Widły", acc:"widły", g:"pl", tags:["ostre"], origins:["stajnia"],
+        icon:{shape:"shovel",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["Widły do siana o trzech zębach."] },
+      { id:"statyw", name:"Statyw", label:"Statyw", acc:"statyw", g:"m", tags:["tepe"], origins:["piwnica_jazz","filmowka"],
+        icon:{shape:"bar",p:{a:"#1f1f22",l:"#8a8f99"}}, desc:["Ciężki, stalowy statyw, rozkładany na trzy nogi."] },
+      { id:"kabel", name:"Kabel od wzmacniacza", label:"Kabel", acc:"kabel", g:"m", tags:["sznur"], origins:["piwnica_jazz","filmowka"],
+        icon:{shape:"rope",p:{a:"#1f1f22"}}, desc:["Gruby czarny kabel, zwinięty w ósemkę."] },
+      { id:"wrzeciono", name:"Stalowe wrzeciono", label:"Wrzeciono", acc:"wrzeciono", g:"n", tags:["tepe"], origins:["przedzalnia"],
+        icon:{shape:"bar",p:{a:"#8a8f99",l:"#c9ced6"}}, desc:["Wrzeciono z przędzarki, długie i ciężkie."] },
+      { id:"nozyce", name:"Nożyce tkackie", label:"Nożyce", acc:"nożyce", g:"pl", tags:["ostre"], origins:["przedzalnia"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#2b2b2b"}}, desc:["Długie nożyce do cięcia tkaniny z bel."] },
+      { id:"przedza", name:"Sznur przędzalniczy", label:"Sznur", acc:"sznur przędzalniczy", g:"m", tags:["sznur"], origins:["przedzalnia"],
+        icon:{shape:"rope",p:{a:"#d8cfe3"}}, desc:["Mocny, skręcany sznur z bawełny."] },
+      { id:"barwnik", name:"Barwnik anilinowy", label:"Barwnik", acc:"barwnik", g:"m", tags:["trucizna"], origins:["przedzalnia"],
+        icon:{shape:"box",p:{b:"#6b4a8a",w:"#eee8dc",h:"#2b2b2b"}}, desc:["Słoik z fioletowym proszkiem i ostrzeżeniem o truciźnie."] },
+      { id:"tasma", name:"Taśma filmowa", label:"Taśma", acc:"taśmę filmową", g:"f", tags:["ogien"], origins:["filmowka"],
+        icon:{shape:"reel",p:{a:"#3a3a3a",b:"#c9a646",h:"#5a5f6a",w:"#e8dcc0"}}, desc:["Stara taśma na nitroceluloidzie, pali się jak papier nasączony benzyną."] },
+      { id:"noz_ryby", name:"Nóż do ryb", label:"Nóż", acc:"nóż do ryb", g:"m", tags:["ostre"], origins:["szopa_rybacka"],
+        icon:{shape:"blade",p:{h:"#c9d9e0",a:"#3e4a6b"}}, desc:["Wąski nóż do patroszenia ryb, ostry jak brzytwa."] },
+      { id:"smola", name:"Puszka smoły", label:"Smoła", acc:"puszkę smoły", g:"f", tags:["ogien"], origins:["szopa_rybacka"],
+        icon:{shape:"can",p:{a:"#1f1f22",b:"#2b2b2b",w:"#5a5f6a"}}, desc:["Smoła do uszczelniania łodzi."] },
+      { id:"hak", name:"Hak portowy", label:"Hak", acc:"hak portowy", g:"m", tags:["ostre","wlam"], origins:["magazyn_port"],
+        icon:{shape:"bar",p:{a:"#5a5f6a",l:"#c9ced6"}}, desc:["Stalowy hak, którym przeciąga się worki i skrzynie."] },
+      { id:"golebie_srodek", name:"Środek na pasożyty", label:"Środek", acc:"środek na pasożyty", g:"m", tags:["trucizna"], origins:["golebnik"],
+        icon:{shape:"vial",p:{a:"#3a3a3a",b:"#3f6b3a",w:"#e8dcc0"}}, desc:["Butelka środka dla gołębi. Dawka dla człowieka nie jest bezpieczna."] },
+      { id:"lampa", name:"Lampa górnicza", label:"Lampa", acc:"lampę górniczą", g:"f", tags:["tepe"], origins:["lampownia"],
+        icon:{shape:"lamp",p:{a:"#5a5f6a",h:"#2b2b2e",b:"#c9a646",w:"#f1d27a"}}, desc:["Ciężka lampa z akumulatorem, waży dobre trzy kilo."] },
+      { id:"karbid", name:"Puszka karbidu", label:"Karbid", acc:"puszkę karbidu", g:"f", tags:["ogien"], origins:["lampownia"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#8a8f99",w:"#2b2b2b"}}, desc:["Karbid do starych lamp. Z wodą wydziela palny gaz."] },
+      { id:"drazek", name:"Drążek do zwrotnic", label:"Drążek", acc:"drążek do zwrotnic", g:"m", tags:["tepe","wlam"], origins:["zajezdnia"],
+        icon:{shape:"bar",p:{a:"#c22a2a",l:"#2b2b2e"}}, desc:["Stalowy drążek, którym motorniczy przestawia zwrotnice."] },
+
+      /* --- wydanie 2.1.1 ---
+         pismo: szantaż (anonim pisany na maszynie albo sklejany z wycinków)
+         pieczec: fałszerstwo (pieczątki, tusz, kalka, żyletka do wyskrobywania)
+         sabotaz: sabotaż (obcęgi, piłka, kombinerki)
+         farba: wandalizm (farby, pędzle, wapno)
+         klatka: porwanie psa (klatka, worek, kosz) */
+      { id:"maszyna", name:"Maszyna do pisania „Łucznik”", label:"Maszyna", acc:"maszynę do pisania", g:"f", tags:["pismo"], origins:["administracja","swietlica","sklep"],
+        icon:{shape:"typewriter",p:{a:"#3e4a6b",h:"#c9ced6",w:"#eee8dc",k:"#5a5f6a"}}, desc:["Przenośny „Łucznik” w walizce. Litera „ł” wybija się krzywo, trochę nad linią."] },
+      { id:"nozyk_papier", name:"Nożyk do papieru", label:"Nożyk", acc:"nożyk do papieru", g:"m", tags:["pismo"], origins:["administracja","swietlica","kiosk"],
+        icon:{shape:"scissors",p:{a:"#c22a2a",h:"#c9ced6"}}, desc:["Nożyk z wysuwanym ostrzem i metalowa linijka, którymi wycina się litery z gazet."] },
+      { id:"klej", name:"Klej biurowy", label:"Klej", acc:"klej biurowy", g:"m", tags:["pismo"], origins:["kiosk","administracja","sklep","swietlica"],
+        icon:{shape:"bottle",p:{a:"#c9a646",h:"#e6e6e6",b:"#e8dcc0",w:"#7a5a2b"}}, desc:["Butelka gumy arabskiej z gąbką na szyjce."] },
+      { id:"kalka", name:"Kalka maszynowa", label:"Kalka", acc:"kalkę maszynową", g:"f", tags:["pismo","pieczec"], origins:["kiosk","administracja"],
+        icon:{shape:"sheet",p:{w:"#3e4a6b",k:"#1f1f22"}}, desc:["Paczka granatowych kalek. Z wierzchu jednej da się jeszcze odczytać odbite słowa."] },
+      { id:"pioro", name:"Wieczne pióro", label:"Pióro", acc:"wieczne pióro", g:"n", tags:["pismo"], origins:["apteka","fryzjer"],
+        icon:{shape:"blade",p:{h:"#c9a646",a:"#1f1f22"}}, desc:["Chińskie pióro ze złotą skuwką, pisze granatowym atramentem."] },
+      { id:"gazety", name:"Plik starych gazet", label:"Gazety", acc:"plik starych gazet", g:"m", tags:["pismo"], origins:["kiosk","pralnia","piwnica"],
+        icon:{shape:"sheet",p:{w:"#e8dcc0",k:"#7a7468"}}, desc:["Gazety związane szpagatem. Z kilku stron ktoś powycinał litery."] },
+      { id:"pieczatka", name:"Pieczątka podłużna", label:"Pieczątka", acc:"pieczątkę", g:"f", tags:["pieczec"], origins:["administracja","apteka","sklep"],
+        icon:{shape:"stamp",p:{a:"#7a5232",h:"#2b2b2e",b:"#6b4a8a"}}, desc:["Drewniana pieczątka z gumową czcionką, fioletowa od tuszu."] },
+      { id:"tusz", name:"Poduszka z tuszem", label:"Tusz", acc:"poduszkę z tuszem", g:"f", tags:["pieczec"], origins:["administracja","kiosk","apteka"],
+        icon:{shape:"box",p:{b:"#2b2b2e",w:"#6b4a8a",h:"#3e4a6b"}}, desc:["Blaszane pudełko z fioletowym tuszem do pieczątek."] },
+      { id:"zyletka", name:"Żyletka „Polsilver”", label:"Żyletka", acc:"żyletkę", g:"f", tags:["pieczec"], origins:["fryzjer","kiosk","warsztat"],
+        icon:{shape:"razor",p:{a:"#3e4a6b",h:"#c9ced6"}}, desc:["Żyletka z kartonika, na krawędzi ślad fioletowego tuszu."] },
+      { id:"kalka_tech", name:"Rulon kalki technicznej", label:"Rulon", acc:"rulon kalki technicznej", g:"m", tags:["pieczec"], origins:["warsztat","swietlica"],
+        icon:{shape:"sheet",p:{w:"#d8e2e8",k:"#8a8f99"}}, desc:["Rulon przezroczystej kalki, przez którą da się odrysować każdy podpis."] },
+      { id:"odplamiacz", name:"Odplamiacz „Sama”", label:"Odplamiacz", acc:"odplamiacz", g:"m", tags:["pieczec"], origins:["pralnia","fryzjer"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#5e8aa0",w:"#e8dcc0"}}, desc:["Butelka odplamiacza. Wywabia atrament z papieru prawie bez śladu."] },
+      { id:"nozyczki", name:"Nożyczki biurowe", label:"Nożyczki", acc:"nożyczki", g:"pl", tags:["pismo"], origins:["administracja","swietlica","fryzjer"],
+        icon:{shape:"scissors",p:{a:"#2b2b2e",h:"#c9ced6"}}, desc:["Długie nożyczki do papieru, na ostrzach skrawki gazetowego druku."] },
+      { id:"szczypce", name:"Obcęgi", label:"Obcęgi", acc:"obcęgi", g:"pl", tags:["sabotaz"], origins:["warsztat","garaz","kotlownia"],
+        icon:{shape:"pliers",p:{a:"#3e4a6b",h:"#8a8f99"}}, desc:["Ciężkie obcęgi z niebieskimi rączkami, przegryzą gwóźdź i kabel."] },
+      { id:"obcegi", name:"Przecinak do drutu", label:"Przecinak", acc:"przecinak do drutu", g:"m", tags:["sabotaz"], origins:["garaz","kotlownia","piwnica"],
+        icon:{shape:"pliers",p:{a:"#c22a2a",h:"#5a5f6a"}}, desc:["Ciężki przecinak z czerwonymi rączkami, przetnie drut grubości palca."] },
+      { id:"pilka", name:"Piłka do metalu", label:"Piłka", acc:"piłkę do metalu", g:"f", tags:["sabotaz"], origins:["warsztat","garaz","piwnica"],
+        icon:{shape:"saw",p:{a:"#3e4a6b",h:"#c9ced6"}}, desc:["Kabłąk z cienkim brzeszczotem, na zębach opiłki."] },
+      { id:"kombinerki", name:"Klucz do zaworów", label:"Klucz", acc:"klucz do zaworów", g:"m", tags:["sabotaz"], origins:["kotlownia","warsztat","administracja"],
+        icon:{shape:"pliers",p:{a:"#3f6b3a",h:"#8a8f99"}}, desc:["Klucz z długą rączką owiniętą taśmą izolacyjną, do zaworów i śrub przy rurach."] },
+      { id:"pilnik", name:"Pilnik ślusarski", label:"Pilnik", acc:"pilnik ślusarski", g:"m", tags:["sabotaz"], origins:["dzialka","kotlownia"],
+        icon:{shape:"blade",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["Gruby pilnik z drewnianą rączką, przepiłuje śrubę w kilka minut."] },
+      { id:"farba_olejna", name:"Puszka farby olejnej", label:"Farba", acc:"puszkę farby olejnej", g:"f", tags:["farba"], origins:["piwnica","warsztat","garaz"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#c22a2a",w:"#eee8dc"}}, desc:["Puszka czerwonej farby olejnej do rur, otwierana śrubokrętem."] },
+      { id:"spray", name:"Farba w sprayu", label:"Spray", acc:"farbę w sprayu", g:"f", tags:["farba"], origins:["garaz","warsztat"], years:[1990,1999],
+        icon:{shape:"bottle",p:{a:"#2b2b2b",h:"#c9ced6",b:"#3f6b3a",w:"#c9d9a8"}}, desc:["Zachodnia puszka czarnego lakieru w sprayu, do felg."] },
+      { id:"pedzel", name:"Pędzel ławkowiec", label:"Pędzel", acc:"pędzel ławkowiec", g:"m", tags:["farba"], origins:["warsztat","swietlica","piwnica"],
+        icon:{shape:"brush",p:{a:"#7a5232",h:"#8a8f99",b:"#2b2b2b"}}, desc:["Szeroki pędzel, sztywny od zaschniętej farby."] },
+      { id:"plakatowe", name:"Słoik farby plakatowej", label:"Plakatówka", acc:"słoik farby plakatowej", g:"m", tags:["farba"], origins:["swietlica","kiosk"],
+        icon:{shape:"bucket",p:{a:"#8a8f99",b:"#3e4a6b",w:"#e8dcc0"}}, desc:["Litrowy słoik niebieskiej plakatówki do malowania transparentów."] },
+      { id:"wapno", name:"Wiadro białej farby wapiennej", label:"Farba wapienna", acc:"wiadro białej farby wapiennej", g:"n", tags:["farba"], origins:["dzialka","piwnica","kotlownia"],
+        icon:{shape:"bucket",p:{a:"#5a5f6a",b:"#8a8f99",w:"#f1f1ea"}}, desc:["Wiadro białej farby wapiennej do bielenia drzew i piwnic."] },
+      { id:"klatka", name:"Klatka na króliki", label:"Klatka", acc:"klatkę na króliki", g:"f", tags:["klatka"], origins:["dzialka"],
+        icon:{shape:"cage",p:{a:"#8a8f99",h:"#7a5232"}}, desc:["Drewniana klatka z siatką, dość duża na jamnika."] },
+      { id:"worek", name:"Worek jutowy", label:"Worek", acc:"worek jutowy", g:"m", tags:["klatka"], origins:["piwnica","sklep","kotlownia","dzialka"],
+        icon:{shape:"sack",p:{a:"#7a5232",b:"#a5835a",w:"#c9b98f"}}, desc:["Gruby worek po ziemniakach, przewiązany sznurkiem."] },
+      { id:"kosz", name:"Kosz wiklinowy z wiekiem", label:"Kosz", acc:"kosz wiklinowy", g:"m", tags:["klatka"], origins:["pralnia","dzialka","golebnik"],
+        icon:{shape:"basket",p:{a:"#7a5232",b:"#c9a66b",h:"#8a6a3b"}}, desc:["Wiklinowy kosz na bieliznę, z wiekiem na skórzany pasek."] },
+      /* ogien: drugi środek zapalający w kilku miejscach, żeby podpalenie wchodziło też do spraw z dwoma dowodami z jednego miejsca */
+      { id:"podpalka", name:"Podpałka do pieca", label:"Podpałka", acc:"podpałkę do pieca", g:"f", tags:["ogien"], origins:["kotlownia","piwnica"],
+        icon:{shape:"box",p:{b:"#7a5232",w:"#e8dcc0",h:"#c22a2a"}}, desc:["Kostki podpałki w woskowanym papierze, pachną naftą."] },
+      { id:"spirytus", name:"Butelka spirytusu", label:"Spirytus", acc:"butelkę spirytusu", g:"f", tags:["ogien"], origins:["sklep"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#d8e2e8",w:"#eee8dc"}}, desc:["Półlitrowa butelka spirytusu rektyfikowanego, pod ladą „na nalewki”."] },
+      { id:"benzyna_ekstr", name:"Benzyna ekstrakcyjna", label:"Benzyna", acc:"benzynę ekstrakcyjną", g:"f", tags:["ogien"], origins:["pralnia","fryzjer"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#c9a646",w:"#eee8dc"}}, desc:["Butelka benzyny do czyszczenia plam, z etykietą „Łatwopalne”."] },
+      { id:"lampa_naftowa", name:"Lampa naftowa", label:"Lampa", acc:"lampę naftową", g:"f", tags:["ogien"], origins:["dzialka","piwnica"],
+        icon:{shape:"lamp",p:{a:"#5a5f6a",h:"#2b2b2e",b:"#c9a646",w:"#f1d27a"}}, desc:["Stara lampa naftowa z pełnym zbiornikiem, na wypadek wyłączenia prądu."] },
+      { id:"transporter", name:"Skrzynka transportowa", label:"Skrzynka", acc:"skrzynkę transportową", g:"f", tags:["klatka"], origins:["sklep","garaz"],
+        icon:{shape:"cage",p:{a:"#a5835a",h:"#6b4a2e"}}, desc:["Ażurowa skrzynka po drobiu, z deską zamiast wieka."] }
+    ],
+
+    /* Losy przedmiotów: fakt o każdym dowodzie; reguła „fate” wskazuje los narzędzia */
+    fates: {
+      smietnik: { why:"ten przedmiot znaleziono rano w śmietniku na podwórku", item:"[Znaleziony|Znaleziona|Znalezione|Znalezione] rano w śmietniku na podwórku.", rule:"To, czego użył sprawca, ktoś znalazł rano w śmietniku na podwórku.", place:"przy śmietniku na podwórku" },
+      tory: { why:"ten przedmiot znaleziono w krzakach przy torach", item:"[Znaleziony|Znaleziona|Znalezione|Znalezione] w krzakach przy torach.", rule:"To, czego użył sprawca, leżało rano w krzakach przy torach.", place:"przy torach" },
+      park: { why:"ten przedmiot znaleziono w krzakach w parku", item:"[Znaleziony|Znaleziona|Znalezione|Znalezione] w krzakach w parku.", rule:"To, czego użył sprawca, ktoś wypatrzył rano w krzakach w parku.", place:"w parku" },
+      budowa: { why:"ten przedmiot znaleziono rano na placu budowy", item:"[Znaleziony|Znaleziona|Znalezione|Znalezione] rano na placu budowy.", rule:"To, czego użył sprawca, robotnicy znaleźli rano na placu budowy.", place:"na placu budowy" },
+      bazar: { why:"ten przedmiot znaleziono rano pod jedną z budek {market_on}", item:"[Znaleziony|Znaleziona|Znalezione|Znalezione] rano pod jedną z budek {market_on}.", rule:"To, czego użył sprawca, leżało rano pod budką {market_on}.", place:"{market_on}" },
+      odniesione: { why:"ten przedmiot ktoś odniósł na miejsce dopiero rano", item:"[Odniesiony|Odniesiona|Odniesione|Odniesione] na miejsce dopiero rano. Kto [go|ją|je|je] przyniósł, nie wiadomo.", rule:"To, czego użył sprawca, rano wróciło na swoje miejsce, jakby nic się nie stało." },
+      brak: { why:"tego przedmiotu do dziś nie odnaleziono", item:"Dotąd nie [odnaleziony|odnaleziona|odnalezione|odnalezione].", rule:"Tego, czego użył sprawca, do dziś nie odnaleziono." },
+      studzienka: { why:"ten przedmiot wyłowiono rano ze studzienki kanalizacyjnej", item:"[Wyłowiony|Wyłowiona|Wyłowione|Wyłowione] rano ze studzienki kanalizacyjnej.", rule:"To, czego użył sprawca, wyłowiono rano ze studzienki kanalizacyjnej." }
+    },
+    /* Nawyki: gdzie kto bywa codziennie. Reguła „dump” łączy los narzędzia z nawykiem sprawcy. */
+    habits: {
+      smietnik: ["Co wieczór wynosi śmieci za całą klatkę.","Codziennie przegląda pojemniki na podwórku w poszukiwaniu butelek do oddania.","Zbiera makulaturę z pojemników przy śmietniku."],
+      tory:     [{t:"Do pracy chodzi skrótem wzdłuż torów.", ages:["young","mid"], k:["job"]},"Codziennie zbiera złom przy torach.","Wieczorami spaceruje nasypem kolejowym."],
+      park:     [{t:"Codziennie rano biega po parku.", ages:["young","mid"]},"Każdego popołudnia karmi kaczki w parku.","Wieczorami gra w szachy na ławce w parku."],
+      budowa:   ["Codziennie skraca sobie drogę przez plac budowy.",{t:"Dorabia jako stróż na pobliskiej budowie.", ages:["young","mid"]},"Zbiera z budowy ścinki desek na podpałkę."],
+      bazar:    ["Codziennie rano robi zakupy {market_on}.","Bywa {market_on} każdego dnia, choćby po gazetę.","Ma znajomego handlarza {market_on} i zagląda do niego co dzień."]
+    },
+    dumpRule: ["To, czego użył sprawca, porzucono tam, gdzie sprawca bywa codziennie.",
+               "Sprawca pozbył się tego, czego użył, po drodze, którą chodzi każdego dnia.",
+               "To, czego użył sprawca, wyrzucono w miejscu, które zna jak własną kieszeń. Bywa tam codziennie."],
+
+    /* ------------------------------------------------------------------ */
+    /* CECHY (logika + jak się objawiają w tekście)                         */
+    /* ------------------------------------------------------------------ */
+    /* ---------- 2.2: reguły nietypowe (porównanie wzrostu, relacje, zeszyt dozorcy) ----------
+       Tekst reguły opisuje ślad albo zeznanie; wartość wynika jednoznacznie. {ref} = imię i nazwisko w mianowniku. */
+    /* ---------- 2.2: archetyp „Oś czasu” (engine/archetypes/timeline.js) ----------
+       Godziny zawsze co do minuty (bez „około”). {a} {b} = okno zdarzenia, {t} godzina, {in} miejsce w miejscowniku. */
+    timeline: {
+      /* 2.2.1/i18n: nazwa miejsca zbrodni (mianownik) i jego rodzaj pt (patrz presenceTpl) dla każdej sceny osi czasu,
+         w tej samej kolejności co crimes.<typ>.scenes (lookup po indeksie sceny, nie po tytule: działa w każdym języku).
+         Tytuł bywa nazwą ofiary („Papuga z …”), a węzeł ma być miejscem. */
+      places:{
+        zabojstwo:[
+          { name:"Pracownia zegarmistrza przy {street}", pt:"work" },
+          { name:"Zakład szewski przy {street}", pt:"work" },
+          { name:"Kantor przy {street}", pt:"shop" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Wypożyczalnia przy {street}", pt:"shop" },
+          { name:"Pracownia krawiecka przy {street}", pt:"work" },
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Ciemnia fotografa przy {street}", pt:"work" },
+          { name:"Mieszkanie lichwiarza", pt:"cellar" },
+          { name:"Antykwariat przy {street}", pt:"shop" },
+          { name:"Magiel przy {street}", pt:"shop" },
+          { name:"Zaplecze baru „{bar}”", pt:"work" },
+          { name:"Cukiernia przy {street}", pt:"shop" },
+          { name:"Gabinet prezesa spółdzielni", pt:"work" },
+          { name:"Postój taksówek", pt:"street" },
+          { name:"Komis przy {street}", pt:"shop" },
+          { name:"Zakrystia parafii", pt:"work" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Budka {market_on}", pt:"street" },
+          { name:"Altana w ogródkach działkowych", pt:"field" }
+        ],
+        kradziez:[
+          { name:"Budka {market_on}", pt:"street" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Mieszkanie w kamienicy", pt:"cellar" },
+          { name:"Kasa kina „{cinema}”", pt:"shop" },
+          { name:"Kantor przy {street}", pt:"shop" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Kasa spółdzielni", pt:"work" },
+          { name:"Klatka schodowa w kamienicy", pt:"stair" },
+          { name:"Gabinet filatelisty", pt:"work" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Zaplecze Peweksu", pt:"work" },
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Mieszkanie w kamienicy", pt:"cellar" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Mieszkanie w kamienicy", pt:"cellar" },
+          { name:"Szczęka z ciuchami", pt:"street" },
+          { name:"Plebania parafii", pt:"cellar" },
+          { name:"Księgowość zakładu", pt:"work" },
+          { name:"Apteka przy {street}", pt:"shop" },
+          { name:"Pracownia złotnika", pt:"work" }
+        ],
+        napad:[
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Kantor na osiedlu", pt:"shop" },
+          { name:"Postój taksówek", pt:"street" },
+          { name:"Budka {market_on}", pt:"street" },
+          { name:"Brama zakładu", pt:"street" },
+          { name:"Brama przy PKO", pt:"street" },
+          { name:"Stacja CPN przy {street}", pt:"street" },
+          { name:"Wejście do Peweksu", pt:"street" },
+          { name:"Parking przed bankiem", pt:"street" },
+          { name:"Pracownia złotnika przy {street}", pt:"work" },
+          { name:"Kasa kina", pt:"shop" },
+          { name:"Sklep monopolowy przy {street}", pt:"shop" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Pętla autobusowa", pt:"street" },
+          { name:"Budka pod cmentarzem", pt:"street" },
+          { name:"Poczta przy {street}", pt:"shop" },
+          { name:"Budka z lodami przy {street}", pt:"street" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Komis przy {street}", pt:"shop" }
+        ],
+        podpalenie:[
+          { name:"Szopa z rowerami", pt:"yard" },
+          { name:"Budka z warzywami", pt:"street" },
+          { name:"Altana prezesa", pt:"field" },
+          { name:"Wiata przy {street}", pt:"street" },
+          { name:"Szczęka z ciuchami", pt:"street" },
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Wózkownia przy {street}", pt:"yard" },
+          { name:"Podwórko przy {street}", pt:"yard" },
+          { name:"Piwnica z komórkami", pt:"cellar" },
+          { name:"Garaż mechanika", pt:"yard" },
+          { name:"Stragan z zabawkami", pt:"street" },
+          { name:"Muszla koncertowa w parku", pt:"street" },
+          { name:"Stodoła na skraju osiedla", pt:"yard" },
+          { name:"Budka z lodami", pt:"street" },
+          { name:"Szopa dozorcy", pt:"yard" },
+          { name:"Wypożyczalnia kaset", pt:"shop" },
+          { name:"Barak na budowie", pt:"yard" },
+          { name:"Biuro prezesa", pt:"work" },
+          { name:"Bar mleczny przy {street}", pt:"shop" },
+          { name:"Budka z kwiatami", pt:"street" }
+        ],
+        wandalizm:[
+          { name:"Gablota przed spółdzielnią", pt:"street" },
+          { name:"Zakład fryzjerski", pt:"shop" },
+          { name:"Mur szkoły na osiedlu", pt:"street" },
+          { name:"Sklep przy {street}", pt:"shop" },
+          { name:"Pomnik w parku", pt:"street" },
+          { name:"Parking przy {street}", pt:"street" },
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Park przy {street}", pt:"street" },
+          { name:"Kantor przy {street}", pt:"shop" },
+          { name:"Przystanek przy {street}", pt:"street" },
+          { name:"Tablica ogłoszeń przy {street}", pt:"street" },
+          { name:"Scena w domu kultury", pt:"street" },
+          { name:"Altana na działce", pt:"field" },
+          { name:"Pętla tramwajowa", pt:"street" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Wypożyczalnia przy {street}", pt:"shop" },
+          { name:"Przychodnia przy {street}", pt:"shop" },
+          { name:"Stragan {market_on}", pt:"street" },
+          { name:"Boisko szkolne", pt:"street" }
+        ],
+        porwanie_psa:[
+          { name:"Furtka przy {street}", pt:"street" },
+          { name:"Podwórko przy {street}", pt:"yard" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Barak na budowie", pt:"yard" },
+          { name:"Willa prezesa", pt:"cellar" },
+          { name:"Apteka przy {street}", pt:"shop" },
+          { name:"Warsztat samochodowy", pt:"work" },
+          { name:"Podwórko przy {street}", pt:"yard" },
+          { name:"Balkon w kamienicy", pt:"cellar" },
+          { name:"Budka dozorcy", pt:"yard" },
+          { name:"Altana na działce", pt:"field" },
+          { name:"Budka {market_on}", pt:"street" },
+          { name:"Lecznica dla zwierząt", pt:"shop" },
+          { name:"Kiosk przy {street}", pt:"shop" },
+          { name:"Brama hurtowni", pt:"street" },
+          { name:"Brama szkoły", pt:"street" },
+          { name:"Ogrodzenie willi", pt:"street" },
+          { name:"Postój taksówek", pt:"street" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Furtka plebanii", pt:"street" }
+        ],
+        sabotaz:[
+          { name:"Maszynownia windy przy {street}", pt:"work" },
+          { name:"Kotłownia przy {street}", pt:"work" },
+          { name:"Zwrotnica przy {street}", pt:"street" },
+          { name:"Poczta przy {street}", pt:"shop" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Szwalnia spółdzielni", pt:"work" },
+          { name:"Parking przed spółdzielnią", pt:"street" },
+          { name:"Pompa na działkach", pt:"field" },
+          { name:"Bar mleczny", pt:"shop" },
+          { name:"Scena na festynie", pt:"street" },
+          { name:"Hydrofornia w bloku", pt:"work" },
+          { name:"Parking strzeżony", pt:"street" },
+          { name:"Postój taksówek", pt:"street" },
+          { name:"Piekarnia przy {street}", pt:"work" },
+          { name:"Dach bloku", pt:"cellar" },
+          { name:"Dziedziniec mleczarni", pt:"work" },
+          { name:"Wesołe miasteczko", pt:"street" },
+          { name:"Klatka schodowa przy {street}", pt:"stair" },
+          { name:"Spółdzielnia pracy", pt:"work" },
+          { name:"Poczta przy {street}", pt:"shop" }
+        ],
+        otrucie:[
+          { name:"Gołębnik przy {street}", pt:"cellar" },
+          { name:"Podwórko przy {street}", pt:"yard" },
+          { name:"Mieszkanie inżyniera", pt:"cellar" },
+          { name:"Podwórko przy {street}", pt:"yard" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Warsztat samochodowy", pt:"work" },
+          { name:"Kurnik na działkach", pt:"field" },
+          { name:"Klatki na podwórku", pt:"yard" },
+          { name:"Sklep spożywczy", pt:"shop" },
+          { name:"Pracownia biologiczna w szkole", pt:"work" },
+          { name:"Plac budowy", pt:"yard" },
+          { name:"Mieszkanie przy {street}", pt:"cellar" },
+          { name:"Staw w parku", pt:"street" },
+          { name:"Podwórko na osiedlu", pt:"yard" },
+          { name:"Poczekalnia przychodni", pt:"shop" },
+          { name:"Balkon w kamienicy", pt:"cellar" },
+          { name:"Willa prezesa", pt:"cellar" },
+          { name:"Piwnica przy {street}", pt:"cellar" },
+          { name:"Klatki {market_on}", pt:"street" },
+          { name:"Podwórko przy {street}", pt:"yard" }
+        ]
+      },
+      scene:{ id:"miejsce", name:"Miejsce zdarzenia", label:"Miejsce zdarzenia", gen:"miejsca zdarzenia", in:"na miejscu zdarzenia", from:"z miejsca zdarzenia", icon:"house" },
+      reachRule:["Sprawca spędził na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Czasy w tabeli to najkrótsza droga, szybciej się nie da.",
+                 "Lekarz i technicy zgodnie ustalili: sprawca był na miejscu zdarzenia co najmniej {stay} minut, między {a} a {b}. Tabela podaje najkrótsze czasy dojścia, szybciej nie przejdzie nikt.",
+                 "Sąsiedzi słyszeli hałas między {a} a {b}. Sprawca spędził wtedy na miejscu zdarzenia co najmniej {stay} minut. Szybciej, niż podaje tabela, nie da się przejść."],
+      tableNote:"Godziny w teczkach są dokładne co do minuty. Czasy dojścia działają w obie strony.",
+      hint:"Reguła {n}: przy każdej osobie sprawdź przerwę między obserwacjami. Czy starczy czasu, żeby dojść na miejsce zdarzenia, spędzić tam co najmniej {stay} minut między {a} a {b} i zdążyć na następną?",
+      obsTpl:[{t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","yard","field","shop","stair","cellar"]},"[Sam|Sama] przyznaje, że o {t} [był|była] {in}.",
+              {t:"Listonosz minął [go|ją] {in} o {t}.", at:["street","yard","shop","field"]},
+              {t:"Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.", at:["yard","cellar","stair"]},{t:"O {t} [rozmawiał|rozmawiała] z kimś {in}, jak mówi sąsiadka z okna.", at:["street","yard"]},
+              {t:"Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat spojrzała na zegar nad kredensem.", at:["yard"], anc:"clock"},
+              {t:"O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu i sprawdzał godzinę na zegarku.", at:["street","yard","shop","field"], anc:"watch"},
+              {t:"Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy w radiu nadawali sygnał czasu.", at:["street","yard"], anc:"radio"},
+              {t:"Pani z wózkiem minęła [go|ją] {in} o {t}, akurat biły dzwony.", at:["street","yard"], anc:"bells"},
+              {t:"O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.", at:["street","yard"]},
+              {t:"Kioskarz widział [go|ją] {in} punktualnie o {t}, bo właśnie zamykał okienko.", at:["street","shop"], anc:"close", open:true},
+              {t:"Dzielnicowy zanotował w notesie: {t}, {in}.", at:["street","yard","shop","field"]},
+              {t:"Ktoś z załogi widział [go|ją] {in} o {t}, bo akurat spojrzał na zegar nad drzwiami.", at:["work"], anc:"clock"},
+              {t:"Szef zmiany zanotował: {t}, {in}.", at:["work"]},
+              {t:"Kolega z zakładu pamięta, że o {t} [był|była] {in}, bo właśnie zaczynała się przerwa.", at:["work"], anc:"break"},
+              {t:"Klient w kolejce widział [go|ją] {in} o {t}, bo właśnie patrzył na zegarek.", at:["shop"], anc:"watch", open:true},
+              {t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} punktualnie o {t}, bo wołano na obiad.", at:["field"], anc:"lunch"},
+              {t:"Lokator z piętra schodził po rzeczy i widział [go|ją] {in} o {t}, zerknął wtedy na zegarek.", at:["cellar"], anc:"watch"}],
+      evidence:[{ label:"Kwit", name:"Kwit z godziną", icon:"receipt", text:["Kwit wypisany ręcznie {in}, z godziną {t} w rogu.","Na kwicie podpis: {ini}."] },
+                { label:"Książka", name:"Książka wejść", icon:"notebook", at:["work","shop"], text:["Książka wejść prowadzona przez portiera {in}.","Wpis: «{t} — {ini}, wejście»."] },
+                { label:"Rejestr", name:"Rejestr rozmów z budki", icon:"card", at:["street","shop"], text:["Rejestr rozmów z budki telefonicznej {in}, prowadzony przez dyżurną.","«{t} — rozmowa miejscowa, zamówiona na: {ini}.»"] },
+                { label:"Raport", name:"Raport stróża", icon:"card", at:["yard","street","field","cellar"], text:["Stróż co wieczór obchodzi teren i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] }],
+      intro:"Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Sprawdź, kto zdążyłby dojść na miejsce zdarzenia w czasie zbrodni i wrócić tam, gdzie widziano go później."
+    },
+    rules2: {
+      /* wzrost w cm w teczce, gdy w sprawie jest reguła porównania; {cm} = 172, {cmm} = 1,72 */
+      heightCm:["W dowodzie osobistym ma wpisane {cm} cm wzrostu.","Na przesłuchaniu zmierzono [go|ją] przy futrynie: {cm} cm.",
+                "Według karty z przychodni rejonowej ma {cmm} m wzrostu.","Krawiec z sąsiedztwa zapisał w zeszycie miarę: wzrost {cm} cm.",
+                {t:"Lekarz zakładowy wpisał do karty {cm} cm wzrostu.", k:["job"]},"Ma {cmm} m wzrostu.",
+                "W protokole z przeszukania zapisano wzrost: {cm} cm.","W kartotece z poradni wpisano: wzrost {cm} cm."],
+      /* miarą jest świadek spoza podejrzanych; {refm} = 1,68; dir = up (sprawca wyższy) / down (niższy) */
+      cmp:{ rule:{ up:["Świadek, {ref}, ma {refm} m wzrostu i {stal} w bramie tuż obok sprawcy. Sprawca był od {ref_od} wyraźnie wyższy.",
+                       "{ref}, {ktory} ma {refm} m wzrostu, {widzial} sprawcę z bliska, twarzą w twarz. Sprawca był od {ref_od} wyższy."],
+                   down:["Świadek, {ref}, ma {refm} m wzrostu i {stal} w bramie tuż obok sprawcy. Sprawca był od {ref_od} wyraźnie niższy.",
+                         "{ref}, {ktory} ma {refm} m wzrostu, {widzial} sprawcę z bliska, twarzą w twarz. Sprawca był od {ref_od} niższy."] },
+            hint:"porównaj wzrost w teczkach z {refm} m, które ma {ref}." },
+      relation:{
+        workmate:{ rule:["{ref} {zeznal}, że sprawcę zna z zakładu pracy: pracują w tym samym miejscu.",
+                         "Sprawca pracuje w tym samym zakładzie co {ref}. Rozpoznał go portier z tamtej zmiany."],
+                   fact:[{t:"{ref} pracuje w tym samym zakładzie co [on|ona], mijają się codziennie na portierni.", k:["job"]},
+                         {t:"{ref} i [on|ona] są na jednej zmianie w tym samym zakładzie.", k:["job"]}],
+                   what:"wspólny zakład pracy" },
+        stairwell:{ rule:["{ref} {zeznal}, że sprawcę mija codziennie na swojej klatce schodowej: mieszkają na tej samej klatce.",
+                          "Sprawca mieszka na tej samej klatce schodowej co {ref}. Sąsiadka z parteru poznała go po kroku na schodach."],
+                    fact:["{ref} mieszka piętro wyżej, na tej samej klatce schodowej co [on|ona].","{ref} mieszka z [nim|nią] na jednej klatce schodowej, drzwi w drzwi."],
+                    what:"wspólna klatka schodowa" },
+        inlaw:{ rule:["{ref} {zeznal}, że sprawca to ktoś z {ref_jego} rodziny: szwagier albo szwagierka.",
+                      "Sprawca i {ref} to szwagrowie, tak wynika z zeznań rodziny."],
+                fact:["{ref} to [jego|jej] {szw}, spotykają się na rodzinnych imieninach.","{ref} to [jego|jej] {szw}, z rodziny po małżonku."],
+                what:"szwagrostwo" },
+        hint:"sprawdź, kogo w teczkach łączy coś z osobą: {ref}."
+      },
+      absent:{ rule:["Od {a} do {b} dozorca zamiatał podwórko i zapisywał w zeszycie każdego, kto przechodził. Kto jest w zeszycie, ma to w teczce. Sprawcy w zeszycie nie ma.",
+                     "Od {a} do {b} dozorca siedział przy trzepaku i notował każdego, kto szedł przez podwórko. Wszystkie wpisy są w teczkach. Sprawca przez podwórko nie przechodził."],
+               fact:["Dozorca zapisał [go|ją] w zeszycie: o {t} [przechodził|przechodziła] przez podwórko.","W zeszycie dozorcy: {t}, [szedł|szła] przez podwórko.",
+                     "Dozorca wpisał [go|ją] do zeszytu o {t}, kiedy [przechodził|przechodziła] przez podwórko.","O {t} dozorca zanotował [go|ją] na podwórku."],
+               hint:"kto ma w teczce wpis z zeszytu dozorcy?" }
+    },
+    traits: {
+      hand: {
+        values:["left","right"],
+        facts:{
+          left:["Pisze lewą ręką.","[Podpisał|Podpisała] zeznanie lewą ręką.","Mańkut. Tak mówią o [nim|niej] sąsiedzi.","Zegarek nosi na prawym nadgarstku, bo jest [leworęczny|leworęczna].",
+                "Na przesłuchaniu [notował|notowała] lewą ręką, bo prawą, jak mówi, nie umie pisać.","W szkole przywiązywali [mu|jej] lewą rękę do ławki, a i tak pisze lewą.",
+                "Je, pisze i kroi chleb lewą ręką, jak każdy mańkut.","Przy obiedzie nóż trzyma w lewej ręce, a widelec w prawej, jak mańkut.",
+                "Nożyczki ma specjalne, dla mańkutów, [kupił|kupiła] je w Niemczech.","Pisze lewą ręką, a podpis ma pochylony w lewo i rozmazany.",
+                "Koledzy od lat wołają na [niego|nią] „mańkut”, bo wszystko robi lewą ręką.","Na przesłuchaniu [podpisał|podpisała] protokół lewą ręką, krzywo, z rozmazanym atramentem."],
+          right:["[Podpisał|Podpisała] zeznanie prawą ręką.","Pisze prawą ręką, starannie i drobno.","Lewą ręką nie utrzyma nawet łyżki, wszystko robi prawą.","Jest [praworęczny|praworęczna], zegarek nosi na lewym nadgarstku.",
+                 "Pisze prawą ręką, aż na środkowym palcu ma odcisk od długopisu.","Na przesłuchaniu [notował|notowała] coś prawą ręką w kalendarzyku.",
+                 "W rodzinie nie ma ani jednego mańkuta, [on|ona] też wszystko robi prawą ręką.","Kartki świąteczne do rodziny podpisuje prawą ręką, starannie, jak uczyli w szkole.",
+                 "Oświadczenie na przesłuchaniu [pisał|pisała] prawą ręką, równo i bez skreśleń.","Młotek, nóż i długopis trzyma zawsze w prawej ręce, lewą nic nie zrobi.",
+                 "W szkole [był|była] wzorem kaligrafii i do dziś pisze prawą ręką jak z elementarza.",{t:"W ankiecie z zakładu pracy [wpisał|wpisała]: praworęczność.", k:["job"]}]
+        },
+        rule:{ left:["Ślady sprawcy {where} zostawiła lewa ręka.","Odciski palców sprawcy {where} układają się jak u mańkuta."],
+               right:["Ślady sprawcy {where} zostawiła prawa ręka.","Odciski palców sprawcy {where} układają się jak u kogoś, kto wszystko robi prawą ręką."] },
+        ruleMurder:{ left:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z lewej ręki.","Lekarz nie ma wątpliwości: cios zadała lewa ręka."],
+                     right:["Kąt rany nie zostawia lekarzowi wątpliwości: uderzono z prawej ręki.","Lekarz nie ma wątpliwości: cios zadała prawa ręka."] },
+        ruleStrangle:{ left:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła lewa ręka.","Pętlę zaciągnięto od lewej strony, tak jak robi mańkut."],
+                       right:["Ślady na szyi ofiary nie zostawiają lekarzowi wątpliwości: mocniej ciągnęła prawa ręka.","Pętlę zaciągnięto od prawej strony, tak jak robi ktoś praworęczny."] },
+        hint:"Porównaj, którą ręką posługują się podejrzani.",
+        why:{ left:"jest [leworęczny|leworęczna]", right:"jest [praworęczny|praworęczna]" },
+        whyFail:{ left:"jest [praworęczny|praworęczna]", right:"jest [leworęczny|leworęczna]" }
+      },
+      shoe: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Kwit", name:"Kwit od szewca", icon:"receipt", text:["Kwit z zakładu szewskiego przy {street2}: zelowanie i nowe fleki.","Buty w rozmiarze {v}, do odbioru w piątek. Na kwicie: {ini}."] },
+                  { label:"Pudełko", name:"Pudełko po butach", icon:"receipt", text:["Pudełko po butach z domu towarowego, znalezione w piwnicy przy komórkach lokatorów.","Na boku rozmiar {v}. Na wieczku ktoś napisał flamastrem: {ini}."] },
+                  { label:"Paragon", name:"Paragon z działu obuwia", icon:"receipt", text:["Paragon z działu obuwia w domu towarowym: półbuty skórzane, {kwota_shoes}.","Rozmiar {v}. Buty przymierzono na miejscu i wyniesiono w nich ze sklepu. Na odwrocie podpis: {ini}."] },
+                  { label:"Spis", name:"Spis rzeczy z przeszukania", icon:"card", text:["Spis rzeczy z przeszukania mieszkania, podpisany przez dzielnicowego.","Pozycja czwarta: buty zimowe noszone na co dzień, rozmiar {v}. Właściciel, czytelne tylko inicjały: {ini}."] }],
+        values:{ m:[42,43,44,45], f:[37,38,39,40] },
+        facts:["Nosi buty w rozmiarze {v}.","W przedpokoju stoją [jego|jej] kalosze, rozmiar {v}.","[Kupił|Kupiła] sobie ostatnio na targu buty w rozmiarze {v}.",
+               "Na wycieraczce przed drzwiami stoją [jego|jej] buty, rozmiar {v}.","Szewc z sąsiedztwa pamięta, że zelował [mu|jej] buty w rozmiarze {v}.",
+               "Przy przesłuchaniu spisano rozmiar [jego|jej] butów: {v}.","W szafce trzyma dwie pary butów, obie w rozmiarze {v}.","Kapcie, w których [otworzył|otworzyła] drzwi, mają rozmiar {v}.",
+               "W piwnicy suszą się [jego|jej] gumiaki, rozmiar {v}.","Zimowe buty z Relaksu ma w rozmiarze {v}.","Na przesłuchanie [przyszedł|przyszła] w trepach, rozmiar {v}.",
+               "W protokole z przeszukania zapisano: obuwie, rozmiar {v}."],
+        rule:["Uciekając, sprawca zostawił w błocie przed wejściem ślad buta w rozmiarze {v}.","Na wycieraczce został świeży odcisk podeszwy sprawcy, rozmiar {v}."],
+        hint:"Sprawdź rozmiary butów.",
+        why:"nosi buty w rozmiarze {v}",
+        whyFail:"nosi buty w rozmiarze {v}"
+      },
+      /* 2.2: przeczenie. Reguła mówi, czego NIE było (pies nie szczekał, sprawca nie szukał drogi); wartość wynika jednoznacznie.
+         Tylko jako reguła (nigdy jako zdanie-wabik) i nigdy razem z regułą motywu. */
+      known: {
+        values:["yes","no"], ruleValues:["yes","no"],
+        facts:{ yes:["Pies dozorcy merda na [jego|jej] widok ogonem, zna [go|ją] od szczeniaka.","Bywa u poszkodowanych co tydzień i zna tam każdy kąt.",
+                     "Od lat przychodzi w to miejsce jak do siebie, wszyscy [go|ją] tam znają.","Kiedyś [pomagał|pomagała] poszkodowanym przy remoncie, więc wie, gdzie co stoi.",
+                     "Sąsiedzi poszkodowanych mówią o [nim|niej] „nasz”, bo kręci się tam od zawsze.","Ma u poszkodowanych swoje krzesło przy stole, tak często tam bywa.",
+                     "Dozorca zna [go|ją] z imienia i nigdy nie pyta, do kogo idzie.","Tam, gdzie to się stało, zna nawet skrzypiące stopnie na schodach."],
+                no:["Poszkodowanych nie zna, w tamtej okolicy nigdy nie [był|była].","Dozorca z tamtej okolicy widzi [go|ją] pierwszy raz na oczy.",
+                    "Mieszka na drugim końcu miasta i w tamte strony w ogóle nie zagląda.","Na wizję lokalną trzeba [go|ją] było prowadzić, bo nie [znał|znała] drogi.",
+                    "Z poszkodowanymi nigdy nie [zamienił|zamieniła] słowa, zna ich najwyżej ze zdjęcia w gazecie.","Sąsiedzi poszkodowanych zgodnie mówią, że nigdy [go|ją] tam nie widzieli.",
+                    "W tamtej okolicy [był|była] ostatni raz przed laty, przy przeprowadzce kuzyna.","Pies dozorcy obszczekał [go|ją] przy wizji lokalnej jak każdego obcego."] },
+        rule:{ yes:["Pies dozorcy, który oszczekuje każdego obcego, tego wieczoru ani razu nie zaszczekał. Sprawca nie był tu obcy.",
+                    "Sprawca nie szukał drogi ani włącznika światła. Nie był tu pierwszy raz."],
+               no:["Pies dozorcy ujadał tak, jak ujada tylko na obcych. Sprawca nie bywał tu wcześniej.",
+                   "Sprawca nie znał drogi: sąsiadka słyszała, jak pytał na schodach, gdzie jest wyjście. Nie był tu nigdy wcześniej."] },
+        hint:"Kto bywał na miejscu jak u siebie, a kto był tam obcy?",
+        why:{ yes:"nie [był|była] tam [obcy|obca]", no:"[był|była] tam [obcy|obca]" },
+        whyFail:{ yes:"[był|była] tam [obcy|obca]", no:"bywa tam jak u siebie" }
+      },
+      height: {
+        values:["tall","short"],
+        facts:{
+          tall:[{t:"Ma ponad metr dziewięćdziesiąt wzrostu.", cm:{m:[191,250],f:[191,250]}},{t:"Schyla się w każdych drzwiach.", cm:{m:[188,250],f:[178,250]}},"Z daleka widać [go|ją] ponad tłumem na targu.",
+                "Na zdjęciu klasowym stoi w ostatnim rzędzie, o głowę [wyższy|wyższa] od reszty.","Jest tak [wysoki|wysoka], że żarówki na klatce wkręca bez drabiny.",
+                "Spodnie zawsze ma za krótkie, bo na [jego|jej] wzrost nic nie ma w sklepach.",{t:"W tramwaju musi się garbić, żeby nie uderzyć głową w sufit.", cm:{m:[190,250],f:[182,250]}},
+                "W szkole na apelu [stał|stała] zawsze na czele szeregu, jako [najwyższy|najwyższa] w klasie.",{t:"Kiedy wstaje od stołu, głową prawie dotyka lampy w kuchni.", cm:{m:[188,250],f:[178,250]}},
+                {t:"Łóżko ma dorobione, bo w sklepie nie było takiego na [jego|jej] wzrost.", cm:{m:[190,250],f:[184,250]}},"W każdej kolejce widzi ladę ponad głowami większości.",
+                "Sąsiedzi wołają [go|ją], kiedy trzeba zdjąć firanki, bo przy [jego|jej] wzroście drabina niepotrzebna."],
+          short:[{t:"Ma niecałe metr sześćdziesiąt.", cm:{m:[0,159],f:[0,159]}},"Do górnej półki sięga ze stołka.","W tramwaju ledwo dosięga uchwytu.",
+                 "W kolejce zza pleców innych nie widzi lady.","Na zdjęciu klasowym zawsze [stał|stała] w pierwszym rzędzie, jako [najniższy|najniższa].",
+                 {t:"[Sam|Sama] żartuje, że ma metr pięćdziesiąt pięć w kapeluszu.", cm:{m:[0,0],f:[0,156]}},{t:"Jest tak [niski|niska], że do lustra w łazience musi stawać na palcach.", cm:{m:[0,162],f:[0,154]}},
+                 {t:"W tłumie na targu ginie, bo wysokim sięga ledwo do ramienia.", cm:{m:[0,162],f:[0,155]}},"Jest [niski|niska] i każde spodnie skraca u krawcowej o dobre dziesięć centymetrów.",
+                 {t:"Na przesłuchaniu nogi ledwo [mu|jej] sięgały do podłogi.", cm:{m:[0,162],f:[0,155]}},"W dowodzie ma wpisane {cm} cm wzrostu.",
+                 "Skrzynki pocztowej w górnym rzędzie nie dosięga bez stołka."]
+        },
+        rule:{ tall:["Sprawca zostawił ślady dłoni na framudze, ponad dwa metry nad podłogą.","Świadek widział, jak sprawca schyla się w drzwiach, żeby nie uderzyć głową."],
+               short:["Świadek widział sprawcę z okna: postać ledwo wystawała zza zaparkowanego Malucha.","Sprawca musiał podstawić sobie skrzynkę, żeby dosięgnąć zasuwki, do której ktoś wysoki sięga bez trudu."] },
+        hint:"Kto nie pasuje wzrostem?",
+        why:{ tall:"jest [wysoki|wysoka]", short:"jest [niski|niska]" },
+        whyFail:{ tall:"jest [niski|niska]", short:"jest [wysoki|wysoka]" }
+      },
+      smoker: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Kartka", name:"Kartka z kiosku", icon:"receipt", text:["Kioskarka zapisuje stałym klientom papierosy „na zeszyt”, do pierwszego.","Na kartce z tego tygodnia: «{ini} — {packs} {cig}, pali jak smok»."] },
+                  { label:"Zeszyt", name:"Zeszyt sklepowej", icon:"notebook", text:["Sprzedawczyni ze spożywczego zapisuje stałym klientom zakupy w zeszycie pod ladą.","Wśród wpisów z tego tygodnia: «{ini}: {goods} i {packs} {cig} dla siebie, zapłaci w piątek»."] },
+                  { label:"Rachunek", name:"Rachunek z baru", icon:"receipt", text:["Rachunek z baru „{bar}”: piwo, zapałki i {packs} {cig}.","Kelnerka zapamiętała, że papierosa zapalono od razu przy barze, i zapisała na odwrocie: {ini}."] },
+                  { label:"Zamówienie", name:"Zeszyt stałych zamówień z kiosku", icon:"notebook", text:["Zeszyt stałych zamówień z kiosku Ruchu przy {street2}.","«{ini} — {packs} {cig} na dzień, odkładać przed siódmą. Pali jak komin.»"] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Pali Sporty, paczkę dziennie.","Palce ma żółte od papierosów.","Na przesłuchaniu [zapalił|zapaliła] dwa papierosy pod rząd.",
+                     {t:"Pali Marlboro z przemytu, kupowane na sztuki.", years:[1990,1999]},"Z kieszeni wystaje [mu|jej] napoczęta paczka Klubowych, z której pali cały dzień.",
+                     "Pali przy otwartym oknie, a popielniczka na parapecie jest zawsze pełna.","Pali w kuchni, w przedpokoju i na klatce, wszędzie, gdzie się da.","[Poprosił|Poprosiła] o przerwę w przesłuchaniu, żeby zapalić.",
+                     "Odpala jednego papierosa od drugiego.","Pierwszego papierosa zapala rano jeszcze w łóżku.","Kiedy brakuje do pierwszego, kupuje sobie w kiosku papierosy na sztuki.",
+                     "Wieczorami pali na balkonie, w samych kapciach."],
+                no:[{t:"Nie pali od dwudziestu lat.", ages:["mid","old"]},"Nie pali i nie znosi dymu papierosowego.","Nigdy nie [palił|paliła].",
+                    "[Rzucił|Rzuciła] palenie, kiedy sąsiad dostał zawału.","Na przesłuchaniu [poprosił|poprosiła] o otwarcie okna, bo [sam|sama] nie pali i dym [mu|jej] przeszkadza.",
+                    {t:"Papierosy kupuje tylko ojcu, [sam|sama] nie pali.", ages:["young","mid"]},"Nie pali i w domu nie ma ani jednej popielniczki.",
+                    "Na przesłuchaniu [odmówił|odmówiła] papierosa, bo nie pali.",{t:"Lekarz zakazał [mu|jej] palenia po zawale i od tamtej pory nie [wziął|wzięła] papierosa do ust.", ages:["mid","old"]},
+                    "Papierosy, którymi [go|ją] częstują, oddaje szwagrowi, bo [sam|sama] nie pali.","Nigdy nie [zapalił|zapaliła], bo od dymu robi [mu|jej] się niedobrze.",
+                    "Nie pali, w kuchni nie ma nawet zapałek, gotuje na elektrycznej."] },
+        rule:{ yes:["Sprawca zostawił na miejscu świeży niedopałek.","W powietrzu jeszcze wisiał dym z papierosa sprawcy."] },
+        hint:"Kto nie pali?",
+        why:{ yes:"pali" },
+        whyFail:{ yes:"nie pali" }
+      },
+      car: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Mandat", name:"Mandat za parkowanie", icon:"ticket", text:["Mandat za zostawienie auta na chodniku przy {street2}, wystawiony tydzień temu.","Kierowca przyjął mandat na {kwota_fine} i podpisał się: {ini}."] },
+                  { label:"Rachunek", name:"Rachunek z warsztatu", icon:"receipt", text:["Rachunek z warsztatu samochodowego przy {street2}: wymiana tłumika, {kwota_repair}.","Rachunek wystawiono na właściciela auta, {ini}. Auto odebrane dzień przed zdarzeniem."] },
+                  { label:"Parking", name:"Kwit z parkingu strzeżonego", icon:"ticket", text:["Kwit z parkingu strzeżonego przy {dworzec}, za dobę postoju: {kwota_parking}.","Parkingowy zapisał markę auta i nazwisko kierowcy, czytelne tylko inicjały: {ini}."] },
+                  { label:"Polisa", name:"Polisa OC z PZU", icon:"card", text:["Polisa obowiązkowego ubezpieczenia samochodu z PZU, opłacona do końca roku.","Składka {kwota_oc}. Właściciel pojazdu: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Jeździ Polonezem w kolorze kawy z mlekiem.","Ma Malucha zaparkowanego pod blokiem.",{t:"Jeździ Żukiem z napisem firmy na burcie.", ages:["young","mid"], k:["job"]},
+                     {t:"Jeździ Golfem sprowadzonym z Niemiec.", years:[1990,1999], ages:["young","mid"]},
+                     {t:"[Kupił|Kupiła] na raty Cinquecento z Tychów.", years:[1993,1999]},
+                     {t:"Jeździ nowiutkim Daewoo Tico.", years:[1997,1999]},"Co niedzielę myje pod blokiem swoje auto.",
+                     "Kluczyki do swojego auta nosi na breloku z herbem miasta.","Z balkonu pilnuje swojego samochodu zaparkowanego pod oknem.",
+                     "W bagażniku swojego auta wozi zapasowy kanister i linkę holowniczą.","Na podwórku zawsze parkuje swoją Syrenkę w tym samym miejscu.","Co sobotę dłubie przy swoim aucie pod blokiem."],
+                no:[{t:"Nie ma samochodu ani prawa jazdy.", k:["nodrive"]},"Samochodu nie ma, wszędzie jeździ tramwajem.",{t:"Samochód [sprzedał|sprzedała] w zeszłym roku i nowego już nie [kupił|kupiła].", ages:["mid","old"]},
+                    "Auta nie ma, na zakupy jeździ autobusem z wózkiem na kółkach.",{t:"Nigdy nie [nauczył|nauczyła] się prowadzić i boi się samochodów.", k:["nodrive"]},
+                    {t:"Na zebraniu spółdzielni [narzekał|narzekała], że samochody zastawiają podwórko, bo [sam|sama] żadnego nie ma.", k:["adult"]},
+                    "Na działkę dojeżdża rowerem, bo samochodu nigdy nie [miał|miała].","Samochodu nie ma, bo nigdy nie było [go|jej] na niego stać.",{t:"Samochodu nie ma: talon na auto [sprzedał|sprzedała] kiedyś szwagrowi, bo i tak nie umie jeździć.", ages:["mid","old"], k:["adult","nodrive"]},
+                    "Samochodu nie ma, w niedziele chodzi wszędzie pieszo.",{t:"Prawo jazdy [stracił|straciła] trzy lata temu, a auto [sprzedał|sprzedała] zaraz potem.", ages:["mid","old"]},"Samochodu nie ma, z pojazdów ma tylko rower."] },
+        rule:{ yes:["Świadek widział, jak tuż po zdarzeniu sprawca wsiada do swojego auta i odjeżdża.","Ślady opon na podwórku prowadzą tam, gdzie sprawca zostawił swój samochód."] },
+        hint:"Kto nie ma czym odjechać?",
+        why:{ yes:"ma samochód" },
+        whyFail:{ yes:"nie ma samochodu" }
+      },
+      glasses: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Recepta", name:"Recepta od okulisty", icon:"receipt", text:["Recepta z przychodni przy {street2}: szkła minus cztery.","Wystawiona dla {ini}. Okulary odebrane u optyka w zeszłym tygodniu."] },
+                  { label:"Kwit", name:"Kwit od optyka", icon:"receipt", text:["Kwit z zakładu optycznego: naprawa zausznika w okularach, {kwota_optic}.","Do odbioru w poniedziałek. Zamawiający: {ini}."] },
+                  { label:"Skierowanie", name:"Skierowanie do okulisty", icon:"card", text:["Skierowanie z przychodni rejonowej do poradni okulistycznej, z pieczątką lekarza.","Dopisek: «nosi okulary od lat, kontrola szkieł». Pacjent: {ini}."] },
+                  { label:"Szkła", name:"Zlecenie na szkła", icon:"receipt", text:["Zlecenie z zakładu optycznego przy {street2}: nowe szkła do okularów noszonych na co dzień, {kwota_lenses}.","Okulary odebrał właściciel. Podpis: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Bez okularów nie przeczyta gazety.","Nosi grube okulary w rogowej oprawce.","Nosi okulary w cienkiej drucianej oprawce.",
+                     "Okulary trzyma na sznurku zawieszonym na szyi.","Na przesłuchaniu co chwilę [przecierał|przecierała] okulary chusteczką.",
+                     "Ma szkła grube jak denka od butelek.","Bez okularów nie rozpozna sąsiada po drugiej stronie ulicy.","Okulary, które nosi na co dzień, [kupił|kupiła] u optyka przy {street2}.",
+                     "Nosi okulary, a na noc chowa je do futerału z wyszytym monogramem.","Okularów nie zdejmuje, przy czytaniu zeznania co chwilę [poprawiał|poprawiała] je na nosie.","Okulary nosi cały dzień, od rana do wieczora.",
+                     "Okulary ma sklejone plastrem na zausznikach."],
+                no:["Wzrok ma jak sokół, okularów nie nosi.","Okularów nigdy nie [potrzebował|potrzebowała].","Okularów nie nosi, gazetę czyta bez trudu, nawet najdrobniejszy druk.",
+                    "Okularów nie nosi, a rozkład jazdy przeczyta z drugiej strony ulicy.","Okularów nie nosi, a u okulisty nie [był|była] od lat, bo nie ma po co.","Okularów nie nosi, a listonosza wypatrzy z okna na końcu ulicy.",
+                    "Okularów nie nosi, protokół na przesłuchaniu [przeczytał|przeczytała] sam, drobny druk też.",{t:"Okularów nie nosi i śmieje się, że są dla starych.", ages:["young","mid"]},
+                    "Bez okularów odczyta z balkonu numer tramwaju, zanim ten wyjedzie zza rogu.","Okularów nie nosi, na żadnym zdjęciu rodzinnym ich nie ma.",
+                    "Okularów nie nosi, igłę nawleka za pierwszym razem.","Okularów nie nosi, a u okulisty [usłyszał|usłyszała], że wzrok ma bez zarzutu."] },
+        rule:{ yes:["Szamocząc się, sprawca stłukł szkło w okularach. Odłamek został na podłodze.","Sprawca zgubił na miejscu etui na okulary."] },
+        hint:"Kto nie nosi okularów?",
+        why:{ yes:"nosi okulary" },
+        whyFail:{ yes:"nie nosi okularów" }
+      },
+      dog: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Książeczka", name:"Książeczka szczepień psa", icon:"notebook", text:["Książeczka szczepień psa ze stemplem lecznicy weterynaryjnej.","Pies: {dogbreed}, wabi się {dogname}. Właściciel: {ini}. Ostatnie szczepienie w zeszłym miesiącu."] },
+                  { label:"Kwit", name:"Kwit z lecznicy", icon:"receipt", text:["Kwit z lecznicy dla zwierząt przy {street2}: odrobaczanie psa, który wabi się {dogname}.","Opłatę, {kwota_vet}, pobrano od właściciela. Na kwicie: {ini}."] },
+                  { label:"Podatek", name:"Kwit za opłatę od psa", icon:"receipt", text:["Kwit z urzędu dzielnicy: opłata od posiadania psa za ten rok, {kwota_dogtax}.","Pies: {dogbreed}, wabi się {dogname}. Płatnik: {ini}."] },
+                  { label:"Dyplom", name:"Dyplom z wystawy psów", icon:"photo", text:["Dyplom z wystawy psów w hali sportowej, z pieczęcią związku kynologicznego.","Wyróżnienie dla psa, który wabi się {dogname}. Właściciel: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Ma kundla, z którym wychodzi trzy razy dziennie.","Na płaszczu ma pełno sierści swojego owczarka.","Wieczorami wyprowadza swojego jamnika na podwórko.",
+                     "[Jego|Jej] owczarek szczeka na każdego listonosza.","W przedpokoju stoi miska [jego|jej] psa.","Pies śpi u [niego|niej] w nogach łóżka.",
+                     "Na przesłuchanie [przyszedł|przyszła] ze swoim psem na smyczy.","W kieszeni nosi chrupki dla swojego spaniela.","[Jego|Jej] spaniel czeka na [niego|nią] pod sklepem przy {street2}.",
+                     "Na wycieraczce przed [jego|jej] drzwiami pełno sierści, bo pies leży tam całymi dniami.","Codziennie wieczorem wychodzi ze swoim psem na ten sam trawnik.","Sąsiedzi skarżą się, że [jego|jej] pies szczeka po nocach."],
+                no:[{t:"Nie ma psa, bo ma alergię na sierść.", k:["dogfear"]},{t:"Psów boi się od dziecka i nigdy żadnego nie [miał|miała].", k:["dogfear"]},"Psa nie ma, bo spółdzielnia nie pozwala.",
+                    "W domu trzyma tylko rybki w akwarium.","Psa nie ma, bo nie ma na niego czasu ani pieniędzy.",{t:"Psa nie ma, a na widok cudzego przechodzi na drugą stronę ulicy.", k:["dogfear"]},
+                    "W mieszkaniu trzyma tylko kanarka w klatce.","Psa nie ma, tylko kota, który psów nie znosi.","Psa [miał|miała] w dzieciństwie i drugiego nie chce.",
+                    "Psa nie trzyma, bo mówi, że pies w bloku to męczarnia dla zwierzęcia.","Psa nie ma: na ubraniu ani śladu sierści, dywan czysty.",{t:"Psa nie trzyma, a kiedy sąsiad przyszedł z psem, [poprosił|poprosiła], żeby został na klatce.", k:["dogfear"]}] },
+        rule:{ yes:["Sprawca zostawił na miejscu psią sierść, choć nikt tam psa nie trzyma.","Na progu zostały odciski psich łap, a obok ślady sprawcy."] },
+        hint:"Kto nie ma psa?",
+        why:{ yes:"ma psa" },
+        whyFail:{ yes:"nie ma psa" }
+      },
+      jacket: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Kwit", name:"Kwit z pralni chemicznej", icon:"receipt", text:["Kwit z punktu pralni chemicznej przy {street2}: kurtka z ortalionu do czyszczenia.","Odbiór za tydzień. Na kwicie: {ini}."] },
+                  { label:"Bloczek", name:"Bloczek krawcowej", icon:"receipt", text:["Kartka z bloczku krawcowej z sąsiedztwa: wszycie nowego zamka w ortalionowej kurtce, {kwota_sewing}.","Zapłacone z góry. Zamawiający: {ini}."] },
+                  { label:"Metka", name:"Metka od kurtki", icon:"receipt", text:["Kartonowa metka od ortalionowej kurtki, z ceną {kwota_jacket}, wyrzucona do kosza na klatce.","Na odwrocie handlarz zapisał, komu ją sprzedał i kto w niej odszedł od budki: {ini}."] },
+                  { label:"Numerek", name:"Kwit z szatni", icon:"ticket", text:["Kwit z szatni domu kultury: przyjęto kurtkę z ortalionu, granatową, z kapturem.","Szatniarka zapisała na kwicie inicjały właściciela: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Nosi szeleszczącą kurtkę z ortalionu.",{t:"Na przesłuchanie [przyszedł|przyszła] w ortalionowym dresie.", ages:["young","mid"]},"Na co dzień nosi ortalionową kurtkę z targu, w trzech kolorach.",
+                     "[Jego|Jej] kurtka z ortalionu szeleści przy każdym ruchu.","Na wieszaku w przedpokoju wisi [jego|jej] ortalionowa wiatrówka.","Nie rozstaje się z ortalionową kurtką, nawet w domu.",
+                     {t:"Ortalionową kurtkę, w której chodzi na co dzień, [kupił|kupiła] od handlarza z Turcji.", years:[1990,1999]},"Na rękawie ortalionowej kurtki ma przypaloną dziurę od papierosa.",{t:"Do roboty chodzi w ortalionie, bo nie przemaka.", k:["job"]},
+                     "Kurtkę z ortalionu ma przewiązaną w pasie, gdy jest ciepło.","Na zdjęciu z imienin stoi w ortalionowej kurtce, w której chodzi na co dzień.","Kurtkę z ortalionu nosi od trzech zim i nie zamierza zmieniać."],
+                no:[{t:"Ortalionu nie ma, nosi wełniany płaszcz po ojcu.", ages:["young","mid"]},"Ortalionu w szafie nie ma, chodzi w kożuchu, choć jest już za ciepło.","Ma tylko jesionkę i gruby sweter.",
+                    "Ortalionu nie znosi, mówi, że szeleści jak reklamówka.","Ortalionu nie nosi, zawsze chodzi w marynarce, nawet do sklepu.","Ma jedną kurtkę, sztruksową, z łatami na łokciach.",
+                    "Kurtki żadnej nie ma, chodzi w swetrze robionym na drutach przez siostrę.","Ma tylko dżinsową kurtkę, wytartą na łokciach.","W szafie wiszą same płaszcze, żadnej kurtki.",
+                    "Ma tylko prochowiec, w którym [przyszedł|przyszła] na przesłuchanie.","Mówi, że ortalion jest dla bazarowych cwaniaków, i nigdy go nie [włożył|włożyła].","Ma jedną kurtkę, skórzaną, po starszym bracie."] },
+        rule:{ yes:["Sprawca zahaczył rękawem o gwóźdź przy drzwiach. Został na nim strzęp ortalionu.","Świadek słyszał w ciemności, jak kurtka sprawcy szeleści ortalionem."] },
+        hint:"Kto nie nosi ortalionu?",
+        why:{ yes:"nosi ortalion" },
+        whyFail:{ yes:"nie nosi ortalionu" }
+      },
+      motive: {
+        /* zdania o motywie są w typie zbrodni: crimes.*.suspicion (tak) i crimes.*.noMotive (nie) */
+        values:["yes","no"], ruleValues:["yes"], fromCrime:true,
+        hint:"Kto nie miał żadnego powodu?",
+        why:{ yes:"[miał|miała] motyw" },
+        whyFail:{ yes:"nie [miał|miała] motywu" }
+      }
+    },
+
+    /* ------------------------------------------------------------------ */
+    /* ALIBI                                                                */
+    /* ------------------------------------------------------------------ */
+    alibiConfirmed: [
+      { text:"[grał|grała] w karty w barze „{bar}”", k:["adult"], debunk:"Tego wieczoru [przechodził|przechodziła] obok baru „{bar}”. Był zamknięty, w oknach było ciemno.", witness:"potwierdzają to barman i trzech stałych bywalców",
+        doc:{ label:"Tabela", name:"Tabela wyników z baru", icon:"card", text:["Barman z baru „{bar}” zapisuje wyniki partii tysiąca na kartce przypiętej do lady.","Tamtego wieczoru, od {from} do {to}, przy jednym stoliku w każdym rozdaniu zapisano: {ini}."] } },
+      { text:"[był|była] na mszy wieczornej {church_at}", debunk:"Mówi, że tego wieczoru mszy {church_at} nie było, bo proboszcz miał pogrzeb za miastem.", witness:"widzieli [go|ją] ksiądz proboszcz i kościelny",
+        doc:{ label:"Zeszyt", name:"Zeszyt kościelnego", icon:"notebook", text:["Kościelny {church_at} zapisuje, kto czytał lekcję i kto zbierał na tacę.","Pod datą tamtego dnia, msza od {from} do {to}. Przy zbiórce na tacę wpisano: {ini}."] } },
+      { text:"[oglądał|oglądała] mecz {team} u szwagra", debunk:"Wie z radia, że mecz {team} tego dnia przełożono, bo boisko zalało.", witness:"potwierdzają to szwagier i jego żona" },
+      { text:"[pracował|pracowała] na drugiej zmianie {zaklad_at}", roles:["worker"], debunk:"[Słyszał|Słyszała] w kolejce, że druga zmiana {zaklad_at} miała tego dnia wolne, bo stanęła produkcja.", witness:"potwierdzają to brygadzista i lista obecności",
+        doc:{ label:"Karta", name:"Karta zegarowa", icon:"card", text:["Karta zegarowa z portierni {zaklad_at}.","Odbita przy wejściu o {from} i przy wyjściu o {to}. Nazwisko zatarte, czytelne tylko inicjały: {ini}."] } },
+      { text:"[siedział|siedziała] na zebraniu spółdzielni mieszkaniowej", k:["adult"], debunk:"Mówi, że zebranie spółdzielni odwołano w ostatniej chwili, bo nie przyszedł prezes.", witness:"[jego|jej] podpis widnieje w protokole zebrania",
+        doc:{ label:"Lista", name:"Lista obecności z zebrania", icon:"card", text:["Lista obecności z zebrania spółdzielni mieszkaniowej, z pieczątką prezesa.","Zebranie trwało od {from} do {to}. Podpis {ini} jest i przy wejściu, i przy głosowaniu na końcu."] } },
+      { text:"[stał|stała] w kolejce do kasy na {dworzec}", debunk:"[Był|Była] tego wieczoru na {dworzec}. Kasy były zamknięte, bo kasjerka zachorowała.", witness:"potwierdza to kasjerka, która [go|ją] zapamiętała" },
+      { text:"[był|była] na imieninach u sąsiadki z naprzeciwka", witness:"potwierdzają to solenizantka i dziesięciu gości",
+        debunk:"Wie, że imieniny u sąsiadki z naprzeciwka przełożono, bo solenizantka trafiła do szpitala.",
+        doc:{ label:"Zdjęcia", name:"Zdjęcia z imienin", icon:"photo", text:["Odbitki z imienin u sąsiadki z naprzeciwka, robione Zenitem przez cały wieczór.","Na odwrocie solenizantka zapisała godziny, od {from} do {to}, i kto siedzi przy stole. Na każdym zdjęciu: {ini}."] } },
+      { text:"[siedział|siedziała] w poczekalni pogotowia z sąsiadem", witness:"potwierdzają to rejestratorka i wpis w książce przyjęć",
+        debunk:"Mówi, że sąsiad cały tamten wieczór przesiedział na ławce pod blokiem i na żadne pogotowie nie jechał.",
+        doc:{ label:"Wpis", name:"Odpis z książki przyjęć", icon:"notebook", text:["Odpis z książki przyjęć pogotowia, z pieczątką rejestracji.","Sąsiad przyjęty o {from}, wypisany o {to}. Osoba towarzysząca, cały czas w poczekalni: {ini}."] } },
+      { text:"[był|była] w kinie „{cinema}” na ostatnim seansie", debunk:"Wie od bileterki, że ostatni seans w kinie „{cinema}” odwołano, bo zerwała się taśma.", witness:"bileterka [go|ją] pamięta, a bilet ma w kieszeni",
+        doc:{ label:"Bilet", name:"Bilet z kina", icon:"ticket", text:["Bilet na ostatni seans w kinie „{cinema}”, na „{film}”, oddarty przez bileterkę.","Seans od {from} do {to}. Bileterka zapisuje stałym widzom miejsca w zeszycie: rząd siódmy, {ini}."] } },
+      /* Alibi z pracy: tylko dla ról z `roles` (druga zmiana w zakładzie = robotnik z miasta).
+         debunk trafia do teczki innej osoby, gdy alibi jest fałszywe; doc = dokument, gdy potwierdza je dowód. */
+      { roles:["pielegniarka"], text:"[miał|miała] dyżur na izbie przyjęć w {szpital}", witness:"potwierdzają to oddziałowa i zeszyt raportów",
+        debunk:"[Był|Była] tego wieczoru w {szpital} u chorej ciotki. Na izbie przyjęć dyżur miała zupełnie inna zmiana.",
+        doc:{ label:"Raport", name:"Zeszyt raportów z izby przyjęć", icon:"notebook", text:["Zeszyt raportów pielęgniarskich z izby przyjęć w {szpital}.","Dyżur od {from} do {to}, wszystkie wpisy jednym charakterem pisma. Podpis: {ini}."] } },
+      { roles:["kioskarz"], text:"[zamykał|zamykała] kiosk i [rozliczał|rozliczała] utarg z inkasentką Ruchu", witness:"potwierdzają to inkasentka i pokwitowanie wpłaty",
+        debunk:"Mówi, że kiosk przy {street2} był tego dnia zamknięty od południa. Na szybie wisiała kartka „Remanent”.",
+        doc:{ label:"Pokwitowanie", name:"Pokwitowanie wpłaty utargu", icon:"receipt", text:["Pokwitowanie wpłaty utargu z kiosku, z pieczątką Ruchu.","Rozliczenie od {from} do {to}. Wpłacający: {ini}."] } },
+      { roles:["motorniczy"], text:"[prowadził|prowadziła] tramwaj na wieczornym kursie", witness:"potwierdzają to dyspozytor i karta drogowa",
+        debunk:"Wie od znajomego z zajezdni, że tamtego wieczoru tramwaje stały, bo zerwała się sieć trakcyjna.",
+        doc:{ label:"Karta", name:"Karta drogowa motorniczego", icon:"card", text:["Karta drogowa z zajezdni, z pieczątką dyspozytora.","Kurs od {from} do {to}, wóz numer 412. Prowadzący: {ini}."] } },
+      { roles:["taksowkarz"], text:"[woził|woziła] pasażerów z postoju przy {dworzec}", witness:"potwierdzają to dyspozytorka i zapis kursów",
+        debunk:"[Stał|Stała] tego wieczoru na postoju przy {dworzec}. Przez cały wieczór nie podjechała tam ani jedna taksówka.",
+        doc:{ label:"Kwity", name:"Kwity z taksometru", icon:"receipt", text:["Kwity z taksometru, spięte gumką recepturką.","Kursy od {from} do {to}, jeden po drugim. Na odwrocie kierowca podpisał: {ini}."] } },
+      { roles:["listonosz"], text:"[roznosił|roznosiła] telegramy z poczty nocnej", witness:"potwierdzają to naczelniczka poczty i książka doręczeń",
+        debunk:"Mówi, że poczta nocna była tego dnia zamknięta, bo zepsuł się piec i zamarzły rury.",
+        doc:{ label:"Książka", name:"Książka doręczeń telegramów", icon:"notebook", text:["Książka doręczeń telegramów z poczty nocnej.","Od {from} do {to} podpisy odbiorców, jeden po drugim. Doręczający: {ini}."] } },
+      { roles:["ochroniarz"], text:"[pilnował|pilnowała] hurtowni na nocnej zmianie", witness:"potwierdzają to szef ochrony i książka obchodów",
+        debunk:"Wie, że hurtownię tego wieczoru zaplombowano, bo przyszła kontrola ze skarbówki.",
+        doc:{ label:"Obchody", name:"Książka obchodów z hurtowni", icon:"notebook", text:["Książka obchodów z hurtowni, wpisy co pół godziny.","Od {from} do {to} każdy obchód podpisany tymi samymi inicjałami: {ini}."] } },
+      { roles:["organista"], text:"[grał|grała] na organach na mszy wieczornej {church_at}", witness:"widziało [go|ją] pół parafii",
+        debunk:"Mówi, że tego wieczoru mszy {church_at} nie było, bo proboszcz miał pogrzeb za miastem.",
+        doc:{ label:"Zeszyt", name:"Zeszyt kościelnego", icon:"notebook", text:["Kościelny {church_at} zapisuje, kto grał i kto czytał na mszy.","Pod datą tamtego dnia, msza od {from} do {to}: na organach {ini}."] } },
+      { roles:["fryzjer"], text:"[robił|robiła] w zakładzie trwałą ostatniej klientce, do późna", witness:"potwierdzają to klientka i zeszyt wizyt",
+        debunk:"Mówi, że zakład fryzjerski był tego wieczoru ciemny, bo na całej ulicy wyłączyli prąd.",
+        doc:{ label:"Wizyty", name:"Zeszyt wizyt fryzjera", icon:"notebook", text:["Zeszyt wizyt z zakładu fryzjerskiego, z cenami wpisanymi ołówkiem.","Ostatnia trwała od {from} do {to}. Przy wizycie dopisano, kto robił: {ini}."] } },
+      { roles:["student"], text:"[siedział|siedziała] na wieczornych ćwiczeniach na uczelni", witness:"potwierdzają to asystent i lista obecności",
+        debunk:"Wie od kolegi z roku, że wieczorne ćwiczenia odwołano, bo asystent zachorował.",
+        doc:{ label:"Lista", name:"Lista obecności z ćwiczeń", icon:"card", text:["Lista obecności z wieczornych ćwiczeń, podpisana przez asystenta.","Ćwiczenia od {from} do {to}. Wśród podpisów: {ini}."] } },
+      { roles:["handlarz","prywaciarz","praski"], text:"[zwijał|zwijała] stragan {market_on} i [liczył|liczyła] towar", witness:"potwierdzają to sąsiedzi ze straganów",
+        debunk:"Mówi, że tego dnia targ {market_on} zamknął sanepid i stragany stały puste." },
+      { roles:["akwizytor"], text:"[prowadził|prowadziła] pokaz garnków w domu kultury", witness:"potwierdzają to kierowniczka domu kultury i trzydzieści pań z osiedla",
+        debunk:"Wie, że pokaz garnków w domu kultury odwołano, bo nikt nie przyszedł." },
+      { roles:["wideo"], text:"[wydawał|wydawała] kasety w wypożyczalni aż do zamknięcia", witness:"potwierdzają to stali klienci i zeszyt wypożyczeń",
+        debunk:"Mówi, że wypożyczalnia była tego wieczoru zamknięta. Na drzwiach wisiała kartka „Inwentaryzacja”.",
+        doc:{ label:"Wypożyczenia", name:"Zeszyt wypożyczeń kaset", icon:"notebook", text:["Zeszyt wypożyczeń z wypożyczalni kaset wideo.","Od {from} do {to} kolejne wypożyczenia. Przy każdym ten sam podpis wydającego: {ini}."] } },
+      { roles:["krawcowa"], text:"[szył|szyła] u klientki suknię na wesele, z przymiarkami", witness:"potwierdzają to klientka i jej córka",
+        debunk:"Wie, że klientka, u której podobno szyto suknię, od tygodnia jest w sanatorium." },
+      { roles:["dozorca","administrator"], text:"[pilnował|pilnowała] fachowców przy naprawie pionu wodnego w kamienicy", witness:"potwierdzają to hydraulicy z administracji",
+        debunk:"Mówi, że żadnej naprawy pionu tego dnia nie było, woda leciała normalnie." },
+      { roles:["portowiec"], text:"[rozładowywał|rozładowywała] statek na nocnej zmianie w porcie", witness:"potwierdzają to brygadzista i lista obecności",
+        debunk:"[Słyszał|Słyszała] w porcie, że statek, na który czekała zmiana, przypłynął dopiero nad ranem.",
+        doc:{ label:"Karta", name:"Karta zegarowa z portu", icon:"card", text:["Karta zegarowa z bramy portu.","Odbita przy wejściu o {from} i przy wyjściu o {to}. Czytelne inicjały: {ini}."] } },
+      { roles:["muzyk"], text:"[grał|grała] do tańca na weselu w remizie", witness:"potwierdzają to pan młody i cała orkiestra",
+        debunk:"[Słyszał|Słyszała], że wesele w remizie odwołano w ostatniej chwili, bo panna młoda się rozmyśliła.",
+        doc:{ label:"Zdjęcia", name:"Zdjęcia z wesela", icon:"photo", text:["Zdjęcia z wesela w remizie, robione przez fotografa z zakładu przy {street2}.","Na odwrocie godziny od {from} do {to}. Na każdym zdjęciu przy instrumencie: {ini}."] } },
+      { roles:["dorozkarz"], text:"[woził|woziła] turystów dorożką po Rynku", witness:"potwierdzają to inni dorożkarze z postoju",
+        debunk:"Wie od stajennego, że tamtego wieczoru żadna dorożka nie wyjechała na Rynek, bo konie dostały wolne po mrozie." },
+      { roles:["rybak"], text:"[naprawiał|naprawiała] sieci na plaży z innymi rybakami", witness:"potwierdzają to rybacy z Brzeźna",
+        debunk:"[Słyszał|Słyszała] w Brzeźnie, że tego dnia rybacy w ogóle nie wyszli na plażę, bo przyszedł sztorm." },
+      { roles:["aptekarz"], text:"[miał|miała] nocny dyżur w aptece dyżurnej na drugim końcu {district_gen}", witness:"potwierdzają to kierowniczka apteki i książka recept",
+        debunk:"Mówi, że apteka dyżurna była tamtego wieczoru zamknięta, a na drzwiach wisiał adres innej.",
+        doc:{ label:"Recepty", name:"Książka recept z apteki dyżurnej", icon:"notebook", text:["Książka zrealizowanych recept z apteki dyżurnej.","Od {from} do {to} recepty jedna po drugiej. Przy każdej ta sama parafka: {ini}."] } },
+      { roles:["sklepowa"], text:"[liczył|liczyła] towar na remanencie w hurtowni Społem", witness:"potwierdzają to kierowniczka i protokół remanentu",
+        debunk:"Wie, że remanent w hurtowni Społem przełożono na poniedziałek, bo nie przyszła komisja.",
+        doc:{ label:"Remanent", name:"Protokół remanentu", icon:"card", text:["Protokół remanentu z hurtowni Społem, z podpisami komisji.","Liczenie od {from} do {to}. Wśród członków komisji: {ini}."] } },
+      { roles:["palacz"], text:"[palił|paliła] w kotłach łaźni miejskiej na drugiej zmianie", witness:"potwierdzają to kierownik łaźni i dziennik kotłowni",
+        debunk:"Mówi, że łaźnia miejska była tego dnia nieczynna, bo pękła rura przy kotle.",
+        doc:{ label:"Dziennik", name:"Dziennik kotłowni łaźni", icon:"notebook", text:["Dziennik palacza z kotłowni łaźni miejskiej.","Wpisy co godzinę, od {from} do {to}: temperatura, ciśnienie i ten sam podpis, {ini}."] } },
+      { roles:["piekarz"], text:"[zaczynał|zaczynała] nocną zmianę przy piecu w piekarni", witness:"potwierdzają to majster i dwóch czeladników",
+        debunk:"[Słyszał|Słyszała], że w piekarni tamtego wieczoru wyłączyli prąd i nocną zmianę odwołano.",
+        doc:{ label:"Grafik", name:"Grafik zmian z piekarni", icon:"card", text:["Grafik zmian z piekarni, z podpisami przy wejściu i wyjściu.","Zmiana od {from} do {to}. Podpis przy obu godzinach: {ini}."] } },
+      { roles:["golebiarz"], text:"[siedział|siedziała] na zebraniu sekcji hodowców gołębi pocztowych", witness:"potwierdzają to prezes sekcji i dwudziestu hodowców",
+        debunk:"Wie, że zebranie hodowców gołębi przeniesiono na sobotę, bo prezes pojechał na lot konkursowy.",
+        doc:{ label:"Hodowcy", name:"Lista obecności hodowców", icon:"card", text:["Lista obecności z zebrania sekcji hodowców gołębi pocztowych.","Zebranie od {from} do {to}. Wśród podpisów: {ini}."] } },
+      { roles:["mechanik"], text:"[naprawiał|naprawiała] klientowi Poloneza w warsztacie samochodowym przy {street2}", witness:"potwierdzają to właściciel auta i jego szwagier",
+        debunk:"Mówi, że warsztat samochodowy przy {street2} był zamknięty, bo właściciel pojechał po części do Niemiec." },
+      { roles:["stolarz"], text:"[skręcał|skręcała] meblościankę u klienta na drugim końcu miasta", witness:"potwierdzają to klient i jego żona",
+        debunk:"Wie, że klient, u którego podobno skręcano meblościankę, od tygodnia jest na urlopie w Bułgarii." },
+      { roles:["hydraulik"], text:"[usuwał|usuwała] awarię pionu w bloku na sąsiednim osiedlu", witness:"potwierdzają to administrator i lokatorzy z trzeciego piętra",
+        debunk:"Mówi, że na sąsiednim osiedlu żadnej awarii nie było. [Sam|Sama] tam mieszka i woda leciała normalnie." },
+      { roles:["maglarka"], text:"[maglował|maglowała] pościel dla hotelu robotniczego", witness:"potwierdzają to kierowniczka hotelu i kwit odbioru",
+        debunk:"Wie, że hotel robotniczy od miesiąca stoi zamknięty do remontu i nikt nie oddaje tam pościeli.",
+        doc:{ label:"Odbiór", name:"Kwit odbioru pościeli", icon:"receipt", text:["Kwit odbioru pościeli z hotelu robotniczego, czterdzieści kompletów.","Maglowanie od {from} do {to}. Wykonawca: {ini}."] } },
+      { roles:["dzialkowiec"], text:"[siedział|siedziała] na zebraniu zarządu ogródków działkowych", witness:"potwierdzają to prezes ogródków i protokół zebrania",
+        debunk:"Mówi, że zebranie zarządu działek odwołano, bo prezes od tygodnia leży w szpitalu.",
+        doc:{ label:"Działki", name:"Protokół zarządu ogródków", icon:"card", text:["Protokół z zebrania zarządu ogródków działkowych, pisany na maszynie.","Zebranie od {from} do {to}. Obecni, wśród nich {ini}."] } },
+      { roles:["emeryt"], text:"[grał|grała] w brydża w klubie seniora", witness:"potwierdzają to trzy osoby przy stoliku i kierowniczka klubu",
+        debunk:"Wie, że klub seniora jest w tym tygodniu zamknięty, bo malują salę.",
+        doc:{ label:"Brydż", name:"Zapis brydżowy z klubu seniora", icon:"card", text:["Kartka z zapisem robrów z klubu seniora.","Partia od {from} do {to}. Przy każdym robrze zapisano jednego z graczy: {ini}."] } },
+      { roles:["lokator"], text:"[pilnował|pilnowała] dzieci sąsiadów z trzeciego piętra", witness:"potwierdzają to sąsiedzi, kiedy wrócili z wesela",
+        debunk:"Wie, że sąsiedzi z trzeciego piętra nigdzie tego wieczoru nie wychodzili, słychać było u nich telewizor." },
+      { roles:["cinkciarz"], text:"[wymieniał|wymieniała] marki turystom pod hotelem Orbisu", witness:"potwierdzają to portier hotelu i dwóch taksówkarzy",
+        debunk:"Mówi, że pod hotelem Orbisu stał tego wieczoru radiowóz milicji i żaden cinkciarz się nie pokazał." },
+      { roles:["bylycinkciarz"], text:"[liczył|liczyła] utarg w kantorze znajomego", witness:"potwierdzają to znajomy i jego kasjerka",
+        debunk:"Wie, że kantor znajomego zamknięto tydzień temu, bo przestał się opłacać." },
+      { roles:["targi"], text:"[obsługiwał|obsługiwała] stoisko na Targach aż do zamknięcia hali", witness:"potwierdzają to kierownik hali i wystawcy",
+        debunk:"Wie, że hale Targów zamknięto tego dnia wcześniej, bo ktoś zgłosił bombę.",
+        doc:{ label:"Przepustka", name:"Przepustka na Targi", icon:"ticket", text:["Przepustka pracownicza na teren Targów Poznańskich, ze stemplami portierni.","Wejście o {from}, wyjście o {to}. Na przepustce numer i inicjały: {ini}."] } },
+      { roles:["obwarzanki"], text:"[sprzedawał|sprzedawała] obwarzanki z wózka pod Sukiennicami do późna", witness:"potwierdzają to inni sprzedawcy z wózkami",
+        debunk:"[Był|Była] tego wieczoru na Rynku. Pod Sukiennicami nie stał ani jeden wózek z obwarzankami, bo lało jak z cebra." },
+
+      /* --- wydanie 2.1.1: alibi ogólne --- */
+      { text:"[był|była] na próbie chóru parafialnego {church_at}", witness:"potwierdzają to organista i dwadzieścia osób z chóru",
+        debunk:"Wie, że próbę chóru {church_at} odwołano, bo organista złapał grypę.",
+        doc:{ label:"Chór", name:"Lista obecności chóru", icon:"card", text:["Lista obecności z próby chóru parafialnego {church_at}.","Próba od {from} do {to}. Przy każdej pieśni odhaczono głosy, wśród altów i basów: {ini}."] } },
+      { text:"[był|była] na wieczorku tanecznym w klubie osiedlowym", witness:"potwierdzają to didżej i pół osiedla",
+        debunk:"Mówi, że wieczorek taneczny w klubie osiedlowym odwołano, bo ktoś ukradł głośniki.",
+        doc:{ label:"Wejściówka", name:"Wejściówka z klubu osiedlowego", icon:"ticket", text:["Wejściówka na wieczorek taneczny w klubie osiedlowym, ze stemplem przy wejściu.","Stempel o {from}, a drugi przy szatni o {to}. Na odwrocie inicjały: {ini}."] } },
+      { text:"[grał|grała] w bingo w domu kultury", witness:"potwierdzają to prowadząca i sąsiadki z sąsiednich stolików",
+        debunk:"Wie, że bingo w domu kultury odwołano, bo nie dowieźli nagród.", years:[1991,1999] },
+      { text:"[siedział|siedziała] na zebraniu koła wędkarskiego", witness:"potwierdzają to prezes koła i protokół",
+        debunk:"Mówi, że zebranie koła wędkarskiego się nie odbyło, bo w świetlicy wysiadło ogrzewanie." },
+      { text:"[stał|stała] w kolejce po meble w domu meblowym, z numerkiem na ręce", k:["adult"], witness:"potwierdzają to komitet kolejkowy i lista społeczna", years:[1989,1990],
+        debunk:"[Był|Była] tego wieczoru pod domem meblowym. Komitet kolejkowy rozwiązał listę jeszcze przed południem.",
+        doc:{ label:"Lista", name:"Lista społeczna z kolejki", icon:"card", text:["Lista społeczna komitetu kolejkowego spod domu meblowego.","Sprawdzanie obecności od {from} do {to}, co godzinę. Przy numerze 87 za każdym razem ten sam podpis: {ini}."] } },
+      { text:"[pił|piła] piwo z kolegami pod budką z piwem przy {street2}", k:["adult"], witness:"potwierdzają to sprzedawczyni z budki i trzech stałych klientów",
+        debunk:"Mówi, że budka z piwem przy {street2} była tego dnia zamknięta, bo nie przyjechała beczka." },
+      { text:"[czekał|czekała] w kolejce do strzyżenia w zakładzie fryzjerskim przy {street2}", witness:"potwierdzają to fryzjerka i dwie klientki",
+        debunk:"Wie, że zakład fryzjerski przy {street2} miał tego dnia wolne z powodu choroby fryzjerki." },
+      { text:"[był|była] na koncercie w hali sportowej", witness:"potwierdzają to bramkarz i znajomi z rzędu obok",
+        debunk:"[Słyszał|Słyszała] w radiu, że koncert w hali sportowej odwołano, bo zespół nie dojechał.",
+        doc:{ label:"Bilet", name:"Bilet na koncert", icon:"ticket", text:["Bilet na koncert w hali sportowej, z nadrukiem «{band}» i oddartym kuponem kontrolnym.","Koncert od {from} do {to}. Na odwrocie ktoś zapisał flamastrem swoje inicjały: {ini}."] } },
+      { text:"[czekał|czekała] na zamówioną rozmowę międzymiastową na poczcie", witness:"potwierdzają to telefonistka i zapis w książce rozmów", years:[1989,1994],
+        debunk:"Wie od telefonistki, że tego wieczoru centrala nie łączyła żadnych rozmów międzymiastowych, bo była awaria.",
+        doc:{ label:"Rozmowa", name:"Kwit za rozmowę międzymiastową", icon:"receipt", text:["Kwit z poczty za zamówioną rozmowę międzymiastową.","Oczekiwanie od {from} do {to}, rozmowa sześć minut. Zamawiający: {ini}."] } },
+      { text:"[pomagał|pomagała] szwagrowi przy przeprowadzce", witness:"potwierdzają to szwagier i kierowca Żuka",
+        debunk:"Mówi, że szwagier przeprowadzkę przesunął o tydzień, bo nie dostał Żuka." },
+      { text:"[siedział|siedziała] u sąsiadów przy telewizorze na wieczornym filmie", witness:"potwierdzają to sąsiedzi z czwartego piętra",
+        debunk:"Wie, że sąsiadom z czwartego piętra od tygodnia nie działa telewizor, bo spaliła się lampa." },
+
+      /* --- wydanie 2.1.1: alibi zawodowe nowych ról --- */
+      { roles:["kaowiec"], text:"[prowadził|prowadziła] próbę zespołu wokalnego w świetlicy", witness:"potwierdzają to rodzice dzieci z zespołu",
+        debunk:"Mówi, że próba zespołu w świetlicy się nie odbyła, bo pękła rura i zalało salę.",
+        doc:{ label:"Dziennik", name:"Dziennik zajęć świetlicy", icon:"notebook", text:["Dziennik zajęć świetlicy spółdzielni, z listą dzieci.","Zajęcia od {from} do {to}. Przy temacie podpis prowadzącego: {ini}."] } },
+      { roles:["ksiegowa"], text:"[zamykał|zamykała] bilans kwartalny w biurze spółdzielni po godzinach", witness:"potwierdzają to prezes spółdzielni i portier",
+        debunk:"Wie, że biuro spółdzielni tego wieczoru było ciemne, bo bilans przesunięto na koniec miesiąca.",
+        doc:{ label:"Wyjścia", name:"Zeszyt portiera spółdzielni", icon:"notebook", text:["Zeszyt portiera z budynku spółdzielni, wejścia i wyjścia po godzinach.","Wpis: wejście {from}, wyjście {to}, «księgowość, bilans». Podpis: {ini}."] } },
+      { roles:["maszynistka"], text:"[przepisywał|przepisywała] na maszynie protokoły z walnego zgromadzenia", witness:"potwierdzają to kierownik biura i sprzątaczka",
+        debunk:"Mówi, że walne zgromadzenie spółdzielni przełożono, więc nie było czego przepisywać." },
+      { roles:["inkasent"], text:"[spisywał|spisywała] liczniki gazu na sąsiednim osiedlu", witness:"potwierdzają to lokatorzy, u których [był|była]",
+        debunk:"Wie od lokatorów z sąsiedniego osiedla, że inkasent gazowni nie był tam od miesiąca.",
+        doc:{ label:"Odczyty", name:"Książka odczytów gazowni", icon:"notebook", text:["Książka odczytów liczników gazu, z podpisami lokatorów.","Odczyty od {from} do {to}, mieszkanie po mieszkaniu. Inkasent: {ini}."] } },
+      { roles:["zegarmistrz"], text:"[naprawiał|naprawiała] zegar na wieży kościoła {church_at}", witness:"potwierdzają to kościelny i proboszcz",
+        debunk:"Mówi, że zegar na wieży {church_at} od tygodnia stoi i nikt przy nim nie był." },
+      { roles:["szewc"], text:"[zelował|zelowała] buty na pilne zamówienie, a klient czekał w zakładzie", witness:"potwierdza to klient, który czekał na buty",
+        debunk:"Wie, że zakład szewski był tego wieczoru zamknięty. Na drzwiach wisiała kartka „Wracam jutro”." },
+      { roles:["kucharka"], text:"[gotował|gotowała] na stypie w stołówce zakładowej", witness:"potwierdzają to rodzina zmarłego i kelnerka",
+        debunk:"Mówi, że stypę przeniesiono do restauracji, a stołówka stała pusta.",
+        doc:{ label:"Zamówienie", name:"Zamówienie na stypę", icon:"receipt", text:["Zamówienie na stypę w stołówce zakładowej, z pieczątką kierownika.","Obsługa od {from} do {to}. Gotowała i podawała zmiana kuchni: {ini}."] } },
+      { roles:["nauczyciel"], text:"[prowadził|prowadziła] wywiadówkę w szkole", witness:"potwierdzają to rodzice uczniów i dyrektor",
+        debunk:"Wie, że wywiadówki w szkole przełożono, bo dyrektor zwołał radę pedagogiczną.",
+        doc:{ label:"Dziennik", name:"Dziennik lekcyjny", icon:"notebook", text:["Dziennik lekcyjny z wpisem o zebraniu z rodzicami.","Zebranie od {from} do {to}. Podpis wychowawcy: {ini}."] } },
+      { roles:["lekarz"], text:"[jeździł|jeździła] na wizyty domowe z przychodni rejonowej", witness:"potwierdzają to pacjenci i kierowca karetki",
+        debunk:"Mówi, że przychodnia nie wysyłała tego dnia nikogo na wizyty domowe, bo karetka stała w naprawie.",
+        doc:{ label:"Wizyty", name:"Książka wizyt domowych", icon:"notebook", text:["Książka wizyt domowych z przychodni rejonowej.","Wizyty od {from} do {to}, adres po adresie. Lekarz: {ini}."] } },
+      { roles:["weterynarz"], text:"[operował|operowała] psa w lecznicy dla zwierząt", witness:"potwierdzają to właścicielka psa i technik",
+        debunk:"Wie, że lecznica dla zwierząt była tego dnia nieczynna, bo nie było prądu.",
+        doc:{ label:"Lecznica", name:"Książka zabiegów z lecznicy", icon:"notebook", text:["Książka zabiegów z lecznicy dla zwierząt.","Zabieg od {from} do {to}: owczarek, złamana łapa. Wykonanie zabiegu: {ini}."] } },
+      { roles:["kierowca"], text:"[prowadził|prowadziła] autobus na nocnej linii", witness:"potwierdzają to dyspozytor i karta drogowa",
+        debunk:"Mówi, że nocna linia nie wyjechała tego dnia z zajezdni, bo zabrakło ropy.",
+        doc:{ label:"Karta", name:"Karta drogowa autobusu", icon:"card", text:["Karta drogowa autobusu MPK, z pieczątką dyspozytora.","Kurs od {from} do {to}. Kierujący: {ini}."] } },
+      { roles:["kombatant"], text:"[siedział|siedziała] na spotkaniu koła kombatantów", witness:"potwierdzają to prezes koła i kronika",
+        debunk:"Wie, że spotkanie koła kombatantów odwołano, bo prezes leży w szpitalu.",
+        doc:{ label:"Kronika", name:"Kronika koła kombatantów", icon:"notebook", text:["Kronika koła kombatantów, z wklejonymi zdjęciami.","Spotkanie od {from} do {to}. Lista obecnych, wśród nich: {ini}."] } },
+      { roles:["konduktor"], text:"[jechał|jechała] jako konduktor w pociągu osobowym", witness:"potwierdzają to kierownik pociągu i raport",
+        debunk:"Mówi, że ten pociąg osobowy odwołano, bo na torach leżało drzewo po wichurze.",
+        doc:{ label:"Raport", name:"Raport konduktorski", icon:"card", text:["Raport konduktorski z pociągu osobowego, z podpisem kierownika.","Służba od {from} do {to}. Konduktor: {ini}."] } },
+      { roles:["bibliotekarka"], text:"[prowadził|prowadziła] wieczór autorski w bibliotece", witness:"potwierdzają to poeta i słuchacze",
+        debunk:"Wie, że wieczór autorski w bibliotece odwołano, bo poeta nie przyjechał." },
+      { roles:["sprzataczka"], text:"[sprzątał|sprzątała] biura w urzędzie dzielnicy", witness:"potwierdzają to portier i kierowniczka",
+        debunk:"Mówi, że urząd dzielnicy był tego wieczoru zamknięty i nikt w nim nie sprzątał.",
+        doc:{ label:"Klucze", name:"Książka kluczy z portierni urzędu", icon:"keybook", text:["Książka kluczy z portierni urzędu dzielnicy.","Klucze do biur wydane o {from}, zwrócone o {to}. Podpis: {ini}."] } },
+      { roles:["elektryk"], text:"[wymieniał|wymieniała] instalację w sklepie na drugim końcu dzielnicy", witness:"potwierdzają to kierowniczka sklepu i ekspedientki",
+        debunk:"Wie, że w tamtym sklepie instalację wymieniono jeszcze w lecie." },
+      { roles:["malarz"], text:"[malował|malowała] mieszkanie klientce na drugim końcu miasta", witness:"potwierdzają to klientka i jej mąż",
+        debunk:"Mówi, że klientka, u której podobno malowano mieszkanie, od tygodnia jest w sanatorium." },
+      { roles:["kominiarz"], text:"[czyścił|czyściła] kominy w kamienicach przy {street2}", witness:"potwierdzają to administrator i lokatorzy",
+        debunk:"Wie, że kominiarze w tym tygodniu w ogóle nie wchodzili na dachy, bo wiało.",
+        doc:{ label:"Zlecenie", name:"Zlecenie kominiarskie", icon:"receipt", text:["Zlecenie z zakładu kominiarskiego, z podpisami lokatorów.","Czyszczenie od {from} do {to}, kamienica po kamienicy. Wykonawca: {ini}."] } },
+      { roles:["kwiaciarka"], text:"[wiązał|wiązała] wieńce na jutrzejszy pogrzeb", witness:"potwierdzają to rodzina zmarłego i sąsiadka z budki obok",
+        debunk:"Mówi, że budka z kwiatami przy cmentarzu była zamknięta już od popołudnia." },
+      { roles:["pewex"], text:"[liczył|liczyła] bony i dolary na koniec zmiany w Peweksie", witness:"potwierdzają to kierowniczka i raport kasowy",
+        debunk:"Wie, że Pewex zamknięto tego dnia wcześniej na remanent.",
+        doc:{ label:"Raport", name:"Raport kasowy z Peweksu", icon:"receipt", text:["Raport kasowy z Peweksu, z podpisami zmiany.","Rozliczenie od {from} do {to}. Kasę rozliczał: {ini}."] } },
+      { roles:["komis"], text:"[przyjmował|przyjmowała] towar do komisu po godzinach", witness:"potwierdzają to dwaj klienci z Niemiec",
+        debunk:"Mówi, że komis RTV był zamknięty, bo właściciela wezwali do urzędu skarbowego." },
+      { roles:["strazak"], text:"[miał|miała] dobę w jednostce straży", witness:"potwierdzają to dowódca zmiany i książka służby",
+        debunk:"Wie, że zmiana strażaka miała tego dnia wolne, bo dyżur wzięła druga sekcja.",
+        doc:{ label:"Służba", name:"Książka służby jednostki", icon:"notebook", text:["Książka służby z jednostki straży pożarnej.","Wpis: na stanowisku od {from} do {to}, bez wyjazdów. Dyżurny: {ini}."] } },
+      { roles:["smieciarz"], text:"[jeździł|jeździła] śmieciarką na wieczornym kursie", witness:"potwierdzają to kierowca i dyspozytor MPO",
+        debunk:"Mówi, że wieczorny kurs śmieciarki odwołano, bo zepsuła się prasa." },
+      { roles:["licealista"], text:"[był|była] na próbie szkolnego zespołu w sali gimnastycznej", witness:"potwierdzają to nauczyciel muzyki i koledzy z zespołu",
+        debunk:"Wie, że próbę szkolnego zespołu odwołano, bo woźny nie otworzył sali." },
+      { roles:["bezrobotny"], text:"[siedział|siedziała] na kursie przekwalifikowania w ośrodku szkoleniowym", witness:"potwierdzają to prowadzący i lista obecności",
+        debunk:"Mówi, że kurs przekwalifikowania odwołano, bo urząd pracy nie zapłacił za salę.",
+        doc:{ label:"Kurs", name:"Lista obecności z kursu", icon:"card", text:["Lista obecności z kursu przekwalifikowania, z pieczątką urzędu pracy.","Zajęcia od {from} do {to}. Wśród podpisów: {ini}."] } },
+      { roles:["szklarz"], text:"[wstawiał|wstawiała] szyby w witrynie sklepu przy {street2}", witness:"potwierdzają to kierownik sklepu i pomocnik",
+        debunk:"Wie, że witryna sklepu przy {street2} stoi zabita dyktą od tygodnia i nikt przy niej nie pracował." },
+      { roles:["gospodyni"], text:"[był|była] na nabożeństwie różańcowym {church_at}", witness:"potwierdzają to ksiądz i kółko różańcowe",
+        debunk:"Mówi, że nabożeństwa różańcowego {church_at} tego dnia nie było, bo kościół malowano." },
+      { roles:["drukarz"], text:"[składał|składała] w drukarni poranne wydanie miejscowej gazety na nocnej zmianie", witness:"potwierdzają to kierownik zmiany i dwóch zecerów",
+        debunk:"Wie, że nocna zmiana w drukarni stała, bo zabrakło papieru.",
+        doc:{ label:"Karta", name:"Karta zegarowa z drukarni", icon:"card", text:["Karta zegarowa z drukarni.","Wejście o {from}, wyjście o {to}. Czytelne tylko inicjały: {ini}."] } },
+      { roles:["fotograf"], text:"[robił|robiła] zdjęcia na weselu w restauracji", witness:"potwierdzają to państwo młodzi i goście",
+        debunk:"Mówi, że wesele w restauracji przeniesiono na sobotę.",
+        doc:{ label:"Zdjęcia", name:"Stykówka z wesela", icon:"photo", text:["Stykówka z wesela, wywołana w zakładzie fotograficznym.","Na odwrocie godziny kolejnych rolek, od {from} do {to}, i pieczątka zakładu z inicjałami: {ini}."] } },
+      { roles:["kasjer"], text:"[liczył|liczyła] gotówkę w skarbcu po zamknięciu oddziału banku", witness:"potwierdzają to kierownik oddziału i konwojent",
+        debunk:"Wie, że oddział banku zamknięto tego dnia wcześniej, bo był alarm.",
+        doc:{ label:"Skarbiec", name:"Książka wejść do skarbca", icon:"notebook", text:["Książka wejść do skarbca oddziału banku.","Wejście o {from}, wyjście o {to}, w obecności kierownika. Podpis kasjera: {ini}."] } },
+      { roles:["ogrodnik"], text:"[przycinał|przycinała] drzewa w parku przy świetle reflektorów, na zlecenie zieleni miejskiej", witness:"potwierdzają to brygadzista i kierowca podnośnika",
+        debunk:"Mówi, że brygada zieleni miejskiej tego dnia nie wyjechała, bo podnośnik stał w naprawie." },
+      { roles:["cpn"], text:"[siedział|siedziała] na zmianie w kasie stacji CPN", witness:"potwierdzają to kierownik stacji i raport zmianowy",
+        debunk:"Wie, że stację CPN zamknięto tego dnia wcześniej, bo skończyła się benzyna.",
+        doc:{ label:"Raport", name:"Raport zmianowy ze stacji CPN", icon:"receipt", text:["Raport zmianowy ze stacji CPN, ze stanem dystrybutorów.","Zmiana od {from} do {to}. Kasę przyjął i zdał: {ini}."] } },
+      { roles:["portier"], text:"[siedział|siedziała] na nocnej zmianie w portierni hotelu", witness:"potwierdzają to recepcjonistka i książka meldunkowa",
+        debunk:"Mówi, że na nocnej zmianie w portierni hotelu siedział tego dnia ktoś inny, bo zamienili się dyżurami.",
+        doc:{ label:"Dyżury", name:"Książka dyżurów portierni", icon:"notebook", text:["Książka dyżurów z portierni hotelu.","Dyżur od {from} do {to}. Podpis przy przekazaniu zmiany: {ini}."] } },
+
+      /* --- wydanie 2.1.1: alibi zawodowe ról z paczek miast --- */
+      { roles:["jarmark"], text:"[zwijał|zwijała] towar na koronie Stadionu Dziesięciolecia", witness:"potwierdzają to handlarze z sąsiednich łóżek polowych",
+        debunk:"Mówi, że tego dnia na Stadion Dziesięciolecia weszła policja i handlarze w ogóle się nie rozłożyli." },
+      { roles:["windziarz"], text:"[woził|woziła] turystów windą na taras widokowy Pałacu Kultury", witness:"potwierdzają to kierowniczka tarasu i bileterka",
+        debunk:"Wie, że windy w Pałacu Kultury stały tego wieczoru, bo był przegląd techniczny." },
+      { roles:["wioslarz"], text:"[trenował|trenowała] z osadą na przystani wioślarskiej", witness:"potwierdzają to trener i cała osada",
+        debunk:"[Słyszał|Słyszała] od trenera, że tego dnia trening na przystani odwołano przez wysoką wodę.",
+        doc:{ label:"Trening", name:"Dziennik treningów osady", icon:"notebook", text:["Dziennik treningów osady wioślarskiej, prowadzony przez trenera.","Trening od {from} do {to}, kilometry i czasy. Przy drugim wiośle: {ini}."] } },
+      { roles:["kelner_wawa"], text:"[obsługiwał|obsługiwała] bankiet w hotelu Europejskim", witness:"potwierdzają to kierownik sali i goście bankietu",
+        debunk:"Mówi, że bankiet w hotelu Europejskim odwołano, bo delegacja nie przyleciała." },
+      { roles:["piwowar"], text:"[pilnował|pilnowała] warki na drugiej zmianie w browarze", witness:"potwierdzają to mistrz piwowarski i dziennik warzelni",
+        debunk:"Wie, że druga zmiana w browarze stała, bo nie dowieźli słodu.",
+        doc:{ label:"Warzelnia", name:"Dziennik warzelni", icon:"notebook", text:["Dziennik warzelni z browaru, z temperaturami zacieru.","Wpisy od {from} do {to}, co pół godziny. Podpis przy każdym: {ini}."] } },
+      { roles:["cukiernik"], text:"[piekł|piekła] rogale na zamówienie dla cechu", witness:"potwierdzają to starszy cechu i czeladnik",
+        debunk:"Mówi, że zamówienie na rogale dla cechu przesunięto, bo nie było maku." },
+      { roles:["przewodnik"], text:"[oprowadzał|oprowadzała] wycieczkę z Niemiec po zabytkach", witness:"potwierdzają to pilot wycieczki i kierowca autokaru",
+        debunk:"Wie, że autokar z wycieczką z Niemiec utknął na granicy i dojechał dopiero nazajutrz.",
+        doc:{ label:"Zlecenie", name:"Zlecenie z biura turystycznego", icon:"receipt", text:["Zlecenie z biura turystycznego na oprowadzanie wycieczki.","Oprowadzanie od {from} do {to}. Przewodnik: {ini}."] } },
+      { roles:["malarz_rynek"], text:"[malował|malowała] Rynek nocą na zamówienie turysty z Ameryki", witness:"potwierdza to turysta, który czekał na obraz",
+        debunk:"Mówi, że pod Bramą Floriańską tego wieczoru nie siedział żaden malarz, bo lało." },
+      { roles:["operator"], text:"[kręcił|kręciła] nocne zdjęcia do etiudy studenckiej", witness:"potwierdzają to reżyser etiudy i ekipa",
+        debunk:"Wie, że nocne zdjęcia do etiudy odwołano, bo nie dostali taśmy.",
+        doc:{ label:"Raport", name:"Raport zdjęciowy", icon:"card", text:["Raport zdjęciowy z planu etiudy, z numerami ujęć.","Zdjęcia od {from} do {to}, dwanaście ujęć. Operator: {ini}."] } },
+      { roles:["portier_fab"], text:"[siedział|siedziała] w portierni przędzalni na zmianie", witness:"potwierdzają to kierownik zmiany i książka wejść",
+        debunk:"Mówi, że w portierni przędzalni siedział tamtego dnia zmiennik, bo portier wziął urlop.",
+        doc:{ label:"Wejścia", name:"Książka wejść przędzalni", icon:"notebook", text:["Książka wejść i wyjść z portierni przędzalni.","Zmiana od {from} do {to}. Podpis przy przekazaniu: {ini}."] } },
+      { roles:["podmiejski"], text:"[prowadził|prowadziła] tramwaj podmiejski do Zgierza", witness:"potwierdzają to dyspozytor i karta drogowa",
+        debunk:"Wie, że tramwaj podmiejski do Zgierza nie kursował, bo na torach leżało drzewo." },
+      { roles:["grand"], text:"[obsługiwał|obsługiwała] przyjęcie w Grand Hotelu", witness:"potwierdzają to szef sali i goście",
+        debunk:"Mówi, że przyjęcie w Grand Hotelu przeniesiono na sobotę." },
+      { roles:["szwaczka"], text:"[szył|szyła] na nadgodzinach zamówienie na eksport", witness:"potwierdzają to brygadzistka i lista nadgodzin",
+        debunk:"Wie, że nadgodziny w szwalni odwołano, bo zamówienie z Zachodu przepadło.",
+        doc:{ label:"Nadgodziny", name:"Lista nadgodzin ze szwalni", icon:"card", text:["Lista nadgodzin ze szwalni, z podpisem brygadzistki.","Nadgodziny od {from} do {to}. Wśród podpisów: {ini}."] } },
+      { roles:["bursztyn"], text:"[szlifował|szlifowała] bursztyn na zamówienie w pracowni przy Mariackiej", witness:"potwierdzają to klient i czeladnik",
+        debunk:"Mówi, że pracownia bursztynu przy Mariackiej była zamknięta od rana." },
+      { roles:["marynarz"], text:"[miał|miała] wachtę na statku stojącym w porcie", witness:"potwierdzają to oficer wachtowy i dziennik okrętowy",
+        debunk:"Wie, że statek, na którym podobno była wachta, wypłynął z portu dzień wcześniej.",
+        doc:{ label:"Wachta", name:"Odpis z dziennika okrętowego", icon:"notebook", text:["Odpis z dziennika okrętowego, z pieczątką armatora.","Wachta od {from} do {to}. Na wachcie: {ini}."] } },
+      { roles:["ratownik"], text:"[pilnował|pilnowała] kąpieliska w Brzeźnie do zmroku", witness:"potwierdzają to drugi ratownik i kierownik kąpieliska",
+        debunk:"Mówi, że kąpielisko w Brzeźnie zamknięto tego dnia przez sinice i ratowników odesłano do domu." },
+      { roles:["sztygar"], text:"[prowadził|prowadziła] zmianę na dole w „Wieczorku”", witness:"potwierdzają to nadsztygar i książka raportów",
+        debunk:"Wie, że zmiana na dole w „Wieczorku” stała, bo zalało chodnik.",
+        doc:{ label:"Raport", name:"Książka raportów sztygarskich", icon:"notebook", text:["Książka raportów sztygarskich z kopalni „Wieczorek”.","Zmiana od {from} do {to}. Raport podpisał: {ini}."] } },
+      { roles:["hutnik"], text:"[stał|stała] przy piecu na drugiej zmianie w hucie Baildon", witness:"potwierdzają to majster i lista obecności",
+        debunk:"Mówi, że druga zmiana w hucie Baildon miała wolne, bo piec poszedł do remontu." },
+      { roles:["skarbek"], text:"[liczył|liczyła] towar po dostawie w domu towarowym Skarbek", witness:"potwierdzają to kierowniczka działu i magazynier",
+        debunk:"Wie, że dostawa do Skarbka nie przyjechała, bo kierowca stał na granicy." },
+      { roles:["orkiestra"], text:"[grał|grała] na próbie orkiestry górniczej przed Barbórką", witness:"potwierdzają to kapelmistrz i cała orkiestra",
+        debunk:"Mówi, że próbę orkiestry odwołano, bo kapelmistrz trafił do szpitala.",
+        doc:{ label:"Próba", name:"Lista obecności orkiestry", icon:"card", text:["Lista obecności z próby orkiestry górniczej.","Próba od {from} do {to}. Przy tubie: {ini}."] } },
+      { roles:["zoo"], text:"[siedział|siedziała] przy chorym słoniu w zoo do późna", witness:"potwierdzają to weterynarz i dyrektor zoo",
+        debunk:"Wie, że słoń w zoo wyzdrowiał tydzień temu i nikt przy nim nie nocował.",
+        doc:{ label:"Dyżur", name:"Książka dyżurów w zoo", icon:"notebook", text:["Książka dyżurów nocnych w zoo.","Dyżur przy słoniarni od {from} do {to}. Opiekun: {ini}."] } },
+      { roles:["kaletnik"], text:"[szył|szyła] teczki na pilne zamówienie w warsztacie", witness:"potwierdza to klient, który czekał na teczki",
+        debunk:"Mówi, że w warsztacie kaletniczym było ciemno, bo na Nadodrzu wyłączyli prąd." },
+      { roles:["antykwariusz"], text:"[wyceniał|wyceniała] księgozbiór po zmarłym profesorze", witness:"potwierdzają to wdowa po profesorze i jej syn",
+        debunk:"Wie, że wdowa po profesorze od tygodnia jest u córki w Niemczech." }
+    ],
+    alibiClaim: [
+      "od {from} [spał|spała]","cały wieczór [oglądał|oglądała] telewizję w domu","[poszedł|poszła] na spacer {walk}",
+      "[siedział|siedziała] u siebie i [przeglądał|przeglądała] prasę","[chodził|chodziła] {district_po}, żeby się przewietrzyć",
+      "[był|była] w piwnicy, szukając przetworów","[słuchał|słuchała] Trójki w kuchni",
+      {t:"[oglądał|oglądała] w domu „Dynastię”", years:[1990,1992]},
+      {t:"[oglądał|oglądała] „Koło Fortuny” u siebie w pokoju", years:[1993,1998]},
+      {t:"[oglądał|oglądała] w kuchni „Klan”", years:[1998,1999]},
+      {t:"[oglądał|oglądała] u siebie film z wypożyczalni", years:[1990,1999]}
+    ],
+
+    /* Ramy dla niepotwierdzonego alibi; {x} = treść z alibiClaim */
+    claimFrame: [
+      "Twierdzi, że {x}. Nikt tego nie potwierdza.","Mówi, że {x}, ale nie ma na to świadków.","Zeznaje, że {x}. Świadków brak.",
+      "Upiera się, że {x}. Nikt [go|jej] wtedy nie widział.","Według [niego|niej] {x}. Sąsiedzi niczego takiego nie pamiętają.",
+      "Zapewnia, że {x}. Potwierdzić tego nie ma kto.",{t:"Mówi, że {x}, i dodaje, że mieszka [sam|sama], więc świadków nie będzie.", k:["adult"]},
+      "Twierdzi, że {x}. Dozorca nie widział, żeby [wracał|wracała] albo [wychodził|wychodziła].","Przysięga, że {x}. Na to słowo nie ma pokrycia.",
+      "Na pytanie o wieczór odpowiada, że {x}. Nikt tego nie słyszał ani nie widział.","Wzrusza ramionami: {x}. Kto to potwierdzi, nie wie.",
+      "Według zeznania {x}. Telefonu w domu nie ma, więc nikt nie dzwonił."
+    ],
+    /* Klucze: rola, która ma klucz z urzędu, i ktoś z zapasowym */
+    keyTpl: ["Ma klucz do {gen}.","Nosi przy sobie klucz do {gen}.","Klucz do {gen} wisi u [niego|niej] na gwoździu w przedpokoju.",{t:"[Dostał|Dostała] klucz do {gen} razem z pracą.", k:["job"]}],
+    spareKeyTpl: ["Ma zapasowy klucz do {gen}, [dostał|dostała] go od właściciela.","Właściciel zostawił [mu|jej] zapasowy klucz do {gen}.",
+                  "Od lat ma dorobiony klucz do {gen}.","Pożyczony klucz do {gen} [zapomniał|zapomniała] oddać."],
+
+    /* ------------------------------------------------------------------ */
+    /* DOWODY RZECZOWE (etap 1)                                             */
+    /* Dowód zabiera z teczki jeden fakt. Właściciela wskazuje znak:        */
+    /* {ini} = inicjały, {flat} = numer mieszkania (jest w teczce każdego). */
+    /* ------------------------------------------------------------------ */
+    evidence: {
+      /* obecność w miejscu o godzinie: {t}, {in} */
+      presence: [
+        { label:"Zeszyt", name:"Zeszyt dozorcy", icon:"notebook", at:["yard","cellar","stair"], text:["Dozorca zapisuje w zeszycie w kratkę, kto o której kręci się po podwórku.","Wpis z tamtego wieczoru: «{t} — {ini}, {in}»."] },
+        { label:"Notes", name:"Notes sąsiadki z parteru", icon:"notebook", at:["yard","street","stair"], text:["Sąsiadka z parteru notuje „na wszelki wypadek”, kto chodzi koło jej okien.","Pod datą tamtego dnia, drobnym pismem: «{t}. {ini} {in}.»"] },
+        { label:"Raport", name:"Raport stróża nocnego", icon:"card", at:["yard","cellar","field","street"], text:["Stróż z osiedla co wieczór obchodzi podwórka i spisuje raport dla administracji.","W raporcie: «Godz. {t}. Spotkano {ini} {in}. Bez uwag.»"] },
+        { label:"Bloczek", name:"Kartka z dyżurki", icon:"receipt", at:["yard","street","field","cellar","stair","shop"], text:["Kartka z bloczku, znaleziona w dyżurce obok telefonu. Dyżurny notuje na niej, kogo minął na obchodzie.","Długopisem, krzywo: «{t} — {ini}, {in}»."] },
+        { label:"Lista", name:"Lista obecności z zakładu", icon:"card", at:["work"], text:["Lista obecności prowadzona na portierni zakładu, z godziną przy każdym podpisie.","Wpis: «{t} — {ini}, {in}»"] },
+        { label:"Książka", name:"Książka wejść z portierni", icon:"notebook", at:["work","shop"], text:["Portier prowadzi książkę wejść i zapisuje godzinę przy każdym nazwisku.","Wpis: «{t} — {ini}, {in}»."] }
+      ],
+      /* klucz: {gen}, {flat}; tylko miejsca z keyBookLocs */
+      keys: [
+        { label:"Książka", name:"Książka wydań kluczy", icon:"keybook", text:["Dozorca wydaje klucze wyłącznie za wpisem do książki.","Wpis sprzed miesiąca: klucz do {gen} wydany na stałe lokatorowi spod {flat}. Do dziś nie zwrócony."] },
+        { label:"Tablica", name:"Tablica z kluczami w dyżurce", icon:"keybook", text:["W dyżurce wisi deska z haczykami podpisanymi numerami mieszkań.","Haczyk z kluczem do {gen} jest pusty. Pod spodem ołówkiem: «u m. {flat}»."] },
+        { label:"Rewers", name:"Rewers od ślusarza", icon:"receipt", text:["Rewers z zakładu ślusarskiego przy {street2}: dorobienie klucza do {gen}.","Zapłacono {kwota_keycopy}, odbiór potwierdzony. Zamawiający: lokator spod {flat}."] }
+      ]
+    },
+    keyBookLocs: ["piwnica", "pralnia", "kotlownia", "garaz", "warsztat"],
+    /* losowe szczegóły na dowodach rzeczowych: {dogname} {dogbreed} {film} {band} {cig} {packs} {goods};
+       {kwota} = drobna kwota wg roku (do 1994 stare złote), {money} = większa */
+    details: {
+      dogs: ["Burek","Azor","Reksio","Szarik","Kajtek","Pirat","Fafik","Łatek","Saba","Dina","Misia","Tofik","Bary","Kora"],
+      breeds: ["kundel","jamnik","owczarek niemiecki","spaniel","pudel","foksterier","seter","kundel w łaty"],
+      films: ["Seksmisja","Miś","Vabank",
+        {t:"Rambo III", years:[1989,1990]}, {t:"Szklana pułapka", years:[1989,1991]}, {t:"Przesłuchanie", years:[1990,1991]},
+        {t:"Kevin sam w domu", years:[1991,1993]}, {t:"Terminator 2", years:[1991,1993]}, {t:"Psy", years:[1992,1994]},
+        {t:"Park Jurajski", years:[1993,1995]}, {t:"Lista Schindlera", years:[1994,1995]}, {t:"Pulp Fiction", years:[1995,1996]},
+        {t:"Młode wilki", years:[1995,1997]}, {t:"Kiler", years:[1997,1999]}, {t:"Titanic", years:[1998,1999]},
+        {t:"Pan Tadeusz", years:[1999,1999]}, {t:"Ogniem i mieczem", years:[1999,1999]}],
+      bands: ["Kult","Lady Pank","Perfect","Maanam","T.Love","Budka Suflera","Dżem","Bajm","Voo Voo",
+        {t:"Republika", years:[1990,1999]}, {t:"Kazik", years:[1991,1999]}, {t:"Wilki", years:[1992,1999]},
+        {t:"Elektryczne Gitary", years:[1992,1999]}, {t:"Hey", years:[1993,1999]}, {t:"Myslovitz", years:[1995,1999]}],
+      cigs: ["Sportów","Klubowych","Popularnych","Caro","Radomskich","Mocnych", {t:"Marlboro", years:[1990,1999]}, {t:"Westów", years:[1993,1999]}],
+      packs: ["paczka","dwie paczki","trzy paczki","cztery paczki"],
+      goods: ["chleb i pół kostki masła","kilo cukru","pół kilo kiełbasy zwyczajnej","herbata Ulung","dwie butelki mleka","słoik ogórków",
+        "konserwa turystyczna","paczka herbatników", {t:"kawa Jacobs", years:[1991,1999]}]
+    },
+    /* dopisek na dokumencie alibi, który jest z innego dnia (dokument obala alibi) */
+    docOtherDay: ["Data w rogu: dzień przed zdarzeniem.", "Pieczątka z datą sprzed tygodnia.", "Data dopisana długopisem na dole: dwa dni przed zdarzeniem.",
+                  "Na odwrocie data, ale z poprzedniego miesiąca."],
+    /* zdanie w aktach miejsca, gdy jeden z kluczy jest tylko na dowodzie */
+    keyBookNote: { others: "Jeszcze jeden klucz wydano po numerze mieszkania, bez nazwiska.", only: "Klucz wydano tylko po numerze mieszkania, bez nazwiska." },
+    /* numer mieszkania w teczce (gdy w sprawie jest dowód z numerem) */
+    flatTpl: [
+      "Mieszka w kamienicy przy {street}, w mieszkaniu nr {flat}.",{t:"Od lat zajmuje mieszkanie nr {flat} przy {street}.", k:["adult"]},
+      "Na drzwiach [jego|jej] mieszkania wisi mosiężny numer {flat}.",{t:"W dowodzie osobistym ma wpisane mieszkanie nr {flat} przy {street}.", k:["adult"]},
+      "W spisie lokatorów na klatce figuruje pod numerem {flat}.",{t:"Płaci czynsz za mieszkanie nr {flat}, choć często z opóźnieniem.", k:["adult","debt"]},
+      "Mieszka pod {flat}, na ostatnim piętrze, bez windy."
+    ],
+    /* teczka osoby, której alibi potwierdza dopiero dowód; {x} = treść alibi */
+    alibiPaperTpl: [
+      "Od {from} do {to} {x}. Świadków nie podaje, mówi, że wszystko jest na papierze.","Twierdzi, że od {from} do {to} {x}. Każe to sprawdzić w papierach.",
+      "Zeznaje, że od {from} do {to} {x}. Mówi, że ktoś musiał to zapisać.","Od {from} do {to} podobno {x}. O świadków każe pytać w papierach.",
+      "Według [niego|niej] od {from} do {to} {x}. „Jest gdzieś kwit”, mówi."
+    ],
+
+    /* Kto widział kogoś w danym miejscu */
+    /* 2.2.1: `at` = rodzaje miejsc (pt), w których świadek mógł być: street (ulica, targ), yard (podwórko, garaż), field (działki),
+       shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala) */
+    presenceTpl: [
+      {t:"Sąsiad widział [go|ją] {in} o {t}.", at:["street","yard","field","shop","stair","cellar"]},
+      "[Sam|Sama] przyznaje, że o {t} [był|była] {in}.",
+      {t:"Około {t} [był|była] {in}. Widziały [go|ją] dzieci grające w kapsle.", at:["street","yard"]},
+      {t:"Listonosz minął [go|ją] {in} o {t}.", at:["street","yard","shop","field"]},
+      {t:"Dozorca zapisał w zeszycie, że o {t} [był|była] {in}.", at:["yard","cellar","stair"]},
+      {t:"O {t} [rozmawiał|rozmawiała] z kimś {in}, jak mówi sąsiadka z okna.", at:["street","yard"]},
+      {t:"Kioskarz z naprzeciwka widział [go|ją] {in} około {t}.", at:["street","shop"]},
+      {t:"Sąsiadka z drugiego piętra mówi, że o {t} [był|była] {in}, bo akurat trzepała dywan.", at:["yard"]},
+      {t:"O {t} [był|była] {in}. Pamięta to chłopak, który wracał z treningu.", at:["street","yard","shop","field"]},
+      {t:"Dzielnicowy zanotował, że około {t} [był|była] {in}.", at:["street","yard","shop","field"]},
+      {t:"Emerytka z parteru widziała [go|ją] {in} o {t}, kiedy wyglądała przez okno, czy idzie listonosz.", at:["street","yard"]},
+      {t:"Około {t} [był|była] {in}, jak mówi dozorczyni, która zamiatała podwórko.", at:["yard","cellar"]},
+      {t:"Pani z wózkiem minęła [go|ją] {in} o {t}.", at:["street","yard"]},
+      "[Sam|Sama] mówi, że około {t} [był|była] {in}, ale tylko na chwilę.",
+      {t:"O {t} [był|była] {in}. Widział [go|ją] mechanik, który pchał Malucha pod górkę.", at:["street","yard"]},
+      {t:"Ktoś z załogi widział [go|ją] {in} o {t}.", at:["work"]},
+      {t:"Kolega z zakładu zapamiętał, że około {t} [był|była] {in}.", at:["work"]},
+      {t:"Szef zmiany zanotował, że o {t} [był|była] {in}.", at:["work"]},
+      {t:"Kierownik zmiany przyznaje, że o {t} widział [go|ją] {in}.", at:["work"]},
+      {t:"Klient stojący w kolejce widział [go|ją] {in} o {t}.", at:["shop"]},
+      {t:"Ktoś z kolejki pamięta, że około {t} [był|była] {in}.", at:["shop"]},
+      {t:"Obsługa zapamiętała, że o {t} [był|była] {in}.", at:["shop"]},
+      {t:"Lokator z piętra schodził akurat po rzeczy i widział [go|ją] {in} o {t}.", at:["cellar"]},
+      {t:"Sąsiad z parteru mówi, że o {t} słyszał [go|ją] {in}.", at:["cellar"]},
+      {t:"Sąsiad z sąsiedniej działki widział [go|ją] {in} o {t}.", at:["field"]},
+      {t:"Działkowiec z drugiej alejki zapamiętał, że o {t} [był|była] {in}.", at:["field"]}
+    ],
+
+    /* Realia epoki: smaczki z zakresem lat */
+    eraFlavor: [
+      {t:"Trzyma w szufladzie bony towarowe Pewexu, choć coraz trudniej je wydać.", years:[1989,1990]},
+      {t:"Wozi towar na handel do Berlina Zachodniego.", years:[1989,1989], k:["adult"]},
+      {t:"Liczy ceny w milionach i ciągle myli się przy kasie.", years:[1990,1994]},
+      {t:"Nie może się przyzwyczaić do nowych złotówek po denominacji.", years:[1995,1996]},
+      {t:"Słucha disco polo z kaset kupionych na targu.", years:[1993,1998]},
+      {t:"Chwali się telefonem komórkowym wielkości cegły.", years:[1996,1999]},
+      {t:"Nosi przy pasku pager i co chwilę na niego zerka.", years:[1995,1999]},
+      {t:"Na balkonie ma antenę satelitarną i ogląda niemieckie programy.", years:[1990,1999]},
+      {t:"[Kupił|Kupiła] na raty magnetowid i nagrywa filmy z Polsatu.", years:[1993,1999], k:["debt"]},
+      {t:"Planuje wyjazd na saksy do Niemiec.", years:[1989,1999]},
+      {t:"W każdą środę i sobotę skreśla liczby w totku.", years:[1989,1999]},
+      {t:"Ma w domu komputer Atari i gra na nim po nocach.", years:[1989,1994]},
+      {t:"Ma w domu pegazusa i gra w „Contrę” z synem sąsiadów.", years:[1993,1999]},
+      {t:"W portfelu nosi kartki na cukier i mięso, choć mięsa w sklepie i tak nie ma.", years:[1989,1989], months:[1,7]},
+      {t:"Trzyma w szufladzie kartki na buty dla dzieci, schowane na zimę.", years:[1989,1989], months:[1,7], k:["adult"]},
+      {t:"[Zapisał|Zapisała] się w komitecie kolejkowym po pralkę i co tydzień chodzi na sprawdzanie listy.", years:[1989,1990], k:["adult"]},
+      {t:"Wspomina, jak w czerwcu [skreślał|skreślała] na wyborach całą listę krajową.", years:[1989,1989], months:[7,12], k:["adult"]},
+      {t:"Wspomina, jak w czerwcu osiemdziesiątego dziewiątego [skreślał|skreślała] na wyborach całą listę krajową.", years:[1990,1990], k:["adult"]},
+      {t:"Liczy, ile jeszcze kosztuje dolar u cinkciarza, a ile już w kantorze.", years:[1989,1990]},
+      {t:"Pierwszy raz w życiu [kupił|kupiła] banany bez stania w kolejce i nie może się nadziwić.", years:[1990,1991]},
+      {t:"Prenumeruje „Gazetę Wyborczą” od pierwszego numeru.", years:[1989,1989], months:[6,12]},
+      {t:"Prenumeruje „Gazetę Wyborczą” od pierwszego numeru.", years:[1990,1999]},
+      {t:"W niedzielę rano ogląda z dziećmi sąsiadów „Teleranek”.", years:[1989,1992]},
+      {t:"[Wymienił|Wymieniła] meblościankę na nową, z Ikei.", years:[1991,1999], k:["adult"]},
+      {t:"Na każdy mecz reprezentacji kupuje nową wkładkę do „Przeglądu Sportowego”.", years:[1989,1999]},
+      {t:"Nosi elektroniczny zegarek z kalkulatorem i chwali się nim przy każdej okazji.", years:[1989,1994]},
+      {t:"W przedpokoju trzyma pudło kaset VHS z przegranymi filmami.", years:[1990,1999]},
+      {t:"[Założył|Założyła] w domu telefon po dziesięciu latach czekania.", years:[1993,1999], ages:["mid","old"]},
+      {t:"Na balkonie ma choinkę z zeszłych świąt, bo nie było kiedy wynieść.", years:[1989,1999]},
+      {t:"Wciąż trzyma w szafie książeczkę mieszkaniową, choć mieszkania jak nie było, tak nie ma.", years:[1989,1995], k:["adult"]},
+      {t:"Co sobotę jeździ na giełdę samochodową i nic nie kupuje.", years:[1991,1999]},
+      {t:"[Kupił|Kupiła] pierwszy w kamienicy odtwarzacz płyt kompaktowych.", years:[1993,1999]},
+      {t:"Na ścianie ma kalendarz z Matką Boską i plakat Modern Talking.", years:[1989,1993]},
+      {t:"Raz w miesiącu wysyła kupon do „Koła Fortuny”, licząc na Poloneza.", years:[1992,1998]},
+      {t:"[Zaczął|Zaczęła] grać w Lotto, odkąd Totek zmienił nazwę.", years:[1997,1999]},
+      {t:"W lodówce trzyma oranżadę w proszku dla dzieci sąsiadów.", years:[1989,1993]},
+      {t:"Chodzi do wypożyczalni kaset co piątek, zawsze po horror.", years:[1990,1999]},
+      {t:"Na ścianie w kuchni wisi kalendarz z reklamą prywatnej hurtowni.", years:[1992,1999]},
+      {t:"Na imieniny [dostał|dostała] od szwagra bombonierkę Wedla i trzyma ją w kredensie na specjalną okazję.", years:[1989,1999]},
+      {t:"Rano słucha w radiu „Sygnałów dnia”, a latem „Lata z radiem”.", years:[1989,1999]}
+    ],
+
+    /* Komentarze komisarza na koniec sprawy */
+    quips: [
+      "Dobra robota. Tu nic się nie dzieje bez świadka.",
+      "Kawa się zagotowała, a sprawa rozwiązana. Dobry dzień.",
+      "{district_na_cap} znowu będzie o czym plotkować.",
+      "Zapiszę to w raporcie jako wzorcową robotę śledczą.",
+      "Papierologia gorsza niż samo śledztwo, ale sprawca jest nasz.",
+      "Nikt nie lubi się mylić. Tym razem nie było okazji.",
+      "Do protokołu: sprawa zamknięta. Do kawy: jeszcze sucharek.",
+      "Mój poprzednik wisiał nad tym trzy tygodnie. Tu wystarczyło jedno popołudnie.",
+      "Sprawca wyjaśni to jeszcze w areszcie. My możemy iść do domu.",
+      "Prasie lepiej nie mówić, że to było tak proste.",
+      "Gdyby wszyscy tak czytali akta, komenda świeciłaby pustkami.",
+      "Telefon w gabinecie milczy, a to najlepszy znak.",
+      "Z braku dowodów jeszcze nikogo nie skazano, ale tu ich nie brakło.",
+      "Sprawa zamknięta. Teraz tylko trzy kopie w czterech egzemplarzach.",
+      "Raport pójdzie do przełożonych. Ucieszą się, chociaż tego nie okażą.",
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po świętach wielkanocnych.", months:[3,4]},
+      {t:"Myślałem, że tę sprawę zamkniemy dopiero po Bożym Narodzeniu.", months:[11,12]}
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* TYPY ZBRODNI I SCENY                                                 */
+    /* Sceny: vg = płeć ofiary, {victim} = generowane imię i nazwisko.     */
+    /* ------------------------------------------------------------------ */
+    crimes: {
+      zabojstwo: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"List", name:"List bez znaczka", icon:"letter", text:["List w kopercie bez znaczka, znaleziony w szufladzie ofiary.","«Oddaj, co jesteś mi winien, bo pożałujesz. Nie żartuję.» Podpis: {ini}."] },
+                 { label:"Kartka", name:"Kartka spod drzwi", icon:"letter", ages:["mid","old"], text:["Kartka w kratkę, wsunięta ofierze pod drzwi kilka dni przed śmiercią.","«Wiem, kto na mnie doniósł w osiemdziesiątym pierwszym. Policzymy się.» Podpis: {ini}."] },
+                 { label:"Pocztówka", vt:["priv"], name:"Pocztówka z groźbą", icon:"letter", k:["adult"], text:["Pocztówka z Kołobrzegu, bez znaczka, wrzucona ofierze do skrzynki.","Na odwrocie: «Mieszkanie po ciotce należy się mnie. Wyprowadź się po dobroci.» Podpis: {ini}."] }],
+        name:"Zabójstwo", subtags:["tepe","ostre","sznur"], toolLabel:"Narzędzie zbrodni",
+        cause:{ tepe:"[Zginął|Zginęła] od ciosu ciężkim przedmiotem.", ostre:"[Zginął|Zginęła] od rany zadanej ostrym narzędziem.", sznur:"[Został uduszony|Została uduszona] czymś długim i giętkim, na szyi został wąski ślad." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
+        alibiEvent:"Zgon nastąpił",
+        windowRule:["Sprawca osobiście zabrał narzędzie zbrodni z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie zbrodni nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Narzędzie zbrodni zabrała ta sama osoba, która potem go użyła. Była na miejscu wtedy, gdy narzędzie znikało."],
+        keyRule:["Tam, skąd zniknęło narzędzie zbrodni, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Narzędzie zbrodni wzięto zza zamkniętych drzwi, a zamek jest nietknięty. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęło narzędzie zbrodni, sprawca otworzył kluczem, nie wytrychem."],
+        motives:[{t:"[był winien|była winna] ofierze {money} i [bał|bała] się, że sprawa wyjdzie na jaw", k:["debt"]},
+                 {t:"od lat nie [mógł|mogła] darować ofierze donosu z dawnych lat", ages:["mid","old"]},
+                 {t:"[chciał|chciała] przejąć lokal po ofierze, a ta nie zamierzała się wyprowadzać", vt:["firm"]},
+                 "[dowiedział|dowiedziała] się, że ofiara chce [go|ją] wydać {police_dat} za handel na lewo",
+                 {t:"[uważał|uważała], że ofiara zniszczyła [mu|jej] życie donosem do zakładu pracy", k:["job"]},
+                 {t:"[bał|bała] się, że ofiara wyda [jego|jej] przemyt zza granicy", k:["adult"]}],
+        suspicion:["[Pokłócił|Pokłóciła] się z ofiarą tydzień temu na klatce schodowej.",{t:"[Był winien|Była winna] ofierze {money}.", k:["debt"]},"[Odgrażał|Odgrażała] się ofierze przy świadkach.","Sąsiadka słyszała, jak [kłócił|kłóciła] się z ofiarą o pieniądze.","Od lat nie [rozmawiał|rozmawiała] z ofiarą po kłótni o spadek.","Ofiara publicznie [go|ją] oskarżyła o kradzież.",{t:"Ofiara groziła, że doniesie na [niego|nią] do urzędu skarbowego.", k:["adult"]},
+                   {t:"Ofiara wiedziała o [jego|jej] interesach w Niemczech więcej, niż powinna.", k:["adult"]},"Tydzień temu [wyszedł|wyszła] od ofiary, trzaskając drzwiami.",{t:"Ofiara nie chciała [mu|jej] oddać pożyczonych pieniędzy.", k:["debt"]},
+                   "Ofiara [go|ją] szantażowała, wie o tym pół kamienicy.","Przy świadkach [zapowiedział|zapowiedziała] ofierze, że jeszcze pożałuje."],
+        noMotive:["Ofiarę [znał|znała] tylko z widzenia i nie [miał|miała] z nią żadnych spraw.", "Z ofiarą [mówił|mówiła] sobie tylko „dzień dobry”, nic więcej ich nie łączyło.", "[Nie miał|Nie miała] z ofiarą żadnych interesów.", "Ofiara pożyczała [mu|jej] cukier i nigdy się nie kłócili.", "Z ofiarą nie łączyły [go|jej] żadne pieniądze, spadki ani sąsiedzkie spory.", "Sąsiedzi potwierdzają, że z ofiarą [żył|żyła] w zgodzie i nigdy się nie kłócili.",
+                  "Z ofiarą [grał|grała] w szachy co niedzielę i nigdy nie było między nimi sporu.","Ofiarę [poznał|poznała] dopiero tydzień temu, przy trzepaku, i nic ich nie łączyło.","Ofiara pomogła [mu|jej] przy przeprowadzce i od tej pory się lubili.",
+                  "Ofiarę ledwo [znał|znała] i nigdy nie [był|była] u niej w domu.","Ofiara nie była [mu|jej] nic winna, a [on|ona] ofierze też nie.","Na śmierci ofiary nic nie [zyskał|zyskała], a [stracił|straciła] dobrego sąsiada."],
+        motiveRule:["To nie był przypadek ani napad rabunkowy. Ktoś chciał, żeby zginęła właśnie ta osoba.", "Nic nie zginęło, niczego nie przeszukano. Sprawcy chodziło tylko o ofiarę.",
+                    "Sprawca znał ofiarę i miał z nią porachunki. Przyszedł tu z zamiarem."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Lekarz ustalił czas: między {a} a {b}. Nikt nie potwierdza, gdzie sprawca był w te pół godziny.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest sprawcą."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Zegarmistrz z {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do pracowni", where:"w pracowni",
+            intro:"Zegarmistrz {victim} zostaje znaleziony martwy w swojej pracowni przy {street}." },
+          { title:"Szewc z {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do zakładu szewskiego", where:"w zakładzie szewskim",
+            intro:"Szewc {victim} zostaje znaleziony martwy w swoim zakładzie przy {street}." },
+          { title:"Kantor przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do kantoru", where:"w kantorze",
+            intro:"{victim}, właściciel kantoru przy {street}, zostaje znaleziony martwy za ladą." },
+          { title:"Wdowa z {street}", vt:["priv"], vg:"f", vage:"old", to:"na trzecie piętro", where:"w mieszkaniu",
+            intro:"Emerytowana nauczycielka {victim} zostaje znaleziona martwa w mieszkaniu przy {street}." },
+          { title:"Wypożyczalnia przy {street}", time:["18:00","20:30"], vt:["firm"], vg:"m", to:"do wypożyczalni", where:"w wypożyczalni", years:[1990,1999],
+            intro:"{victim}, właściciel wypożyczalni kaset wideo przy {street}, zostaje znaleziony martwy między regałami." },
+          { title:"Krawcowa z {street}", vt:["firm"], vg:"f", to:"do pracowni krawieckiej", where:"w pracowni",
+            intro:"Krawcowa {victim} zostaje znaleziona martwa w swojej pracowni przy {street}." },
+          /* wydanie 2.1.1 */
+          { title:"Kioskarz z {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do kiosku", where:"w kiosku", exclude:["kiosk"],
+            intro:"Kioskarz {victim} zostaje znaleziony martwy w swoim kiosku przy {street}." },
+          { title:"Fotograf z {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do zakładu fotograficznego", where:"w ciemni",
+            intro:"Fotograf {victim} zostaje znaleziony martwy w ciemni swojego zakładu przy {street}." },
+          { title:"Lichwiarz {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"do mieszkania lichwiarza", where:"w mieszkaniu",
+            intro:"{victim}, który pożyczał na procent połowie {district_gen}, zostaje znaleziony martwy w swoim mieszkaniu przy {street}." },
+          { title:"Antykwariat przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", vage:"old", to:"do antykwariatu", where:"między półkami",
+            intro:"Antykwariusz {victim} zostaje znaleziony martwy między półkami swojego antykwariatu przy {street}." },
+          { title:"Pani z magla", time:["17:00","19:30"], vt:["firm"], vg:"f", vage:"old", to:"do magla", where:"w maglu", exclude:["pralnia"],
+            intro:"{victim}, która od trzydziestu lat prowadzi magiel przy {street}, zostaje znaleziona martwa przy maglownicy." },
+          { title:"Bramkarz z „{bar}”", time:["20:00","23:00"], vt:["priv"], vg:"m", to:"pod bar „{bar}”", where:"na zapleczu baru",
+            intro:"{victim}, bramkarz z baru „{bar}” przy {street}, zostaje znaleziony martwy na zapleczu." },
+          { title:"Cukiernia przy {street}", time:["16:30","19:00"], vt:["firm"], vg:"f", to:"do cukierni", where:"w cukierni",
+            intro:"{victim}, właścicielka cukierni przy {street}, zostaje znaleziona martwa w pracowni za ladą." },
+          { title:"Prezes spółdzielni", time:["16:30","19:00"], vt:["inst"], vg:"m", to:"do biura spółdzielni", where:"w gabinecie", exclude:["administracja"],
+            intro:"Prezes spółdzielni mieszkaniowej {victim} zostaje znaleziony martwy w swoim gabinecie przy {street}." },
+          { title:"Taksówkarz z postoju", vt:["priv"], vg:"m", to:"na postój taksówek", where:"w taksówce",
+            intro:"Taksówkarz {victim} zostaje znaleziony martwy w swoim aucie na postoju przy {dworzec}." },
+          { title:"Komis przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do komisu", where:"w komisie", years:[1990,1999],
+            intro:"{victim}, właściciel komisu RTV przy {street}, zostaje znaleziony martwy na zapleczu." },
+          { title:"Organista z parafii", time:["17:30","20:00"], vt:["inst"], vg:"m", to:"do zakrystii", where:"w zakrystii",
+            intro:"Organista {victim} zostaje znaleziony martwy w zakrystii {church_at}." },
+          { title:"Lokatorka z {street}", vt:["priv"], vg:"f", vage:"mid", to:"na klatkę schodową", where:"na klatce schodowej",
+            intro:"Lokatorka {victim} zostaje znaleziona martwa na klatce schodowej kamienicy przy {street}." },
+          { title:"Handlarz {market_from}", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"przy budce",
+            intro:"{victim}, handlarz {market_from}, zostaje znaleziony martwy za swoją budką." },
+          { title:"Ogródki działkowe {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"na ogródki działkowe", where:"przy altanie", exclude:["dzialka"],
+            intro:"Działkowiec {victim} zostaje znaleziony martwy przy swojej altanie na skraju {district_gen}." }
+        ]
+      },
+      kradziez: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Wezwanie", name:"Wezwanie do zapłaty", icon:"letter", k:["debt"], text:["Wezwanie od komornika, z pieczątką sądu rejonowego.","Termin spłaty minął tydzień temu, kwota {money}. Dłużnik: {ini}."] },
+                 { label:"Notes", name:"Notes karciarza", icon:"notebook", k:["debt"], text:["Notes karciarza z baru „{bar}”, z rachunkiem przegranych.","Na ostatniej stronie: «{ini} winien {money}, termin w sobotę»."] },
+                 { label:"Kartka", name:"Kartka z długami", icon:"letter", k:["debt"], text:["Kartka wyrwana z kalendarza, znaleziona na klatce schodowej.","Lista pożyczek: od dozorcy, od sąsiadów z trzeciego, od szwagra. Razem {money}. Podpis: {ini}."] },
+                 { label:"Liścik", name:"Liścik wyrwany z zeszytu", icon:"letter", text:["Liścik wyrwany z zeszytu w kratkę, zgubiony w bramie poszkodowanych.","«Do soboty muszę skombinować {money}. Wiem, gdzie trzymają pieniądze, i wiem, kiedy wychodzą.» Podpis: {ini}."] }],
+        name:"Kradzież", subtags:["wlam"], toolLabel:"Narzędzie włamania",
+        cause:{ wlam:"Drzwi podważono czymś twardym, wsuniętym w szczelinę przy zamku." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się to zrobić.",
+        alibiEvent:"Do włamania doszło",
+        windowRule:["Złodziej osobiście zabrał narzędzie włamania z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie włamania nie przechodziło z rąk do rąk. Złodziej był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Złodziej sam przyniósł sobie narzędzie. Był na miejscu, z którego zniknęło, wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknęło narzędzie włamania, nie ma śladów włamania. Drzwi otworzył sam złodziej, kluczem.", "Narzędzie wzięto z zamkniętego pomieszczenia, a zamek jest cały. Złodziej otworzył go kluczem, nikt mu nie otwierał.", "Po narzędzie złodziej nie musiał się włamywać. Drzwi, za którymi leżało, sam otworzył kluczem."],
+        motives:[{t:"[potrzebował|potrzebowała] pieniędzy na spłatę długu u lichwiarza", k:["debt"]},"[przegrał|przegrała] w karty {money}",
+                 "[chciał|chciała] wyjechać na saksy do Niemiec i [brakowało mu|brakowało jej] na bilet",{t:"od miesięcy [zalegał|zalegała] z czynszem", k:["debt","adult"]},
+                 {t:"[chciał|chciała] otworzyć własną budkę {market_on}, a [brakowało mu|brakowało jej] pieniędzy", k:["adult"]},{t:"[obiecał|obiecała] dzieciom wakacje w Bułgarii i nie [miał|miała] za co", k:["adult"]}],
+        suspicion:[{t:"Ostatnio [chodził|chodziła] po sąsiadach, pożyczając pieniądze.", k:["debt"]}, {t:"Widziano [go|ją], jak [zaglądał|zaglądała] w okno poszkodowanych.", vt:["priv"]}, {t:"Ma długi w całej dzielnicy.", k:["debt"]}, "Ostatnio [przegrał|przegrała] w karty więcej, niż [miał|miała].", {t:"Komornik był u [niego|niej] w zeszłym miesiącu.", k:["debt"]}, {t:"[Pytał|Pytała] sąsiadów, kiedy poszkodowani wyjeżdżają na działkę.", vt:["priv"]},
+                   "Od miesięcy nie ma grosza przy duszy i [pytał|pytała] znajomych o każdą robotę.","Pilnie potrzebuje pieniędzy i [sprzedał|sprzedała] {market_on} nawet zimowy płaszcz.",{t:"W lombardzie przy {street2} znają [go|ją] po imieniu.", k:["debt"]},
+                   {t:"Od tygodnia [unikał|unikała] sąsiadów, którym jest [winien|winna] pieniądze.", k:["debt"]},{t:"Od wyjścia z więzienia za kradzież nie ma pracy ani pieniędzy.", k:["job","adult"]},{t:"Od dawna [miał|miała] na oku oszczędności poszkodowanych i [wypytywał|wypytywała], gdzie je trzymają.", vt:["priv"]},
+                   {t:"[Pytał|Pytała], o której i kto odwozi utarg do banku.", vt:["firm","inst"]},
+                   {t:"[Znał|Znała] rozkład dnia na zapleczu i [wiedział|wiedziała], kiedy zostaje tam sama jedna osoba.", vt:["firm","inst"]},
+                   {t:"[Kręcił|Kręciła] się przy zapleczu w godzinach, kiedy liczy się utarg.", vt:["firm","inst"]}],
+        noMotive:[{t:"Ma stałą pracę i nie narzeka na brak pieniędzy.", k:["job"]}, "Niedawno [odziedziczył|odziedziczyła] mieszkanie i nie potrzebuje pieniędzy.", {t:"Nie ma żadnych długów, za wszystko płaci gotówką.", k:["debt"]}, "Pieniędzy ma pod dostatkiem i nikomu niczego nie zazdrości.", {t:"To [on|ona] [pożyczył|pożyczyła] poszkodowanym pieniądze, a nie odwrotnie.", k:["debt"]}, {t:"Odkłada na książeczkę co miesiąc i nikomu nic nie jest [winien|winna].", k:["debt"]},
+                  "Tydzień temu [oddał|oddała] sąsiadom znaleziony portfel, a pieniędzy [mu|jej] nie brakuje.",{t:"Zarabia w markach i na nic nie narzeka.", k:["job"]},"Niedawno [wygrał|wygrała] w Totka i nie potrzebuje cudzego.",
+                  "Z poszkodowanymi przyjaźni się od lat, a pieniędzy [mu|jej] nie brakuje.","Pieniądze trzyma w PKO i nie wydaje ponad stan.","Rodzina przysyła [mu|jej] paczki i dolary z Ameryki, więc niczego [mu|jej] nie brakuje."],
+        motiveRule:["To nie była przypadkowa kradzież. Złodziej miał powód, żeby sięgnąć właśnie po te pieniądze.", "Ktoś tu działał z wyrachowania: tonął w długach albo od dawna miał ten łup na oku.",
+                    "Złodziej wiedział, gdzie szukać. Potrzebował pieniędzy i znał zwyczaje poszkodowanych."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Sąsiedzi słyszeli trzask drzwi między {a} a {b}. Sprawca nie ma alibi na ten czas.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest sprawcą."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Utarg {market_from}", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"przy budce",
+            intro:"Z jednej z budek {market_on} zniknął cały tygodniowy utarg." },
+          { title:"Magnetowid z {street}", vt:["priv"], vg:"m", to:"pod drzwi poszkodowanych", where:"przy drzwiach", years:[1989,1999],
+            intro:"Z mieszkania przy {street} zniknął nowiutki magnetowid, kupiony za oszczędności całej rodziny." },
+          { title:"Puszka po herbacie", vt:["priv"], vg:"f", vage:"old", to:"do mieszkania emerytki", where:"przy drzwiach",
+            intro:"Emerytce z {street} zginęły oszczędności schowane w puszce po herbacie." },
+          { title:"Kasa kina „{cinema}”", time:["20:00","22:30"], vt:["inst"], vg:"m", to:"do kina", where:"przy kasie",
+            intro:"Z kasy kina „{cinema}” zniknęły wpływy z całego weekendu." },
+          { title:"Kantor przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do kantoru", where:"przy kasie pancernej",
+            intro:"Z kantoru przy {street} zniknęły dolary i marki z całego tygodnia." },
+          /* wydanie 2.1.1 */
+          { title:"Futro z {street}", vt:["priv"], vg:"f", to:"pod drzwi poszkodowanej", where:"przy szafie",
+            intro:"{victim} z {street} zgłasza, że z szafy zniknęło futro z lisów, schowane na zimę." },
+          { title:"Kasa spółdzielni", time:["16:30","19:00"], vt:["inst"], vg:"f", to:"do biura spółdzielni", where:"przy kasie", exclude:["administracja"],
+            intro:"Z kasy w biurze spółdzielni przy {street} zniknęły czynsze zebrane od lokatorów. Kasjerka {victim} zauważyła to rano." },
+          { title:"Rower spod schodów", vt:["priv"], vg:"m", to:"na klatkę schodową", where:"pod schodami",
+            intro:"{victim}, lokator z parteru przy {street}, zgłasza, że spod schodów zniknął jego nowy rower Wigry." },
+          { title:"Klaser ze znaczkami", vt:["priv"], vg:"m", vage:"old", to:"do mieszkania filatelisty", where:"przy biurku",
+            intro:"Emerytowany kolejarz {victim} z {street} zgłasza, że z biurka zniknął klaser ze znaczkami zbieranymi przez czterdzieści lat." },
+          { title:"Obrączki z {street}", vt:["priv"], vg:"f", to:"do mieszkania poszkodowanej", where:"przy toaletce",
+            intro:"{victim} z {street} zgłasza, że z toaletki zniknęło pudełko ze złotymi obrączkami po rodzicach." },
+          { title:"Zaplecze Peweksu", time:["17:30","20:00"], vt:["inst"], vg:"f", to:"pod Pewex", where:"na zapleczu", years:[1989,1990],
+            intro:"Z zaplecza Peweksu przy {street} zniknęła skrzynka zachodnich papierosów i whisky. Kierowniczka {victim} zgłasza to {police_dat}." },
+          { title:"Utarg z kiosku przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"f", to:"do kiosku", where:"przy okienku", exclude:["kiosk"],
+            intro:"Kioskarka {victim} zgłasza, że z kiosku przy {street} zniknął cały dzienny utarg." },
+          { title:"Złoty zegarek z kredensu", vt:["priv"], vg:"f", to:"do mieszkania poszkodowanych", where:"przy kredensie",
+            intro:"{victim} z {street} zgłasza, że z kredensu zniknął złoty zegarek, przygotowany na komunię wnuczka." },
+          { title:"Radiomagnetofon z {street}", vt:["priv"], vg:"m", to:"pod drzwi poszkodowanego", where:"przy meblościance", years:[1990,1999],
+            intro:"{victim} z {street} zgłasza, że z meblościanki zniknął japoński radiomagnetofon kupiony za marki." },
+          { title:"Dolary w „Potopie”", vt:["priv"], vg:"m", vage:"old", to:"do mieszkania emeryta", where:"przy regale",
+            intro:"Emeryt {victim} z {street} trzymał dolary w „Potopie” na regale. Teraz w książce jest pusto." },
+          { title:"Dżinsy ze szczęki", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"przy szczęce", years:[1990,1999],
+            intro:"{victim}, który handluje {market_on}, zgłasza, że ze szczęki zniknęły dżinsy i kurtki za cały miesiąc." },
+          { title:"Skarbonka na remont dachu", time:["17:30","20:00"], vt:["inst"], vg:"m", to:"do kościoła", where:"przy skarbonce",
+            intro:"Kościelny {victim} zgłasza, że ze skarbonki {church_at} zniknęły pieniądze zebrane na remont dachu." },
+          { title:"Wypłata w kopercie", vt:["priv"], vg:"f", to:"do mieszkania poszkodowanej", where:"przy szufladzie",
+            intro:"{victim} z {street} zgłasza, że z koperty w szufladzie zniknęła cała wypłata męża." },
+          { title:"Utarg apteki przy {street}", time:["17:00","19:30"], vt:["firm"], vg:"f", to:"do apteki", where:"przy kasie", exclude:["apteka"],
+            intro:"Aptekarka {victim} zgłasza, że z kasy apteki przy {street} zniknął utarg z całego dnia." },
+          { title:"Złoto od złotnika", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"do pracowni złotnika", where:"przy sejfie",
+            intro:"Złotnik {victim} z {street} zgłasza, że z pracowni zniknęło złoto oddane do przetopienia." }
+        ]
+      },
+      otrucie: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Skarga", vt:["dog","outbird","farm"], name:"Skarga do administracji", icon:"letter", k:["adult"], text:["Skarga złożona w administracji osiedla, z pieczątką wpływu.","«Zwierzęta z podwórka nie dają spać całej klatce. Jak administracja nic nie zrobi, zrobię to osobiście.» Podpis: {ini}."] },
+                 { label:"Ogłoszenie", vt:["dog","cat","bird"], name:"Ogłoszenie z klatki", icon:"letter", text:["Kartka zerwana z tablicy ogłoszeń na klatce schodowej.","«Kto trzyma zwierzęta w bloku, niech się z nimi wyprowadzi. Inaczej pożałuje.» Podpis: {ini}."] },
+                 { label:"Protokół", vt:["dog","cat","bird","outbird","farm"], name:"Protokół zebrania lokatorów", icon:"card", k:["adult"], text:["Protokół z zebrania lokatorów, przepisany na maszynie.","Punkt trzeci: wniosek o usunięcie zwierząt z budynku. Wniosek przepadł. Wnioskodawca: {ini}."] },
+                 { label:"Anonim", name:"Anonim pod drzwiami", icon:"letter", text:["Kartka wsunięta właścicielowi pod drzwi kilka dni przed zdarzeniem.","«Zapamiętaj sobie, co mi zrobiłeś. Jeszcze pożałujesz.» Podpis: {ini}."] }],
+        name:"Otrucie zwierzęcia", subtags:["trucizna"], toolLabel:"Trucizna",
+        traitRule:{ glasses:{ yes:["Sprawca zgubił na miejscu etui na okulary.","Na miejscu leżał zausznik od okularów sprawcy, ułamany przy samym zawiasie."] }, dog:{ yes:["Na miejscu została psia sierść, która nie pochodzi od żadnego zwierzęcia stąd. Przyniósł ją sprawca.","Przy misce zostały odciski łap obcego psa, a obok ślady butów sprawcy."] } },
+        cause:{ trucizna:"Weterynarz nie ma wątpliwości, że to trucizna." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły substancje, które mogły do tego posłużyć.",
+        alibiEvent:"Truciznę podano",
+        windowRule:["Sprawca osobiście zabrał truciznę z miejsca, w którym leżała, i to dokładnie wtedy, gdy zniknęła. Nikt mu jej nie przekazał.", "Trucizna nie przechodziła z rąk do rąk. Sprawca był tam, skąd zniknęła, dokładnie wtedy, gdy znikała.", "Truciznę zabrała ta sama osoba, która ją podała. Była na miejscu wtedy, gdy trucizna znikała."],
+        keyRule:["Tam, skąd zniknęła trucizna, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęła trucizna, sprawca otworzył kluczem, nie wytrychem."],
+        motives:[{t:"nie [mógł|mogła] znieść hałasu o piątej rano", vt:["dog","outbird","farm"]},{t:"od miesięcy [kłócił|kłóciła] się z właścicielem o podwórko", vt:["dog","cat","outbird","farm"]},
+                 {t:"[uważał|uważała], że to przez zwierzęta zgniły [mu|jej] pomidory", vt:["cat","dog","farm"]},"[chciał|chciała] się zemścić za skargę do administracji",
+                 "od lat nie [znosił|znosiła] właściciela i [chciał|chciała] mu odebrać to, co kocha",{t:"[uważał|uważała], że zwierzęta roznoszą choroby po całej klatce", vt:["dog","cat"]},
+                 /* 2.2: więcej motywów do epilogu */
+                 {t:"nie [mógł|mogła] darować, że pies pogryzł [mu|jej] wnuka na podwórku", vt:["dog"]},{t:"[miał|miała] dość szczekania pod oknem przez całe noce", vt:["dog"]},
+                 "[chciał|chciała] się odegrać za to, że właściciel doniósł na [niego|nią] do administracji",{t:"[był wściekły|była wściekła], że koty co noc rozgrzebują [mu|jej] grządki na działce", vt:["cat"]},
+                 {t:"[liczył|liczyła], że bez zwierzęcia właściciel w końcu sprzeda działkę", vt:["plot"], k:["adult"]},{t:"od zimy [obwiniał|obwiniała] zwierzęta o zniszczony wózek w wózkowni", vt:["dog","cat"]}],
+        suspicion:[{t:"[Pisał|Pisała] skargi do administracji na hałas.", vt:["dog","outbird","farm"]}, "[Groził|Groziła], że „zrobi z tym porządek”.", {t:"[Pokłócił|Pokłóciła] się z właścicielem zwierząt na podwórku.", vt:["dog","cat","outbird","farm"]}, {t:"Na zebraniu lokatorów [domagał|domagała] się, żeby zwierzęta zniknęły z podwórka.", vt:["dog","cat","outbird","farm"], k:["adult"]}, {t:"[Narzekał|Narzekała] u dozorcy, że zwierzęta nie dają [mu|jej] spać.", vt:["dog","outbird","farm"]}, {t:"Wylewa wodę z okna, gdy zwierzęta podchodzą pod blok.", vt:["dog","cat","outbird"]},
+                   "Na klatce [mówił|mówiła], że „te zwierzaki trzeba wytruć”.",{t:"Dozorca widział, jak [sypał|sypała] coś do miski na podwórku tydzień temu.", vt:["dog","cat"]},{t:"Zwierzęta podkopały [mu|jej] grządki na działce i [poprzysiągł|poprzysięgła] zemstę.", vt:["cat","dog","farm"]},
+                   {t:"[Napisał|Napisała] do miejscowej gazety list o „plagach zwierząt w kamienicach”.", vt:["dog","cat","outbird"]},{t:"Ma za sobą proces z sąsiadem o psa, który [go|ją] ugryzł.", vt:["dog"], k:["adult"]},{t:"Właściciel zwierząt [go|ją] wyśmiał na zebraniu lokatorów.", vt:["dog","cat","bird","outbird","farm"], k:["adult"]},
+                   "[Pokłócił|Pokłóciła] się z właścicielem zwierząt przy świadkach o drobiazg.",
+                   "Od tamtej kłótni nie podaje właścicielowi ręki.",
+                   "Przy kawie [rzucił|rzuciła]: „Ten człowiek jeszcze pożałuje”.",
+                   "[Dopytywał|Dopytywała], kiedy właściciel wychodzi z domu i czy ktoś zostaje.",
+                   "Z właścicielem zwierząt [miał|miała] dawne porachunki o pożyczkę.",
+                   "Sąsiad widział, jak [kręcił|kręciła] się wieczorem pod drzwiami właściciela."],
+        noMotive:["Dokarmia ptaki na parapecie i kocha zwierzęta.", {t:"Zwierzęta z podwórka nigdy [mu|jej] nie przeszkadzały i nigdy się na nie nie [skarżył|skarżyła].", vt:["dog","cat","outbird","farm"]}, {t:"Zwierzęta z podwórka zna po imieniu i przynosi im resztki.", vt:["dog","cat","outbird","farm"]}, {t:"Hałas z podwórka [mu|jej] nie przeszkadza, śpi jak kamień i nigdy na nic się nie [skarżył|skarżyła].", vt:["dog","outbird","farm"]}, "Z właścicielem zwierząt [chodził|chodziła] do jednej klasy i do dziś się przyjaźnią.", "Z właścicielem zwierząt nigdy nie [miał|miała] żadnego sporu ani kłopotu.",
+                  {t:"W domu ma dwa koty ze schroniska, a te z podwórka dokarmia.", vt:["dog","cat","outbird","farm"]},{t:"Co tydzień [nosił|nosiła] resztki z obiadu dla podwórkowych zwierząt.", vt:["dog","cat","outbird","farm"]},"Kiedyś [zawiózł|zawiozła] potrąconego psa do weterynarza na własny koszt.",
+                  "Całe życie opiekuje się zwierzętami i mówi, że są lepsze od ludzi.","Nigdy nie [miał|miała] z sąsiadami sporu o zwierzęta.","Opiekuje się kanarkiem sąsiadki, kiedy ta wyjeżdża."],
+        motiveRule:["Trucizny nie podano przypadkiem. Ktoś od dawna miał dość tych zwierząt.", "Ktoś chciał się pozbyć zwierząt i nie krył się z tym przed sąsiadami.",
+                    "Sprawca miał żal do zwierząt albo do ich właściciela. To nie była pomyłka."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Weterynarz mówi, że truciznę podano między {a} a {b}. Nikt nie potwierdza, gdzie sprawca był w tym czasie.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest sprawcą."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Gołębie z {street}", vt:["outbird"], vg:"m", to:"na dach, do gołębnika", where:"w gołębniku",
+            intro:"Ktoś otruł gołębie pocztowe w gołębniku na dachu kamienicy przy {street}." },
+          { title:"Jamnik z {street}", vt:["dog"], vg:"f", to:"na podwórko", where:"przy misce",
+            intro:"Ktoś podał truciznę jamnikowi sąsiadki z {street}. Pies na szczęście przeżył." },
+          { title:"Akwarium inżyniera", vt:["fish"], vg:"m", to:"do mieszkania inżyniera", where:"przy akwarium",
+            intro:"Inżynier z {street} znalazł wszystkie rybki w akwarium martwe." },
+          { title:"Kot z {street}", vt:["cat"], vg:"f", to:"na podwórko", where:"przy misce",
+            intro:"Ktoś otruł kota, którego dokarmiała połowa kamienicy przy {street}. Kot przeżył dzięki weterynarzowi." },
+          /* wydanie 2.1.1 */
+          { title:"Kanarek z {street}", vt:["bird"], vg:"f", vage:"old", to:"do mieszkania sąsiadki", where:"przy klatce kanarka",
+            intro:"{victim} z {street} znalazła swojego kanarka martwego w klatce." },
+          { title:"Owczarek z warsztatu", vt:["dog"], vg:"m", to:"pod warsztat", where:"przy budzie",
+            intro:"Mechanik {victim} znalazł rano owczarka, który pilnował jego warsztatu przy {street}, ledwo żywego." },
+          { title:"Kury z działek", vt:["farm","plot"], vg:"f", vage:"old", to:"na działki", where:"przy kurniku", exclude:["dzialka"],
+            intro:"Działkowiczka {victim} znalazła w kurniku na skraju {district_gen} połowę kur martwych." },
+          { title:"Króliki z podwórka", vt:["farm"], vg:"m", to:"na podwórko", where:"przy klatkach",
+            intro:"{victim} z {street} hodował króliki na podwórku. Rano wszystkie leżały nieruchomo w klatkach." },
+          { title:"Kot ze spożywczego", time:["17:00","19:30"], vt:["cat"], vg:"f", to:"do sklepu", where:"przy misce", exclude:["sklep"],
+            intro:"Sprzedawczyni {victim} znalazła sklepowego kota ledwo żywego za ladą spożywczego przy {street}." },
+          { title:"Szkolne akwarium", time:["16:30","19:00"], vt:["fish"], vg:"f", to:"do szkoły", where:"przy akwarium",
+            intro:"Nauczycielka biologii {victim} znalazła wszystkie rybki w szkolnym akwarium przy {street} martwe." },
+          { title:"Pies z placu budowy", vt:["dog"], vg:"m", to:"na plac budowy", where:"przy budzie",
+            intro:"Stróż budowy {victim} znalazł swojego psa ledwo żywego przy budzie na placu budowy przy {street}." },
+          { title:"Papuga z {street}", vt:["bird"], vg:"f", to:"do mieszkania sąsiadki", where:"przy klatce", years:[1991,1999],
+            intro:"{victim} z {street} znalazła swoją papugę falistą martwą na dnie klatki." },
+          { title:"Kaczki w parku", vt:["outbird"], vg:"m", to:"do parku", where:"nad stawem",
+            intro:"Ogrodnik z zieleni miejskiej {victim} znalazł martwe kaczki nad stawem w parku przy {street}." },
+          { title:"Kundel {district_na}", vt:["dog"], vg:"f", to:"na podwórko", where:"przy budzie",
+            intro:"Ktoś otruł kundla, którego {victim} z {street} przygarnęła z ulicy. Pies przeżył dzięki weterynarzowi." },
+          { title:"Akwarium w przychodni", time:["17:30","19:30"], vt:["fish"], vg:"f", to:"do przychodni", where:"w poczekalni",
+            intro:"Pielęgniarka {victim} znalazła rano rybki w akwarium w poczekalni przychodni przy {street} martwe." },
+          { title:"Oswojona kawka", vt:["outbird"], vg:"m", vage:"old", to:"na balkon", where:"na balkonie",
+            intro:"Emeryt {victim} z {street} od lat dokarmiał oswojoną kawkę. Wczoraj znalazł ją martwą na balkonie." },
+          { title:"Owczarek prezesa", vt:["dog"], vg:"m", to:"pod dom prezesa", where:"przy furtce",
+            intro:"Prezes spółdzielni {victim} znalazł swojego owczarka ledwo żywego przy furtce domu przy {street}. Pies przeżył." },
+          { title:"Piwniczny kot z {street}", vt:["cat"], vg:"f", to:"do piwnicy", where:"w piwnicy", exclude:["piwnica"],
+            intro:"{victim} z {street} dokarmiała kota, który łapał myszy w piwnicach. Ktoś podał mu truciznę." },
+          { title:"Gęsi {market_from}", vt:["farm"], vg:"f", to:"{market_to}", where:"przy klatkach",
+            intro:"Handlarka {victim}, która sprzedaje drób {market_on}, znalazła rano gęsi martwe w klatkach." },
+          { title:"Pies przewodnik", vt:["dog"], vg:"m", vage:"old", to:"do mieszkania niewidomego", where:"przy misce",
+            intro:"Niewidomy {victim} z {street} znalazł swojego psa przewodnika ledwo żywego przy misce na klatce." }
+        ]
+      },
+      podpalenie: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"List", vt:["firm"], name:"List do właściciela", icon:"letter", k:["fired"], text:["List znaleziony w skrzynce pocztowej właściciela, tydzień przed pożarem.","«Wyrzuciłeś mnie jak psa. Jeszcze zobaczysz, co zostanie z twojego interesu.» Podpis: {ini}."] },
+                 { label:"Podanie", vt:["firm","adm"], name:"Podanie do urzędu dzielnicy", icon:"card", k:["adult"], text:["Podanie do urzędu dzielnicy o przydział tego samego miejsca.","Odpowiedź odmowna, z dopiskiem „miejsce zajęte”. Wnioskodawca: {ini}."] },
+                 { label:"Kartka", name:"Kartka na drzwiach", icon:"letter", text:["Kartka przyklejona taśmą do drzwi właściciela.","«To miejsce szpeci całą ulicę. Już niedługo.» Podpis: {ini}."] }],
+        name:"Podpalenie", subtags:["ogien"], toolLabel:"Środek zapalający",
+        cause:{ ogien:"Strażacy mówią, że ktoś pomógł ogniu się rozpalić." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
+        alibiEvent:"Ogień podłożono",
+        windowRule:["Podpalacz osobiście zabrał środek zapalający z miejsca, w którym leżał, i to dokładnie wtedy, gdy zniknął. Nikt mu go nie przekazał.", "Środek zapalający nie przechodził z rąk do rąk. Podpalacz był tam, skąd zniknął, dokładnie wtedy, gdy znikał.", "Podpalacz sam przyniósł to, czym rozpalił ogień. Był na miejscu, z którego to zniknęło, wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknął środek zapalający, nie ma śladów włamania. Drzwi otworzył sam podpalacz, kluczem.", "Środek zapalający wzięto z zamkniętego pomieszczenia, a zamek jest cały. Podpalacz otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknął środek zapalający, podpalacz otworzył kluczem, nie wytrychem."],
+        motives:[{t:"[był|była] wspólnikiem właściciela i [liczył|liczyła] na odszkodowanie z polisy", vt:["firm"], k:["adult"]},{t:"od dawna [był skłócony|była skłócona] z właścicielem", vt:["firm","priv","adm"]},
+                 {t:"[chciał|chciała] przejąć to miejsce pod własny interes", vt:["firm"]},{t:"[mścił|mściła] się za zwolnienie z pracy", vt:["firm","inst","adm"], k:["fired"]},
+                 {t:"[liczył|liczyła], że po pożarze dostanie to miejsce od spółdzielni", vt:["firm","adm"]},{t:"od miesięcy [zazdrościł|zazdrościła] właścicielowi dobrego zarobku", vt:["firm"]},
+                   {t:"[chciał|chciała] zrobić na złość urzędnikom po odmowie załatwienia sprawy", vt:["inst"]},
+                   {t:"[uważał|uważała], że to miejsce psuje okolicę, a nikt go nie pilnuje", vt:["inst"]},
+                   {t:"[mścił|mściła] się na sąsiadach za dawną kłótnię o płot", vt:["priv"]}],
+        suspicion:[{t:"[Kłócił|Kłóciła] się z właścicielem o miejsce na podwórku.", vt:["priv","adm","firm"]}, "Od dawna ma żal do właściciela i [kręcił|kręciła] się tam po zmroku.", "[Mówił|Mówiła] głośno, że „to wszystko powinno spłonąć”.", {t:"Właściciel zwolnił [go|ją] z pracy miesiąc temu.", vt:["firm","inst"], k:["fired"]}, {t:"[Chciał|Chciała] postawić w tym miejscu własną budkę.", vt:["firm"]}, "Od dawna [skarżył|skarżyła] się, że to miejsce szpeci okolicę.",
+                   {t:"Właściciel odmówił [mu|jej] przedłużenia dzierżawy.", vt:["firm","adm"], k:["adult"]},{t:"Na zebraniu [krzyczał|krzyczała], że „ta buda jeszcze zniknie”.", vt:["firm"]},{t:"Właściciel [go|ją] oszukał na pieniądzach, a [on|ona] [przysiągł|przysięgła], że mu się odpłaci.", vt:["firm","priv","adm"]},
+                   {t:"Właściciel zwyzywał [go|ją] przy sąsiadach.", vt:["firm","priv","adm"]},{t:"[Stracił|Straciła] klientów, odkąd właściciel otworzył interes obok.", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"Od miesięcy [chodził|chodziła] do urzędu, żeby to miejsce zlikwidowano.", vt:["firm","adm","inst"]},
+                   {t:"Przy świadkach [mówił|mówiła], że urzędnicy „jeszcze za to zapłacą”.", vt:["inst"]},
+                   {t:"Od miesięcy [składał|składała] skargi do urzędu na to miejsce.", vt:["inst"]},
+                   {t:"Kierownictwo odmówiło [mu|jej] zgody, o którą [prosił|prosiła] od roku.", vt:["inst"]},
+                   {t:"[Pokłócił|Pokłóciła] się z sąsiadami o płot i miedzę.", vt:["priv"]},
+                   {t:"Od lat kłóci się z sąsiadami o granicę działki.", vt:["priv"]},
+                   {t:"Powtarza, że sąsiedzi zawsze mieli za dużo szczęścia.", vt:["priv"]}],
+        noMotive:[{t:"Z właścicielem żyje w zgodzie od lat.", vt:["firm","priv","adm"]}, {t:"W pożarze [stracił|straciła] własny rower, a z właścicielem żyje w zgodzie.", vt:["bike"]}, "[Pomagał|Pomagała] gasić ogień, bo z właścicielem są w przyjaźni od lat.", {t:"[Nie miał|Nie miała] z właścicielem żadnych zatargów.", vt:["firm","priv","adm"]}, "Z tym miejscem ani z właścicielem nic [go|jej] nie łączyło.", {t:"Właściciel jest [jego|jej] chrzestnym.", vt:["firm","priv","adm"]},
+                  {t:"Z właścicielem [jeździł|jeździła] na ryby co niedzielę.", vt:["firm","priv","adm"]},"Na pożarze nic nie [zyskał|zyskała], a z właścicielem nigdy się nie [kłócił|kłóciła].",{t:"Właściciel to [jego|jej] najlepszy sąsiad, razem grają w karty w każdą sobotę.", vt:["priv","adm"]},
+                  "Na tym pożarze nic by nie [zyskał|zyskała] i nie ma z właścicielem żadnych porachunków.","Jest właścicielowi [winny|winna] tylko wdzięczność za pomoc w biedzie.","Z sąsiadami żyje w zgodzie i nie szuka kłótni."],
+        motiveRule:["Ogień podłożył ktoś, kto miał porachunki z właścicielem.", "To nie było zaprószenie ognia. Ktoś chciał się zemścić albo na tym pożarze zarobić.",
+                    "Pożar komuś się opłacał albo dawał satysfakcję. Sprawca miał powód."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Strażacy ustalili, że ogień zaprószono między {a} a {b}. Sprawca nie ma alibi na ten czas.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest sprawcą."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Szopa z rowerami", vt:["adm","priv","bike"], vg:"m", to:"na podwórko przy {street}", where:"przy szopie",
+            intro:"Spłonęła drewniana szopa na rowery na podwórku przy {street}." },
+          { title:"Budka z warzywami", vt:["firm"], vg:"m", to:"{market_to}", where:"przy budce",
+            intro:"W nocy spłonęła budka z warzywami {market_on}." },
+          { title:"Altana prezesa", vt:["priv"], vg:"m", to:"na ogródki działkowe", where:"przy altanie", exclude:["dzialka"],
+            intro:"Spłonęła altana prezesa ogródków działkowych." },
+          { title:"Wiata przy {street}", vt:["inst"], vg:"m", to:"na przystanek", where:"przy wiacie", exclude:["kiosk"],
+            intro:"Ktoś podpalił wiatę przystanku tramwajowego przy {street}." },
+          { title:"Szczęka z ciuchami", vt:["firm"], vg:"f", to:"{market_to}", where:"przy szczęce", years:[1990,1999],
+            intro:"W nocy spłonęła blaszana szczęka z ciuchami {market_on}." },
+          /* wydanie 2.1.1 */
+          { title:"Kiosk przy {street}", vt:["firm"], vg:"f", to:"pod kiosk", where:"przy kiosku", exclude:["kiosk"],
+            intro:"W nocy spłonął kiosk Ruchu przy {street}. Kioskarka {victim} straciła cały towar." },
+          { title:"Wózkownia przy {street}", vt:["adm"], vg:"m", to:"na podwórko przy {street}", where:"przy wózkowni",
+            intro:"Spłonęła wózkownia na parterze kamienicy przy {street}. Dozorca {victim} wezwał straż." },
+          { title:"Polonez z podwórka", vt:["priv"], vg:"m", to:"na podwórko", where:"przy samochodzie",
+            intro:"Na podwórku przy {street} spłonął Polonez, którym {victim} wrócił dzień wcześniej z Niemiec." },
+          { title:"Komórka z węglem", vt:["priv","adm"], vg:"f", to:"do piwnicy", where:"w piwnicy", exclude:["piwnica"],
+            intro:"Zapaliła się komórka z węglem w piwnicy kamienicy przy {street}. Lokatorka {victim} straciła cały opał na zimę." },
+          { title:"Garaż mechanika", vt:["firm"], vg:"m", to:"pod garaż", where:"przy garażu", exclude:["garaz"],
+            intro:"Spłonął garaż przy {street}, w którym {victim} naprawiał po godzinach auta sąsiadów." },
+          { title:"Stragan z zabawkami", vt:["firm"], vg:"m", to:"{market_to}", where:"przy straganie",
+            intro:"{victim}, który sprzedaje zabawki {market_on}, rano zastał zamiast straganu kupkę popiołu." },
+          { title:"Muszla koncertowa w parku", vt:["inst"], vg:"m", to:"do parku", where:"przy muszli koncertowej",
+            intro:"Spłonęła drewniana muszla koncertowa w parku przy {street}. Kierownik domu kultury {victim} przygotowywał tam festyn." },
+          { title:"Stodoła na skraju {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"na skraj {district_gen}", where:"przy stodole",
+            intro:"{victim}, ostatni rolnik na skraju {district_gen}, stracił w nocy stodołę z sianem." },
+          { title:"Budka z lodami", vt:["firm"], vg:"f", to:"na róg {street}", where:"przy budce", years:[1990,1999],
+            intro:"W nocy spłonęła budka z lodami włoskimi przy {street}, którą {victim} otworzyła wiosną." },
+          { title:"Szopa dozorcy", vt:["adm"], vg:"m", to:"na podwórko", where:"przy szopie",
+            intro:"Spłonęła szopa przy {street}, w której dozorca {victim} trzymał narzędzia i sanki lokatorów." },
+          { title:"Wypożyczalnia kaset w ogniu", vt:["firm"], vg:"m", to:"do wypożyczalni", where:"przy wypożyczalni", years:[1990,1999],
+            intro:"W nocy wybuchł pożar w wypożyczalni kaset wideo przy {street}. Właściciel {victim} stracił kilkaset filmów." },
+          { title:"Barak na budowie", vt:["inst"], vg:"m", to:"na plac budowy", where:"przy baraku",
+            intro:"Na budowie przy {street} spłonął barak, w którym kierownik {victim} trzymał dokumentację." },
+          { title:"Drzwi prezesa", vt:["priv"], vg:"m", to:"pod drzwi prezesa", where:"przy drzwiach",
+            intro:"Ktoś podpalił drzwi mieszkania przy {street}. Mieszka tam {victim}, prezes spółdzielni. Ogień ugasili sąsiedzi." },
+          { title:"Bar mleczny przy {street}", vt:["inst"], vg:"f", to:"do baru mlecznego", where:"na zapleczu baru",
+            intro:"Spłonęło zaplecze baru mlecznego przy {street}. Kierowniczka {victim} mówi, że wieczorem wszystko było wyłączone." },
+          { title:"Budka z kwiatami", vt:["firm"], vg:"f", to:"pod cmentarz", where:"przy budce",
+            intro:"Spłonęła budka z kwiatami przy cmentarzu niedaleko {street}. Kwiaciarka {victim} miała w niej wieńce na jutrzejszy pogrzeb." }
+        ]
+      },
+
+      /* ================================================================== */
+      /* Wydanie 2.1.1: nowe typy zbrodni (etap 11, bez zaginięcia)          */
+      /* ================================================================== */
+      szantaz: {
+        /* dowody z motywem: długi, wiedza o tajemnicy, uraza */
+        letters:[{ label:"Weksel", name:"Weksel od lichwiarza", icon:"receipt", k:["debt"], text:["Weksel na {money}, wystawiony przez lichwiarza z {street2}.","Termin wykupu minął w poniedziałek. Dłużnik: {ini}."] },
+                 { label:"Kartka", name:"Kartka do poszkodowanych", icon:"letter", text:["Kartka wsunięta poszkodowanym pod drzwi miesiąc temu, jeszcze podpisana.","«Wiem, skąd macie na to wszystko. Pogadamy?» Podpis: {ini}."] },
+                 { label:"Wymówienie", name:"Wymówienie z pracy", icon:"card", k:["fired"], text:["Wymówienie z pracy podpisane przez poszkodowanego, z pieczątką zakładu.","«Z powodu utraty zaufania.» Sprawa dotyczy pracownika: {ini}."] }],
+        name:"Szantaż", subtags:["pismo"], toolLabel:"Czym zrobiono anonim",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["Jedyne ręcznie dopisane słowa {where} pisała lewa ręka: litery pochylone w lewo, rozmazane przesuwaną dłonią.","Kopertę z anonimem zaklejono i zaadresowano lewą ręką: pismo pochyla się w lewo, atrament rozmazany."],right:["Jedyne ręcznie dopisane słowa {where} pisała prawa ręka: litery równe, pochylone w prawo, bez rozmazań.","Kopertę z anonimem zaklejono i zaadresowano prawą ręką: pismo równe, pochylone w prawo, bez rozmazań."]},
+          shoe:["Pod drzwiami, gdzie podrzucono anonim, został w błocie ślad buta sprawcy, rozmiar {v}.","Przy skrzynkach na klatce, gdzie sprawca zostawił anonim, został świeży odcisk jego podeszwy, rozmiar {v}."],
+          height:{tall:["Anonim wsunięto za listwę nad drzwiami, ponad dwa metry nad podłogą. Poszkodowani zdejmowali go z krzesła.","Dozorca widział sprawcę z anonimem na klatce: schylał się pod lampą, żeby nie uderzyć w nią głową."],short:["Dozorca widział, jak sprawca na próżno sięga do skrzynki w górnym rzędzie i w końcu wsuwa anonim pod drzwi.","Świadek widział, jak sprawca podrzuca anonim: stanął na palcach i ledwo sięgnął do szczeliny skrzynki."]},
+          smoker:{yes:["{where} jest dziurka przypalona papierosem sprawcy i szary popiół.","Pod drzwiami, gdzie podrzucono anonim, leży świeży niedopałek sprawcy."]},
+          car:{yes:["Sąsiad widział, jak sprawca podjeżdża swoim autem, zostawia anonim i odjeżdża.","Tam, gdzie podrzucono anonim, zostały świeże ślady opon. Sprawca przyjechał i odjechał swoim samochodem."]},
+          glasses:{yes:["Między kartkami anonimu utknęła śrubka od zausznika okularów sprawcy.","Przy drzwiach, pod które podrzucono anonim, leżało etui na okulary sprawcy."]},
+          dog:{yes:["Do kleju {where} przykleił się psi włos. U poszkodowanych psa nie ma.","{where} odbiła się zabłocona psia łapa. Sprawca robił anonim z psem przy nogach."]},
+          jacket:{yes:["Do kleju {where} przykleiło się granatowe włókno ortalionu z rękawa sprawcy.","Dozorca słyszał w ciemności na klatce, jak kurtka sprawcy szeleści ortalionem."]}
+        },
+        cause:{ pismo:"Anonim przygotowano tak, żeby nie dało się rozpoznać charakteru pisma." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się zrobić taki anonim.",
+        alibiEvent:"Anonim podrzucono",
+        windowRule:["Nikt nie pożyczył szantażyście tego, czym zrobił anonim. Wziął to sam z miejsca, w którym leżało, w czasie, gdy znikało.", "To, czym zrobiono anonim, nie przechodziło z rąk do rąk. Szantażysta był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Szantażysta sam zabrał to, czym zrobił anonim. Był na miejscu wtedy, gdy to znikało."],
+        keyRule:["Tam, skąd zniknęło to, czym zrobiono anonim, nie ma śladów włamania. Drzwi otworzył sam szantażysta, kluczem.", "To, czym zrobiono anonim, wzięto zza zamkniętych drzwi, a zamek jest cały. Szantażysta otworzył go kluczem, nikt mu nie otwierał.", "Po to, czym zrobił anonim, szantażysta nie musiał się włamywać. Drzwi otworzył sam, kluczem."],
+        motives:["[wiedział|wiedziała] o tajemnicy poszkodowanych i [chciał|chciała] na niej zarobić","[przegrał|przegrała] w karty {money} i [szukał|szukała] szybkiego zarobku",
+                 "[zazdrościł|zazdrościła] poszkodowanym zachodniego auta i nowego mieszkania",{t:"[chciał|chciała] się zemścić za zwolnienie z pracy", k:["fired"]},
+                 "[dowiedział|dowiedziała] się o lewych interesach poszkodowanych i [postanowił|postanowiła] coś z tego mieć",{t:"od miesięcy [zalegał|zalegała] z czynszem i [bał|bała] się eksmisji", k:["debt","adult"]}],
+        suspicion:["Ostatnio [wypytywał|wypytywała] sąsiadów o sprawy poszkodowanych.",{t:"Ma długi u lichwiarza, a termin spłaty mija w tym tygodniu.", k:["debt"]},{t:"[Pracował|Pracowała] kiedyś z poszkodowanymi i [odszedł|odeszła] w złości.", k:["job"]},
+                   "Mówi się, że to [on|ona] [rozpuścił|rozpuściła] plotkę o poszkodowanych.","Przy kawie u sąsiadki [rzucił|rzuciła]: „Ja tam wiem, co kto ma na sumieniu”.",{t:"[Pokłócił|Pokłóciła] się z poszkodowanymi o pieniądze za remont.", k:["adult"]},
+                   "Od tygodnia płaci za wszystko nowiutkimi banknotami, choć jeszcze niedawno nie [miał|miała] na chleb.","Kiedyś już [szantażował|szantażowała] sąsiada, a sprawa skończyła się ugodą.",{t:"Zna przeszłość poszkodowanych z czasów, kiedy razem [pracował|pracowała] w zakładzie.", k:["job"]},
+                   "[Chwalił|Chwaliła] się, że niedługo kupi kolorowy telewizor, choć nie ma z czego.","Przy świadkach [powiedział|powiedziała]: „Jeszcze mi za to zapłacą”.",{t:"Poszkodowani odmówili [mu|jej] pożyczki miesiąc temu.", k:["debt"]}],
+        noMotive:["Z poszkodowanymi [znał|znała] się tylko z widzenia i nic o nich nie wie.",{t:"Nie ma żadnych długów i dobrze zarabia.", k:["job"]},{t:"Nie ma żadnych długów, a o poszkodowanych nie wie nic, czym dałoby się ich straszyć.", k:["debt"]},
+                  {t:"Poszkodowanym [pomagał|pomagała] przy remoncie i zostali w przyjaźni.", k:["adult"]},"Cudze sprawy [go|jej] nie obchodzą, a pieniędzy [mu|jej] nie brakuje.","Nie [miał|miała] z poszkodowanymi żadnych interesów.",
+                  "Odkłada na książeczkę i nie potrzebuje cudzych pieniędzy.","Z poszkodowanymi [grał|grała] w brydża co tydzień i nigdy się nie pokłócili.","Ledwo zna poszkodowanych, bo [wprowadził|wprowadziła] się miesiąc temu.",
+                  "Poszkodowani trzymali [go|ją] do chrztu.","Nie ma z poszkodowanymi żadnych porachunków ani powodu, żeby ich straszyć.","Poszkodowani pomogli [mu|jej] w trudnych czasach i [jest im winien|jest im winna] tylko wdzięczność."],
+        motiveRule:["Szantażysta wiedział o poszkodowanych coś, czego nie wiedział nikt obcy. Miał w tym interes.", "Ktoś tu działał z chciwości albo z zemsty i znał poszkodowanych od dawna.", "To nie był głupi żart. Szantażysta miał powód, żeby uderzyć właśnie w tych ludzi."],
+        alibiRule:["{ev} między {a} a {b}. Szantażysta nie ma potwierdzonego alibi na ten czas.", "Dozorca słyszał kroki na klatce między {a} a {b}. Wtedy anonim trafił na miejsce. Kto ma potwierdzone alibi, nie jest szantażystą.", "Wszystko rozegrało się między {a} a {b}. Szantażysta nie ma alibi na ten czas."],
+        epilogueEnd:"i [zrobił|zrobiła] anonim, który [podrzucił|podrzuciła] {to}.",
+        scenes:[
+          { title:"Anonim do aptekarki", vg:"f", to:"pod drzwi apteki", where:"na kopercie",
+            intro:"Aptekarka {victim} z {street} dostała anonim: albo zapłaci {money}, albo cała dzielnica dowie się o lekach sprzedawanych na lewo." },
+          { title:"List do kierownika sklepu", vg:"m", to:"do skrzynki kierownika", where:"na liście",
+            intro:"Kierownik sklepu przy {street}, {victim}, znalazł w skrzynce list: {money} albo donos o towarze spod lady." },
+          { title:"Anonim dla prezesa spółdzielni", vg:"m", to:"pod drzwi prezesa", where:"na anonimie",
+            intro:"Prezes spółdzielni {victim} dostał anonim z żądaniem {money_gen}. Autor pisze, że wie, kto dostał mieszkanie przy {street} poza kolejką." },
+          { title:"Zdjęcia nauczycielki", vg:"f", to:"do pokoju nauczycielskiego", where:"na kopercie",
+            intro:"Nauczycielka {victim} znalazła w dzienniku kopertę ze zdjęciami z randki i żądaniem {money_gen}." },
+          { title:"Szantaż {district_na}", vg:"m", to:"pod kantor", where:"na liście",
+            intro:"{victim}, właściciel kantoru przy {street}, dostał list: {money} albo urząd skarbowy dowie się o drugiej księdze." },
+          { title:"List do dentystki", vg:"f", to:"pod gabinet dentystyczny", where:"na liście",
+            intro:"Dentystka {victim} z {street} dostała anonim: {money} albo pacjenci dowiedzą się, za co bierze w dolarach." },
+          { title:"Koperta za wycieraczką", vg:"m", to:"za wycieraczkę Poloneza", where:"na kopercie",
+            intro:"{victim} znalazł za wycieraczką swojego Poloneza przy {street} kopertę z żądaniem {money_gen}. Autor wie o przemycie zza granicy." },
+          { title:"Tajemnica krawcowej", vg:"f", to:"pod drzwi pracowni krawieckiej", where:"na anonimie",
+            intro:"Krawcowa {victim} z {street} dostała anonim. Ktoś wie, że szyje po godzinach na czarno, i za milczenie chce {money_gen}." },
+          { title:"List do dyrektora szkoły", vg:"m", to:"do sekretariatu szkoły", where:"na liście", years:[1990,1999],
+            intro:"Dyrektor szkoły przy {street}, {victim}, dostał list z żądaniem {money_gen}. Autor grozi, że ujawni jego partyjną przeszłość." },
+          { title:"Kartka w budce {market_from}", time:["17:00","18:30"], vg:"m", to:"{market_to}", where:"na kartce",
+            intro:"{victim}, handlarz {market_from}, znalazł w budce kartkę: {money} albo do {police_dat} trafi donos o tym, skąd ma towar." },
+          { title:"Druga rodzina emeryta", vg:"m", vage:"old", to:"pod drzwi emeryta", where:"na kopercie",
+            intro:"Emerytowany kolejarz {victim} z {street} dostał anonim: {money} albo dzieci dowiedzą się o drugiej rodzinie." },
+          { title:"Dolary w puszce po lakierze", vg:"f", to:"do zakładu fryzjerskiego", where:"na liście", exclude:["fryzjer"],
+            intro:"Fryzjerka {victim} znalazła w zakładzie przy {street} list z żądaniem {money_gen}. Autor wie o dolarach trzymanych w puszce po lakierze." },
+          { title:"Anonim do kierowniczki Peweksu", vg:"f", to:"pod drzwi Peweksu", where:"na kopercie", years:[1989,1990],
+            intro:"Kierowniczka Peweksu przy {street}, {victim}, dostała anonim: {money} albo kontrola dowie się o bonach sprzedawanych na boku." },
+          { title:"Zdjęcia z wczasów", vg:"m", to:"do skrzynki na listy", where:"na kopercie",
+            intro:"{victim} z {street} znalazł w skrzynce zdjęcia z wczasów w Bułgarii i kartkę z żądaniem {money_gen}." },
+          { title:"Zwolnienia za łapówki", vg:"m", to:"do gabinetu w przychodni", where:"na liście",
+            intro:"Lekarz {victim} z przychodni przy {street} dostał anonim. Autor wie o zwolnieniach wypisywanych za łapówki i chce {money_gen}." },
+          { title:"Wymuszenie przy {street}", vg:"m", to:"pod drzwi sklepu", where:"na anonimie", years:[1990,1999],
+            intro:"{victim}, właściciel prywatnego sklepu przy {street}, dostał anonim: {money} albo na zapleczu zdarzy się „wypadek”." },
+          { title:"Listy do Kanady", vg:"f", to:"pod drzwi sąsiadki", where:"na kopercie",
+            intro:"{victim} z {street} dostała anonim. Ktoś grozi, że mąż dowie się o jej listach do Kanady, jeśli nie dostanie {money_gen}." },
+          { title:"Pokoje na lewo", vg:"m", to:"do portierni hotelu robotniczego", where:"na liście",
+            intro:"Kierownik hotelu robotniczego przy {street}, {victim}, dostał list z żądaniem {money_gen}. Autor wie o pokojach wynajmowanych na lewo." },
+          { title:"Braki w kasie spółdzielni", vg:"f", to:"do biura spółdzielni", where:"na anonimie", exclude:["administracja"],
+            intro:"Księgowa spółdzielni {victim} znalazła na biurku anonim: {money} albo prezes dowie się o brakach w kasie." },
+          { title:"Pocztówka bez znaczka", vg:"m", to:"do skrzynki na listy", where:"na pocztówce",
+            intro:"Mechanik {victim} z {street} dostał pocztówkę bez znaczka: {money} albo do {police_dat} trafi lista aut, które przerabia." }
+        ]
+      },
+
+      falszerstwo: {
+        letters:[{ label:"Monit", name:"Monit z banku", icon:"letter", k:["debt"], text:["Monit z banku w sprawie zaległych rat, z pieczątką oddziału.","Do spłaty {money}, ostatnie ostrzeżenie. Dłużnik: {ini}."] },
+                 { label:"Odmowa", name:"Odmowa przydziału", icon:"card", k:["adult"], text:["Pismo z urzędu dzielnicy z odmową przydziału.","«Wniosek rozpatrzono negatywnie.» Wnioskodawca: {ini}. Na marginesie ołówkiem: „jeszcze zobaczymy”."] },
+                 { label:"Rewers", name:"Rewers z lombardu", icon:"receipt", k:["debt"], text:["Rewers z lombardu przy {street2}, zastawiona obrączka.","Kwota {money}, termin wykupu minął. Zastawiający: {ini}."] },
+                 { label:"Cennik", name:"Notes z cennikiem", icon:"notebook", text:["Notes znaleziony w bramie, z cennikiem pisanym ołówkiem.","«Zwolnienie lekarskie {kwota_bribe}, przepustka drożej. Klienci tylko przez znajomych.» Na okładce: {ini}."] }],
+        name:"Fałszerstwo", subtags:["pieczec"], toolLabel:"Czym podrobiono dokument",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["{where} został w tuszu odcisk palca sprawcy. Biegły mówi: palec lewej ręki, tej, którą przybijał pieczątkę.","Podrobiony podpis {where} prowadziła lewa ręka: kreski idą pod włos, atrament rozmazany przesuwaną dłonią."],right:["{where} został w tuszu odcisk palca sprawcy. Biegły mówi: palec prawej ręki, tej, którą przybijał pieczątkę.","Podrobiony podpis {where} prowadziła prawa ręka: kreski równe, pochylone w prawo, bez rozmazań."]},
+          shoe:["Podrobiony papier musiał spaść sprawcy pod nogi: na odwrocie odbił się ślad jego podeszwy, rozmiar {v}.","Ten, kto przyniósł podrobiony papier, zostawił przy okienku ślad zabłoconego buta, rozmiar {v}."],
+          height:{tall:["Świadek zapamiętał tego, kto przyniósł podrobiony papier: musiał się schylać, żeby zajrzeć przez okienko.","Świadek zapamiętał tego, kto przyniósł podrobiony papier: głową sięgał prawie do lampy nad okienkiem."],short:["Świadek zapamiętał tego, kto przyniósł podrobiony papier: brodą ledwo sięgał do lady.","Świadek zapamiętał tego, kto przyniósł podrobiony papier: do okienka musiał stawać na palcach."]},
+          smoker:{yes:["{where} jest dziurka przypalona papierosem i szary popiół. Sprawca palił przy robocie.","Ten, kto przyniósł podrobiony papier, zgasił przy okienku papierosa. Niedopałek jeszcze był ciepły."]},
+          car:{yes:["Świadek widział, jak ten, kto przyniósł podrobiony papier, wsiada potem do swojego auta i odjeżdża.","Pod budynkiem, do którego przyniesiono podrobiony papier, zostały ślady opon. Sprawca przyjechał tu swoim samochodem."]},
+          glasses:{yes:["Między podrobionymi papierami utknął zausznik od okularów sprawcy, ułamany przy samym zawiasie.","Przy okienku, gdzie oddano podrobiony papier, zostało etui na okulary sprawcy."]},
+          dog:{yes:["Pod pieczątką {where}, w tuszu, zastygł psi włos z rękawa sprawcy.","{where} odbiła się zabłocona psia łapa. Sprawca podrabiał papier z psem u nóg."]},
+          jacket:{yes:["Do tuszu {where} przykleiło się granatowe włókno ortalionu z rękawa sprawcy.","Świadek słyszał, jak ten, kto przyniósł podrobiony papier, szeleści ortalionową kurtką przy każdym ruchu."]}
+        },
+        cause:{ pieczec:"Pieczątkę i podpis podrobiono tak starannie, że na pierwszy rzut oka nikt niczego nie zauważył." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się to podrobić.",
+        alibiEvent:"Podrobiony papier wykorzystano",
+        windowRule:["Nikt nie pożyczył fałszerzowi tego, czym podrobił dokument. Wziął to sam z miejsca, w którym leżało, w czasie, gdy znikało.", "To, czym podrobiono dokument, nie przechodziło z rąk do rąk. Fałszerz był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Fałszerz sam zabrał to, czego potrzebował. Był na miejscu wtedy, gdy to znikało."],
+        keyRule:["Tam, skąd zniknęło to, czym podrobiono dokument, nie ma śladów włamania. Drzwi otworzył sam fałszerz, kluczem.", "To, czym podrobiono dokument, wzięto zza zamkniętych drzwi, a zamek jest cały. Fałszerz otworzył go kluczem, nikt mu nie otwierał.", "Fałszerz nie musiał się włamywać. Drzwi tam, skąd zniknęło to, czego użył, otworzył sam, kluczem."],
+        motives:["[potrzebował|potrzebowała] pieniędzy i [liczył|liczyła], że nikt nie sprawdzi pieczątki","[chciał|chciała] dostać więcej, niż [mu|jej] się należało",
+                 {t:"od miesięcy [zalegał|zalegała] z ratami i [szukał|szukała] wyjścia", k:["debt","adult"]},"[chciał|chciała] wyjechać za granicę i [brakowało mu|brakowało jej] pieniędzy",
+                 "[był pewny|była pewna], że nikt nie porówna podpisów","[przegrał|przegrała] w karty {money} i [musiał|musiała] je szybko oddać"],
+        suspicion:["Ma piękny charakter pisma i [chwalił|chwaliła] się, że podrobi każdy podpis.",{t:"Ostatnio wydaje więcej, niż pozwala [mu|jej] pensja.", k:["job"]},"[Był|Była] już raz [przyłapany|przyłapana] na poprawianiu dat w legitymacji.",
+                   {t:"Ma długi w trzech sklepach na zeszyt.", k:["debt"]},"[Wypytywał|Wypytywała] w administracji, jak wygląda pieczątka kierownika i gdzie leży.","[Wypytywał|Wypytywała] sprzątaczkę z biura, gdzie leżą puste druki.",
+                   {t:"Od roku walczy o przydział, którego [mu|jej] odmówiono.", k:["adult"]},"Dorabia na lewo {market_on} i potrzebuje coraz więcej pieniędzy.","Na imieninach [przechwalał|przechwalała] się, że „papier wszystko przyjmie”.",
+                   "Żyje ponad stan: nowe buty, płaszcz i zegarek, a pieniędzy skąd brać nie ma.",{t:"Kierownik [przyłapał go|przyłapał ją] kiedyś na wypisywaniu fałszywych kwitów, ale sprawę wyciszono.", k:["job"]},{t:"[Dostał|Dostała] wezwanie od komornika na {money}.", k:["debt"]}],
+        noMotive:[{t:"Ma dobrą pensję i nie narzeka.", k:["job"]},{t:"Nigdy w życiu nie [spóźnił|spóźniła] się z ratą i nie potrzebuje cudzych pieniędzy.", k:["adult"]},"To [on|ona] [zgłosił|zgłosiła], że coś się nie zgadza w dokumentach.",
+                  {t:"Przydział i wszystkie papiery [dostał|dostała] dawno, uczciwie, i niczego więcej nie potrzebuje.", k:["adult"]},{t:"Nie ma żadnych długów ani spraw w urzędzie, które trzeba by załatwić na lewo.", k:["debt"]},"Pieniądze trzyma w PKO i liczy każdy grosz.",
+                  "Z poszkodowanymi nie ma żadnych spraw ani zatargów.","Z cudzej pieczątki nic by nie [miał|miała], bo wszystko, czego [chciał|chciała], już ma.","Ma wszystko, czego potrzebuje, i niczego nie musi załatwiać na lewo.",
+                  {t:"Niedawno [dostał|dostała] podwyżkę i na pieniądze nie narzeka.", k:["job"]},"Rodzina przysyła [mu|jej] dolary z Chicago, więc niczego nie musi kombinować.","Z poszkodowanymi nic [go|jej] nie łączy, a pieniędzy ma pod dostatkiem."],
+        motiveRule:["Fałszerz liczył na zysk. Potrzebował pieniędzy albo przydziału, który mu się nie należał.", "To nie była pomyłka urzędnika. Ktoś miał powód, żeby podrobić właśnie ten papier.", "Fałszerz zarabiał na cudzej pieczątce i dobrze wiedział, po co to robi."],
+        alibiRule:["{ev} między {a} a {b}. Fałszerz nie ma potwierdzonego alibi na ten czas.", "Podrobiony papier trafił do kasy między {a} a {b}. Kto ma potwierdzone alibi, nie jest fałszerzem.", "Wszystko rozegrało się między {a} a {b}. Fałszerz nie ma alibi na ten czas."],
+        epilogueEnd:"i z podrobionym papierem [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Fałszywe kartki na mięso", time:["17:00","19:30"], vg:"f", to:"do sklepu mięsnego", where:"na kartkach", years:[1989,1989], months:[1,7],
+            intro:"Sprzedawczyni ze sklepu mięsnego przy {street}, {victim}, odkryła w utargu kartki na mięso z podrobioną pieczątką urzędu." },
+          { title:"Kartki na cukier z {street}", time:["17:00","19:30"], vg:"f", to:"do spożywczego", where:"na kartkach", years:[1989,1989], months:[1,7],
+            intro:"Kierowniczka spożywczego przy {street}, {victim}, znalazła w kasie plik kartek na cukier z fałszywym stemplem." },
+          { title:"Bony do Peweksu", time:["17:30","20:00"], vg:"m", to:"do Peweksu", where:"na bonach", years:[1989,1990],
+            intro:"Kasjer z Peweksu przy {street}, {victim}, przyjął garść bonów towarowych. Dopiero wieczorem zauważył, że są podrobione." },
+          { title:"Szkoła jazdy przy {street}", vg:"m", to:"do ośrodka ruchu drogowego", where:"na blankiecie",
+            intro:"Egzaminator z ośrodka ruchu drogowego, {victim}, znalazł w papierach kursanta zaświadczenie ze szkoły jazdy przy {street} z podrobioną pieczątką." },
+          { title:"Zwolnienie lekarskie", vg:"m", to:"do kadr zakładu", where:"na zwolnieniu",
+            intro:"Kadrowy {zaklad_at}, {victim}, dostał zwolnienie lekarskie z pieczątką przychodni, która nigdy go nie wystawiła." },
+          { title:"Przekaz z poczty przy {street}", time:["17:30","19:00"], vg:"f", to:"na pocztę", where:"na przekazie",
+            intro:"Urzędniczka pocztowa {victim} wypłaciła przekaz z podrobionym podpisem. Pieniądze należały do emerytki z {street}." },
+          { title:"Świadectwo maturalne", vg:"m", to:"do sekretariatu szkoły", where:"na świadectwie",
+            intro:"Dyrektor liceum przy {street}, {victim}, dostał prośbę o potwierdzenie świadectwa maturalnego, którego szkoła nigdy nie wydała." },
+          { title:"Recepty z {street}", time:["17:00","19:30"], vg:"f", to:"do apteki", where:"na receptach", exclude:["apteka"],
+            intro:"Aptekarka {victim} z {street} zrealizowała trzy recepty na silne leki. Lekarz, którego pieczątka na nich widnieje, nigdy ich nie wypisał." },
+          { title:"Przydział na meblościankę", vg:"m", to:"do domu meblowego", where:"na przydziale", years:[1989,1990],
+            intro:"Kierownik domu meblowego przy {street}, {victim}, wydał meblościankę na przydział z podrobioną pieczątką zakładu pracy." },
+          { title:"Legitymacja rencisty", vg:"m", to:"do kasy biletowej", where:"na legitymacji",
+            intro:"Kasjer MPK, {victim}, zatrzymał przy {street} legitymację rencisty z dopisaną datą. Ktoś jeździ na nią za darmo od miesięcy." },
+          { title:"Czek z banku przy {street}", vg:"f", to:"do banku", where:"na czeku", years:[1991,1999],
+            intro:"Kasjerka z banku przy {street}, {victim}, wypłaciła {money} na czek z podrobionym podpisem klienta." },
+          { title:"Dowód rejestracyjny Golfa", vg:"m", to:"do wydziału komunikacji", where:"na dowodzie rejestracyjnym", years:[1990,1999],
+            intro:"Urzędnik wydziału komunikacji, {victim}, odkrył, że Golf z Niemiec zaparkowany przy {street} ma dowód rejestracyjny z podrobioną pieczątką." },
+          { title:"Lista płac", vg:"f", to:"do kasy zakładu", where:"na liście płac",
+            intro:"Kasjerka zakładowa {victim} wypłaciła pensje według listy, na której ktoś dopisał dwa martwe nazwiska i podrobił podpis kierownika." },
+          { title:"Bilety miesięczne", vg:"m", to:"do zajezdni", where:"na biletach",
+            intro:"Kontroler biletów {victim} wyłapał w tramwaju na {street} kilkanaście biletów miesięcznych z tą samą podrobioną pieczątką." },
+          { title:"Kwity ze skupu makulatury", vg:"m", to:"do punktu skupu", where:"na kwitach",
+            intro:"Kierownik punktu skupu makulatury przy {street}, {victim}, odkrył kwity z podrobioną pieczątką. Ktoś brał pieniądze za makulaturę, której nikt nie przyniósł." },
+          { title:"Przydział mieszkania przy {street}", vg:"f", to:"do biura spółdzielni", where:"na przydziale", exclude:["administracja"],
+            intro:"Urzędniczka spółdzielni {victim} znalazła w aktach przydział mieszkania przy {street} z podrobionym podpisem prezesa." },
+          { title:"Zaświadczenie o zarobkach", vg:"m", to:"do banku", where:"na zaświadczeniu", years:[1991,1999],
+            intro:"Kierownik oddziału banku przy {street}, {victim}, udzielił kredytu na zaświadczenie o zarobkach z pieczątką firmy, która nie istnieje." },
+          { title:"Zaliczka na delegację", vg:"f", to:"do kasy zakładowej", where:"na poleceniu wyjazdu",
+            intro:"Kasjerka zakładowa {victim} wypłaciła zaliczkę na delegację. Polecenie wyjazdu miało podrobiony podpis kierownika." },
+          { title:"Książeczka mieszkaniowa", vg:"f", vage:"old", to:"do banku PKO", where:"na książeczce",
+            intro:"Emerytka {victim} z {street} odkryła, że z jej książeczki mieszkaniowej ktoś wypłacił {money}, podrabiając jej podpis." },
+          { title:"Bilety do kina „{cinema}”", vg:"f", to:"do kina", where:"na biletach",
+            intro:"Kasjerka z kina „{cinema}”, {victim}, wyłapała na sali kilkadziesiąt biletów z podrobionym stemplem." }
+        ]
+      },
+
+      sabotaz: {
+        letters:[{ label:"Zwolnienie", vt:["adm","inst","firm"], name:"Zwolnienie dyscyplinarne", icon:"card", k:["fired"], text:["Zwolnienie dyscyplinarne z pieczątką kierownika.","«Za rażące naruszenie obowiązków.» Sprawa dotyczy: {ini}. Odwołanie odrzucono."] },
+                 { label:"Skarga", vt:["adm"], name:"Skarga do spółdzielni", icon:"letter", k:["adult"], text:["Skarga do zarządu spółdzielni, z pieczątką wpływu.","«Jak nikt tego nie naprawi porządnie, to osobiście pokażę, jaki to szmelc.» Podpis: {ini}."] },
+                 { label:"Upomnienie", vt:["adm","inst","firm"], name:"Upomnienie z wpisem do akt", icon:"card", k:["job"], text:["Upomnienie z wpisem do akt osobowych, podpisane przez kierownika.","Odebrano premię za kwartał. Ukarany: {ini}."] },
+                 { label:"Kartka", name:"Kartka z pogróżkami", icon:"letter", text:["Kartka wsunięta poszkodowanym pod drzwi tydzień przed awarią.","«Jeszcze zobaczycie, co to znaczy mnie lekceważyć.» Podpis: {ini}."] }],
+        name:"Sabotaż", subtags:["sabotaz"], toolLabel:"Czym to uszkodzono",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["{where} został w smarze odcisk kciuka sprawcy. Narzędzie trzymał w lewej ręce.","Cięcie {where} poprowadzono od lewej strony, tak trzyma ostrze mańkut."],right:["{where} został w smarze odcisk kciuka sprawcy. Narzędzie trzymał w prawej ręce.","Cięcie {where} poprowadzono od prawej strony, tak trzyma ostrze ktoś praworęczny."]},
+          shoe:["{where} został w smarze ślad buta sprawcy, rozmiar {v}.","Na zakurzonej ziemi {where} został odcisk podeszwy sprawcy, rozmiar {v}."],
+          height:{tall:["Na ścianie nad miejscem, gdzie to zrobiono, ponad dwa metry nad ziemią, zostały odciski palców sprawcy. Opierał się tam ręką, stojąc.","Świadek widział sprawcę {where} z daleka: przy każdym ruchu musiał się mocno schylać."],short:["Żeby dosięgnąć tego, co uszkodził, sprawca podstawił sobie skrzynkę, która została na miejscu. Wysoki człowiek sięgnąłby bez niej.","Świadek widział sprawcę {where}: stawał na palcach, żeby sięgnąć tam, gdzie wysoki człowiek sięga ręką."]},
+          smoker:{yes:["{where} leży świeży niedopałek sprawcy.","W powietrzu {where} jeszcze wisiał dym z papierosa sprawcy."]},
+          car:{yes:["Świadek widział, jak zaraz potem sprawca wsiada do swojego auta i odjeżdża.","Niedaleko miejsca, gdzie to zrobiono, zostały świeże ślady opon. Sprawca przyjechał tu swoim samochodem."]},
+          glasses:{yes:["{where} leżało etui na okulary sprawcy, ubrudzone smarem.","W smarze {where} został zausznik od okularów sprawcy, ułamany przy zawiasie."]},
+          dog:{yes:["Do smaru {where} przykleiła się psia sierść z ubrania sprawcy. Nikt tu psa nie trzyma.","W kurzu {where} zostały odciski psich łap, a obok ślady butów sprawcy."]},
+          jacket:{yes:["Na ostrej krawędzi blachy {where} został strzęp ortalionu z rękawa sprawcy.","Świadek słyszał w ciemności, jak kurtka sprawcy szeleści ortalionem."]}
+        },
+        cause:{ sabotaz:"Biegły nie ma wątpliwości: to nie była zwykła awaria, samo się to nie zepsuło." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły narzędzia, którymi można było to zrobić.",
+        alibiEvent:"Do uszkodzenia doszło",
+        windowRule:["Sprawca osobiście zabrał narzędzie z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu go nie przekazał.", "Narzędzie nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Narzędzie zabrała ta sama osoba, która potem go użyła. Była na miejscu wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknęło narzędzie, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Narzędzie wzięto zza zamkniętych drzwi, a zamek jest nietknięty. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęło narzędzie, sprawca otworzył kluczem, nie wytrychem."],
+        motives:[{t:"[mścił|mściła] się za zwolnienie z pracy", vt:["adm","inst","firm"], k:["fired"]},{t:"[chciał|chciała], żeby ktoś w końcu odpowiedział za zaniedbania", vt:["adm","inst"]},
+                 {t:"[liczył|liczyła], że po awarii dostanie zlecenie na naprawę", roles:["hydraulik","elektryk","administrator","palacz","mechanik","dozorca"]},{t:"od miesięcy [kłócił|kłóciła] się z administracją o remont", vt:["adm"], k:["adult"]},
+                 {t:"[chciał|chciała] zepsuć interes konkurencji", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"[uważał|uważała], że należy [mu|jej] się premia, której nie [dostał|dostała]", vt:["inst","firm"], k:["job"]},
+                   {t:"[chciał|chciała] dopiec komuś, z kim od lat jest skłócony", vt:["priv"]},
+                   {t:"[miał|miała] dość cudzego zadzierania nosa przed całą klatką", vt:["priv"]},
+                   {t:"[chciał|chciała] się zemścić za zniesławienie przed sąsiadami", vt:["priv"]},
+                   {t:"[chciał|chciała] zrobić na złość właścicielowi po dawnej kłótni o pieniądze", vt:["firm"]},
+                   {t:"[chciał|chciała] pokazać, że właściciel nie panuje nad własnym interesem", vt:["firm"]}],
+        suspicion:[{t:"Kierownik zwolnił [go|ją] dyscyplinarnie w zeszłym miesiącu.", vt:["adm","inst","firm"], k:["fired"]},{t:"[Odgrażał|Odgrażała] się, że „jeszcze tu wszystko stanie”.", vt:["adm","inst","firm"]},{t:"Na zebraniu [krzyczał|krzyczała], że administracja okrada lokatorów.", vt:["adm"], k:["adult"]},
+                   {t:"[Stracił|Straciła] premię przez kierownika i nie kryje złości.", vt:["inst","firm"], k:["job"]},{t:"Mówi się, że to [on|ona] [przebił|przebiła] opony szefowi.", vt:["inst","firm"], k:["job"]},{t:"[Pisał|Pisała] skargi do spółdzielni, ale nikt nie odpowiedział.", vt:["adm"], k:["adult"]},
+                   {t:"Konkurencja zabrała [mu|jej] klientów.", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"Kierownik nie przedłużył [mu|jej] umowy.", vt:["inst"], k:["fired"]},{t:"[Pokłócił|Pokłóciła] się z kierownikiem przy wszystkich na podwórku.", vt:["inst","adm"]},
+                   {t:"Od tygodnia opowiada po osiedlu, że „zrobi z tym porządek”.", vt:["adm","inst","firm"]},{t:"Na imieninach [mówił|mówiła], że kierownik jeszcze pożałuje.", vt:["inst","adm"]},{t:"Za każdą awarię dostaje dodatkowe pieniądze za naprawę.", roles:["hydraulik","elektryk","administrator","palacz","mechanik","dozorca"]},
+                   "[Pokłócił|Pokłóciła] się z poszkodowanymi przy świadkach i nie [chciał|chciała] przeprosić.",
+                   "Od tamtej kłótni nie mówi poszkodowanym nawet „dzień dobry”.",
+                   "Przy piwie [mówił|mówiła], że poszkodowanym „należy się nauczka”.",
+                   "Poszkodowani [go|ją] kiedyś ośmieszyli przy ludziach i [on|ona] tego nie [zapomniał|zapomniała].",
+                   "[Wypytywał|Wypytywała] sąsiadów, o której poszkodowani zwykle wychodzą.",
+                   "[Kręcił|Kręciła] się wieczorem w pobliżu tego miejsca i nie [chciał|chciała] powiedzieć po co."],
+        noMotive:[{t:"Z kierownikiem [chodził|chodziła] do jednej klasy i do dziś się przyjaźnią.", vt:["inst","adm"]},{t:"Na awarii [stracił|straciła] najwięcej z całej klatki.", vt:["adm"]},{t:"Z kierownikiem i administracją nigdy nie [miał|miała] na pieńku.", vt:["adm","inst"]},
+                  {t:"[Pomagał|Pomagała] potem sprzątać po awarii, bo z administracją żyje w zgodzie.", vt:["adm"]},{t:"Nie [miał|miała] z administracją żadnych zatargów.", vt:["adm"]},{t:"Lubi kierownika i [chwalił|chwaliła] go na zebraniu.", vt:["inst","adm"], k:["adult"]},
+                  {t:"Dopiero co [dostał|dostała] podwyżkę.", k:["job"]},{t:"Cieszy się, że po remoncie wszystko w końcu działa.", vt:["adm"]},"Z poszkodowanymi nie ma żadnych interesów.",
+                  "Na awarii nic nie [zyskał|zyskała] i z nikim tu nie ma porachunków.",{t:"Kierownik załatwił [mu|jej] kiedyś pracę i do dziś są w zgodzie.", vt:["inst","adm"], k:["job"]},{t:"Kierownik pożyczył [mu|jej] kiedyś pieniądze i nigdy nie naciskał na zwrot.", vt:["inst","adm"], k:["debt"]},
+                   "Z poszkodowanymi [żył|żyła] zawsze w zgodzie.",
+                   "Poszkodowanych [znał|znała] dobrze i nigdy się z nimi nie [poróżnił|poróżniła].",
+                   "Na awarii nikt nie skorzystał, a [on|ona] [stracił|straciła] przy niej tylko czas i nerwy.",
+                   "Kiedy [usłyszał|usłyszała] o awarii, od razu [poszedł|poszła] poszkodowanym pomóc.",
+                   "Nigdy nie [życzył|życzyła] poszkodowanym niczego złego."],
+        motiveRule:["To nie była zwykła awaria. Ktoś miał żal do poszkodowanych i chciał im zaszkodzić.", "Sprawca miał porachunki z poszkodowanymi albo liczył, że na awarii zarobi.", "Ktoś zrobił to ze złości albo dla zysku. Przypadkowy chuligan nie wiedziałby, co uszkodzić."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "O {a} wszystko jeszcze działało, o {b} już nie. Kto ma potwierdzone alibi, nie jest sprawcą.", "Wszystko rozegrało się między {a} a {b}. Sprawca nie ma alibi na ten czas."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Winda przy {street}", vt:["adm"], vg:"m", to:"do maszynowni windy", where:"w maszynowni windy",
+            intro:"W bloku przy {street} stanęła winda, a w niej utknął administrator {victim}. W maszynowni ktoś uszkodził przewody." },
+          { title:"Zimne kaloryfery przy {street}", vt:["adm"], vg:"m", to:"do kotłowni", where:"przy kotle", exclude:["kotlownia"],
+            intro:"W całej kamienicy przy {street} wystygły kaloryfery. Palacz {victim} znalazł rano uszkodzone zawory przy kotle." },
+          { title:"Zwrotnica przy {street}", vt:["inst"], vg:"m", to:"na tory", where:"przy zwrotnicy",
+            intro:"Tramwaj wypadł z szyn na zwrotnicy przy {street}. Motorniczy {victim} mówi, że ktoś majstrował przy zwrotnicy." },
+          { title:"Rower listonoszki", vt:["priv"], vg:"f", to:"pod pocztę", where:"przy rowerze",
+            intro:"Listonoszka {victim} wywróciła się na rowerze przy {street}. Ktoś uszkodził jej linkę od hamulca." },
+          { title:"Ciemna klatka przy {street}", vt:["adm"], vg:"m", to:"na klatkę schodową", where:"przy skrzynce elektrycznej",
+            intro:"W kamienicy przy {street} zgasło światło na całej klatce. Elektryk z administracji, {victim}, znalazł w skrzynce uszkodzone kable." },
+          { title:"Maszyna w szwalni", vt:["inst"], vg:"f", to:"do szwalni", where:"przy maszynie",
+            intro:"W szwalni przy {street} stanęła najnowsza maszyna. Kierowniczka {victim} znalazła uszkodzony pasek napędu." },
+          { title:"Polonez prezesa", vt:["priv"], vg:"m", to:"na parking pod spółdzielnią", where:"przy Polonezie",
+            intro:"Prezes spółdzielni {victim} nie mógł ruszyć Polonezem spod bloku przy {street}. Ktoś uszkodził przewody pod maską." },
+          { title:"Pompa na działkach", vt:["inst"], vg:"m", vage:"old", to:"na ogródki działkowe", where:"przy pompie", exclude:["dzialka"],
+            intro:"Na działkach na skraju {district_gen} stanęła pompa, z której podlewa się wszystkie ogródki. Prezes ogródków {victim} znalazł uszkodzony zawór." },
+          { title:"Chłodnia w barze mlecznym", vt:["inst"], vg:"f", to:"do baru mlecznego", where:"przy chłodni",
+            intro:"W barze mlecznym przy {street} stanęła chłodnia i zepsuło się całe mięso. Kierowniczka {victim} znalazła uszkodzony kabel." },
+          { title:"Nagłośnienie na festynie", time:["17:00","20:00"], vt:["inst"], vg:"m", to:"na festyn w parku", where:"przy scenie",
+            intro:"Na festynie w parku przy {street} zamilkło nagłośnienie. Organizator {victim} znalazł uszkodzone kable za sceną." },
+          { title:"Hydrofor w bloku", vt:["adm"], vg:"m", to:"do piwnicy bloku", where:"przy hydroforze",
+            intro:"W bloku przy {street} przestała lecieć woda na górnych piętrach. Administrator {victim} znalazł przy hydroforze uszkodzone elementy." },
+          { title:"Szlaban na parkingu", vt:["firm"], vg:"m", to:"na strzeżony parking", where:"przy szlabanie", years:[1991,1999],
+            intro:"Na strzeżonym parkingu przy {street} ktoś uszkodził kable od szlabanu i alarmu. Właściciel parkingu {victim} zgłosił to {police_dat}." },
+          { title:"Taksówka z postoju", vt:["firm"], vg:"m", to:"na postój taksówek", where:"przy taksówce",
+            intro:"Taksówkarz {victim} z postoju przy {dworzec} nie mógł uruchomić auta. Ktoś uszkodził przewody i zerwał klemy akumulatora." },
+          { title:"Piec w piekarni przy {street}", vt:["inst"], vg:"m", to:"do piekarni", where:"przy piecu", exclude:["piekarnia"],
+            intro:"W piekarni przy {street} wygasł piec w środku nocnej zmiany. Majster {victim} znalazł uszkodzony przewód od palnika." },
+          { title:"Antena zbiorcza", vt:["priv"], vg:"f", to:"na dach kamienicy", where:"przy antenie", years:[1990,1999],
+            intro:"Na całej klatce przy {street} zniknął obraz w telewizorach. {victim}, która zebrała od lokatorów pieniądze na antenę zbiorczą, znalazła na dachu uszkodzony kabel." },
+          { title:"Żuk z mleczarni", vt:["inst"], vg:"m", to:"na zaplecze mleczarni", where:"przy Żuku",
+            intro:"Kierowca mleczarni {victim} nie mógł rano ruszyć Żukiem z mlekiem dla sklepów przy {street}. Ktoś uszkodził przewody hamulcowe." },
+          { title:"Karuzela w wesołym miasteczku", vt:["firm"], vg:"m", to:"do wesołego miasteczka", where:"przy karuzeli",
+            intro:"W wesołym miasteczku na skraju {district_gen} stanęła karuzela. Właściciel {victim} znalazł uszkodzone elementy przy silniku." },
+          { title:"Domofon przy {street}", vt:["adm"], vg:"f", to:"pod klatkę z domofonem", where:"przy domofonie", years:[1994,1999],
+            intro:"Tydzień po założeniu domofonu przy {street} ktoś uszkodził jego przewody. Administratorka {victim} zgłosiła to {police_dat}." },
+          { title:"Krosno w spółdzielni pracy", vt:["inst"], vg:"f", to:"do spółdzielni pracy", where:"przy krośnie",
+            intro:"W spółdzielni pracy przy {street} stanęło krosno tuż przed ważnym zamówieniem. Prezeska {victim} znalazła uszkodzone przekładnie." },
+          { title:"Motorower listonosza", vt:["inst"], vg:"m", to:"pod pocztę", where:"przy motorowerze",
+            intro:"Listonosz {victim} z poczty przy {street} nie mógł uruchomić motoroweru z rentami. Ktoś uszkodził przewód paliwowy." }
+        ]
+      },
+
+      napad: {
+        letters:[{ label:"Zajęcie", name:"Protokół zajęcia komorniczego", icon:"card", k:["debt"], text:["Protokół zajęcia komorniczego, z pieczątką sądu rejonowego.","Zajęto telewizor i magnetofon na poczet długu. Do ściągnięcia: {money}. Dłużnik: {ini}."] },
+                 { label:"Notes", name:"Notes lichwiarza", icon:"notebook", k:["debt"], text:["Notes lichwiarza z {street2}, znaleziony przy rewizji.","Strona z dopiskiem «ostatni termin!»: {ini}, {money}."] },
+                 { label:"Wniosek", name:"Wniosek do kasy zapomogowej", icon:"card", k:["job","debt"], text:["Wniosek do zakładowej kasy zapomogowo-pożyczkowej, z adnotacją „odmowa”.","Prośba o {money} na pilne spłaty. Wnioskodawca: {ini}."] }],
+        name:"Napad", subtags:["tepe","ostre"], toolLabel:"Czym napadnięto",
+        cause:{ tepe:"Napastnik uderzył [go|ją] czymś ciężkim i uciekł z łupem.", ostre:"Napastnik groził [mu|jej] czymś ostrym i uciekł z łupem." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
+        alibiEvent:"Do napadu doszło",
+        windowRule:["Napastnik osobiście zabrał to, czym napadł, z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.", "To, czym napadnięto, nie przechodziło z rąk do rąk. Napastnik był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Napastnik sam przyniósł to, czym napadł. Był na miejscu, z którego zniknęło, wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknęło to, czym napadnięto, nie ma śladów włamania. Drzwi otworzył sam napastnik, kluczem.", "To, czym napadnięto, wzięto zza zamkniętych drzwi, a zamek jest cały. Napastnik otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęło to, czym napadnięto, napastnik otworzył kluczem, nie wytrychem."],
+        motives:[{t:"[tonął|tonęła] w długach u lichwiarza", k:["debt"]},"[przegrał|przegrała] w karty {money}",
+                 "[potrzebował|potrzebowała] pieniędzy na wyjazd do Niemiec","[wiedział|wiedziała], kiedy poszkodowani mają przy sobie najwięcej pieniędzy",
+                 {t:"od miesięcy nie [miał|miała] pracy i [stracił|straciła] cierpliwość", k:["fired"]},{t:"[był winien|była winna] {money} ludziom, z którymi lepiej nie zadzierać", k:["debt"]}],
+        suspicion:[{t:"Ostatnio [wypytywał|wypytywała], kiedy roznosi się renty.", vt:["rent"]},{t:"Ma długi u ludzi z bazaru.", k:["debt"]},{t:"Od tygodnia nie [pokazał|pokazała] się w pracy.", k:["job"]},
+                   {t:"Od wyjścia z więzienia nie ma pracy, a pieniądze są [mu|jej] potrzebne od zaraz.", k:["job","adult"]},"Widziano [go|ją], jak [przyglądał|przyglądała] się poszkodowanym z drugiej strony ulicy.",{t:"[Przegrał|Przegrała] w karty całą wypłatę.", k:["job"]},
+                   "Na klatce [mówił|mówiła], że „pieniądze leżą na ulicy, trzeba je tylko wziąć”.",{t:"Komornik zajął [mu|jej] telewizor w zeszłym tygodniu.", k:["debt"]},{t:"[Pożyczał|Pożyczała] pieniądze od wszystkich znajomych i nikomu nie [oddał|oddała].", k:["debt"]},
+                   "Od dawna [miał|miała] na oku pieniądze poszkodowanych i [wiedział|wiedziała], kiedy je noszą.","Po pijanemu [chwalił|chwaliła] się, że „wkrótce się odkuje”.",{t:"[Stracił|Straciła] pracę, kiedy zamknęli zakład.", k:["fired"]}],
+        noMotive:[{t:"Ma dobrą pracę i odkłada na książeczkę.", k:["job"]},"Z poszkodowanymi zna się od dziecka i bardzo ich lubi.","Właśnie [dostał|dostała] spadek po ciotce.",
+                  {t:"Nie ma żadnych długów.", k:["debt"]},"Pieniędzy [mu|jej] nie brakuje, a z poszkodowanymi nigdy nie [miał|miała] zatargów.","Rodzina przysyła [mu|jej] marki z Niemiec, więc na nic nie narzeka.",
+                  {t:"Właśnie [sprzedał|sprzedała] działkę po rodzicach i ma pieniędzy pod dostatkiem.", k:["adult"]},{t:"Poszkodowanym [przynosił|przynosiła] zakupy, kiedy chorowali.", vt:["elder"]},"Ma na książeczce oszczędności na kilka lat i nie potrzebuje cudzego grosza.",
+                  {t:"Zarabia w markach i nie narzeka na brak pieniędzy.", k:["job"]},"Dobrze [mu|jej] się wiedzie i nikomu nie zazdrości.","Niedawno [wygrał|wygrała] w Totka."],
+        motiveRule:["To nie był przypadkowy napad. Napastnik wiedział, kiedy i gdzie będą pieniądze, i bardzo ich potrzebował.", "Napastnik działał z wyrachowania: tonął w długach albo od dawna miał poszkodowanych na oku.", "Ktoś tu potrzebował pieniędzy tak bardzo, że nie cofnął się przed napadem."],
+        alibiRule:["{ev} między {a} a {b}. Napastnik nie ma potwierdzonego alibi na ten czas.", "Poszkodowani mówią, że napad trwał chwilę, gdzieś między {a} a {b}. Napastnik nie ma alibi na ten czas.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest napastnikiem."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Napad na kiosk przy {street}", time:["18:00","20:00"], vt:[], vg:"f", to:"pod kiosk", where:"przy kiosku", exclude:["kiosk"],
+            intro:"Kioskarka {victim} została napadnięta przy {street}, kiedy zamykała kiosk." },
+          { title:"Listonosz z rentami", time:["17:00","19:30"], vt:["rent"], vg:"m", to:"na klatkę przy {street}", where:"na klatce schodowej",
+            intro:"Listonosz {victim} został napadnięty na klatce schodowej przy {street}, kiedy po godzinach roznosił zaległe renty." },
+          { title:"Napad na kantor {district_na}", time:["17:00","19:30"], vt:[], vg:"m", to:"pod kantor", where:"przy kantorze",
+            intro:"{victim}, właściciel kantoru przy {street}, został napadnięty, kiedy zamykał kasę." },
+          { title:"Ostatni kurs taksówki", vt:[], vg:"m", to:"na postój taksówek", where:"w taksówce",
+            intro:"Taksówkarz {victim} został napadnięty przez pasażera, którego zabrał z postoju przy {dworzec}." },
+          { title:"Napad {market_on}", time:["17:00","18:30"], vt:[], vg:"m", to:"{market_to}", where:"przy budce",
+            intro:"Handlarz {victim} został napadnięty {market_on}, kiedy liczył utarg." },
+          { title:"Wypłaty dla załogi", time:["16:30","18:30"], vt:[], vg:"f", to:"pod bramę zakładu", where:"przy bramie",
+            intro:"Kasjerka {victim} została napadnięta pod bramą zakładu przy {street}, kiedy niosła wypłaty dla załogi." },
+          { title:"Emerytka spod PKO", time:["16:30","18:00"], vt:["rent","elder"], vg:"f", vage:"old", to:"pod bank PKO", where:"w bramie",
+            intro:"Emerytka {victim} została napadnięta w bramie przy {street}, chwilę po tym, jak wypłaciła oszczędności w PKO." },
+          { title:"Stacja CPN przy {street}", vt:[], vg:"m", to:"na stację CPN", where:"przy kasie stacji",
+            intro:"Pracownik stacji CPN, {victim}, został napadnięty przy kasie stacji przy {street}." },
+          { title:"Napad pod Peweksem", time:["17:30","20:00"], vt:[], vg:"f", to:"pod Pewex", where:"przy wejściu", years:[1989,1990],
+            intro:"Ekspedientka z Peweksu przy {street}, {victim}, została napadnięta przy wejściu, kiedy wynosiła dolary do banku." },
+          { title:"Konwojent z banku", time:["16:30","18:00"], vt:[], vg:"m", to:"pod bank przy {street}", where:"przy samochodzie", years:[1991,1999],
+            intro:"Konwojent {victim} został napadnięty przed oddziałem banku przy {street}." },
+          { title:"Złotnik z {street}", time:["17:00","19:30"], vt:[], vg:"m", vage:"old", to:"do pracowni złotniczej", where:"w pracowni",
+            intro:"Złotnik {victim} został napadnięty w swojej pracowni przy {street}. Napastnik zabrał obrączki i łańcuszki." },
+          { title:"Napad na kasę kina", time:["21:30","23:00"], vt:[], vg:"f", to:"do kina", where:"przy kasie",
+            intro:"Kasjerka z kina „{cinema}”, {victim}, została napadnięta przy kasie po ostatnim seansie." },
+          { title:"Sklep monopolowy przy {street}", time:["20:30","22:30"], vt:[], vg:"m", to:"do sklepu monopolowego", where:"za ladą", years:[1990,1999],
+            intro:"Właściciel sklepu monopolowego przy {street}, {victim}, został napadnięty tuż przed zamknięciem." },
+          { title:"Inkasentka z rachunkami", time:["17:00","20:00"], vt:[], vg:"f", to:"na klatkę schodową", where:"na klatce schodowej",
+            intro:"Inkasentka {victim} została napadnięta na klatce przy {street}, kiedy zbierała pieniądze za prąd." },
+          { title:"Kierowca na pętli", vt:[], vg:"m", to:"na pętlę autobusową", where:"w kabinie autobusu",
+            intro:"Kierowca autobusu {victim} został napadnięty na pętli przy {street}, kiedy sprzedawał bilety w kabinie." },
+          { title:"Kwiaciarka spod cmentarza", time:["17:00","18:30"], vt:[], vg:"f", to:"pod cmentarz", where:"przy budce",
+            intro:"Kwiaciarka {victim} została napadnięta przy swojej budce pod cmentarzem niedaleko {street}, kiedy liczyła utarg." },
+          { title:"Okienko na poczcie", vt:[], vg:"f", time:["17:30","19:00"], to:"na pocztę przy {street}", where:"przy okienku",
+            intro:"Urzędniczka pocztowa {victim} została napadnięta przy okienku tuż przed zamknięciem poczty przy {street}." },
+          { title:"Budka z lodami przy {street}", time:["19:00","21:00"], vt:[], vg:"m", to:"pod budkę z lodami", where:"przy budce", years:[1990,1999],
+            intro:"Sprzedawca lodów {victim} został napadnięty przy budce przy {street}, kiedy zamykał po całym dniu." },
+          { title:"Fałszywy inkasent", vt:["elder"], vg:"m", vage:"old", to:"do mieszkania emeryta", where:"w przedpokoju",
+            intro:"Emeryt {victim} z {street} został napadnięty we własnym przedpokoju. Napastnik zadzwonił, mówiąc, że jest z gazowni." },
+          { title:"Napad na komis", time:["17:00","19:30"], vt:[], vg:"m", to:"do komisu", where:"w komisie", years:[1990,1999],
+            intro:"Właściciel komisu RTV przy {street}, {victim}, został napadnięty przy ladzie. Zniknęły pieniądze i dwa magnetowidy." }
+        ]
+      },
+
+      wandalizm: {
+        letters:[{ label:"Skarga", name:"Skarga na poszkodowanych", icon:"letter", k:["adult"], text:["Skarga do administracji, z pieczątką wpływu.","«Ci ludzie robią, co chcą, a administracja nic. Jak tak dalej pójdzie, sam zrobię porządek.» Podpis: {ini}."] },
+                 { label:"Odmowa", vt:["firm"], name:"Odmowa najmu lokalu", icon:"card", k:["adult"], text:["Pismo ze spółdzielni z odmową najmu lokalu użytkowego.","«Lokal wynajęto innemu najemcy.» Wnioskodawca: {ini}."] },
+                 { label:"Kartka", name:"Kartka z wyzwiskami", icon:"letter", text:["Kartka wsunięta poszkodowanym za klamkę miesiąc temu.","Same wyzwiska, a na końcu: «Jeszcze się policzymy». Podpis: {ini}."] }],
+        name:"Wandalizm", subtags:["farba"], toolLabel:"Czym to zniszczono",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["Napisy {where} kreślono od prawej strony, a zacieki farby są po lewej stronie liter. Malowała lewa ręka.","{where} został w świeżej farbie odcisk dłoni sprawcy. Farba jest tylko na lewej, tą ręką malował."],right:["Napisy {where} kreślono od lewej strony, a zacieki farby są po prawej stronie liter. Malowała prawa ręka.","{where} został w świeżej farbie odcisk dłoni sprawcy. Farba jest tylko na prawej, tą ręką malował."]},
+          shoe:["{where}, w rozlanej farbie, został ślad buta sprawcy, rozmiar {v}.","Uciekając, sprawca wdepnął w farbę i zostawił na chodniku ślady butów, rozmiar {v}."],
+          height:{tall:["Najwyższe kleksy farby {where} są ponad dwa metry nad ziemią, a nie ma śladów drabiny ani skrzynki.","Świadek widział z okna, jak sprawca, malując, bez trudu sięga ręką ponad drzwi."],short:["Najwyżej zamalowane miejsce {where} sprawca dosięgnął dopiero ze skrzynki, która tam została.","Świadek widział z okna, jak sprawca staje na palcach i i tak nie sięga górnej krawędzi."]},
+          smoker:{yes:["{where}, w kałuży farby, leży świeży niedopałek sprawcy.","Obok zapachu farby {where} wisiał jeszcze dym z papierosa sprawcy."]},
+          car:{yes:["Świadek widział, jak sprawca chowa coś do bagażnika swojego auta i odjeżdża.","Niedaleko zostały w farbie świeże ślady opon. Sprawca odjechał swoim samochodem."]},
+          glasses:{yes:["{where} leżało etui na okulary sprawcy, poplamione świeżą farbą.","W rozlanej farbie {where} leżał zausznik od okularów sprawcy, ułamany przy zawiasie."]},
+          dog:{yes:["W świeżej farbie {where} odbiły się psie łapy, a obok buty sprawcy.","Do mokrej farby {where} przykleiła się psia sierść z ubrania sprawcy."]},
+          jacket:{yes:["{where} został w farbie odcisk ortalionowego rękawa sprawcy, z prążkowanym splotem.","Na drucie z płotu nieopodal został strzęp ortalionu z rękawa sprawcy, w plamach farby."]}
+        },
+        cause:{ farba:"Wszystko zamalowano i pokryto napisami. Z daleka widać, że celowo." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi można było to zrobić.",
+        alibiEvent:"Do zniszczeń doszło",
+        windowRule:["Sprawca osobiście zabrał to, czym malował, z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.", "To, czym zniszczono, nie przechodziło z rąk do rąk. Sprawca był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Sprawca sam zabrał to, czego użył. Był na miejscu, z którego to zniknęło, wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknęło to, czym zniszczono, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "To, czym zniszczono, wzięto zza zamkniętych drzwi, a zamek jest cały. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęło to, czego użył sprawca, otworzył on sam, kluczem, nie wytrychem."],
+        motives:[{t:"[mścił|mściła] się za skargę do administracji", vt:["priv","firm"]},"[chciał|chciała] ośmieszyć poszkodowanych przed całą dzielnicą",
+                 {t:"[był wściekły|była wściekła], że nie [dostał|dostała] tego lokalu", vt:["firm"], k:["adult"]},{t:"[nienawidził|nienawidziła] nowego sklepu, który zabrał [mu|jej] klientów", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},
+                 "[chciał|chciała] pokazać kolegom, że się nie boi",{t:"od lat [kłócił|kłóciła] się z poszkodowanymi o miejsce na podwórku", vt:["priv","firm","adm"]},
+                   {t:"[chciał|chciała] dopiec urzędnikom, którzy [mu|jej] czegoś odmówili", vt:["inst"]},
+                   {t:"[chciał|chciała] zwrócić na siebie uwagę władz osiedla", vt:["inst","adm"]}],
+        suspicion:[{t:"[Krzyczał|Krzyczała] na zebraniu, że „to szpeci całe osiedle”.", vt:["adm","inst","firm"], k:["adult"]},{t:"Poszkodowani [go|ją] wyśmiali przy całym podwórku i [on|ona] tego nie [zapomniał|zapomniała].", vt:["priv","adm","firm"]},"[Pokłócił|Pokłóciła] się z poszkodowanymi przy świadkach.",
+                   {t:"Poszkodowani wyrzucili [go|ją] z pracy w zeszłym miesiącu.", vt:["firm","inst"], k:["fired"]},{t:"Poszkodowani oskarżyli [go|ją] o kradzież, której nie było, i od tamtej pory [chodzi zły|chodzi zła] jak osa.", vt:["priv","firm"]},{t:"Od dawna [narzekał|narzekała] na poszkodowanych u dozorcy.", vt:["priv","adm"]},
+                   {t:"Poszkodowani donieśli na [niego|nią] do administracji.", vt:["priv","firm"]},{t:"Poszkodowani nasłali na [niego|nią] dzielnicowego za głośną muzykę i [on|ona] tego nie [darował|darowała].", vt:["priv","adm"]},"Przy piwie [mówił|mówiła], że poszkodowanym „należy się nauczka”.",
+                   {t:"Poszkodowani nie oddali [mu|jej] kaucji za lokal.", vt:["firm"], k:["adult"]},{t:"Od kłótni z poszkodowanymi nie mówi im nawet „dzień dobry”.", vt:["priv","firm","adm"]},"[Groził|Groziła], że poszkodowani jeszcze [go|ją] popamiętają.",
+                   {t:"[Odgrażał|Odgrażała] się, że „urzędnicy jeszcze zobaczą”.", vt:["inst"]},
+                   {t:"[Składał|Składała] skargi do dyrekcji, aż [mu|jej] odmówiono.", vt:["inst"]}],
+        noMotive:["Z poszkodowanymi żyje w zgodzie.",{t:"W zeszłym roku [pomalował|pomalowała] poszkodowanym szyld za darmo.", vt:["firm"]},"Z poszkodowanymi nigdy nie [miał|miała] żadnego sporu, a bazgroły na murach uważa za wstyd.",
+                  "Rano [pomagał|pomagała] zmywać farbę, bo z poszkodowanymi jest w przyjaźni.","Poszkodowanych ledwo zna i nic do nich nie ma.","Nie ma z poszkodowanymi żadnych zatargów.",
+                  {t:"Na zebraniu [bronił|broniła] poszkodowanych przed skargami.", vt:["priv","adm","firm"], k:["adult"]},{t:"Z poszkodowanymi łączy [go|ją] tylko dobre sąsiedztwo i pożyczona drabina.", vt:["priv","adm"]},{t:"Z poszkodowanymi [jeździł|jeździła] na wczasy do Bułgarii.", vt:["priv","firm"]},
+                  {t:"Poszkodowani pomogli [mu|jej] przy przeprowadzce i od tej pory się lubią.", vt:["priv","adm","firm"]},"Do poszkodowanych nie ma żadnego żalu, a oni do [niego|niej] też nie.",{t:"Poszkodowani to [jego|jej] dalsza rodzina.", vt:["priv","firm"]}],
+        motiveRule:["To nie był wybryk przypadkowych chuliganów. Ktoś miał żal do poszkodowanych.", "Napisy były wymierzone w poszkodowanych. Sprawca miał z nimi porachunki.", "Sprawca chciał komuś dopiec. Zniszczenia nie były przypadkowe."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "O {a} wszystko było czyste, o {b} farba już ściekała po ścianie. Kto ma potwierdzone alibi, nie jest sprawcą.", "Wszystko rozegrało się między {a} a {b}. Sprawca nie ma alibi na ten czas."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Gablota spółdzielni", vt:["adm"], vg:"m", to:"pod gablotę spółdzielni", where:"przy gablocie",
+            intro:"Ktoś zniszczył gablotę spółdzielni przy {street}. Prezes {victim} znalazł ogłoszenia zamalowane farbą." },
+          { title:"Szyld fryzjerki", vt:["firm"], vg:"f", to:"pod zakład fryzjerski", where:"przy szyldzie", exclude:["fryzjer"],
+            intro:"Fryzjerka {victim} z {street} zastała rano szyld swojego zakładu wymazany farbą." },
+          { title:"Mur szkoły {district_na}", vt:["inst"], vg:"f", to:"pod szkołę", where:"przy murze szkoły",
+            intro:"Dyrektorka szkoły przy {street}, {victim}, zastała rano mur pokryty obraźliwymi napisami." },
+          { title:"Witryna sklepu przy {street}", vt:["firm"], vg:"m", to:"pod sklep", where:"przy witrynie", years:[1990,1999],
+            intro:"{victim}, właściciel prywatnego sklepu przy {street}, zastał rano witrynę oblaną farbą." },
+          { title:"Pomnik w parku", vt:["inst"], vg:"m", to:"do parku", where:"przy pomniku",
+            intro:"Ktoś oblał farbą pomnik w parku przy {street}. Ogrodnik {victim} zauważył to rano." },
+          { title:"Wymazany Polonez", vt:["priv"], vg:"m", to:"na podwórko", where:"przy samochodzie",
+            intro:"{victim} z {street} zastał rano swojego Poloneza wymazanego farbą od maski po bagażnik." },
+          { title:"Zamalowany kiosk", vt:["firm"], vg:"f", to:"pod kiosk", where:"przy kiosku", exclude:["kiosk"],
+            intro:"Kioskarka {victim} zastała rano swój kiosk przy {street} wymazany farbą, szyby i gazety razem." },
+          { title:"Świeżo odmalowana klatka", vt:["adm"], vg:"m", to:"na klatkę schodową", where:"na klatce schodowej",
+            intro:"Tydzień po malowaniu klatki przy {street} ktoś wymazał ściany farbą. Administrator {victim} zgłosił to {police_dat}." },
+          { title:"Ławki w parku przy {street}", vt:["inst"], vg:"m", to:"do parku", where:"przy ławkach",
+            intro:"Ktoś oblał farbą nowe ławki w parku przy {street}. Kierownik zieleni miejskiej {victim} szacuje straty na {money}." },
+          { title:"Szyld kantoru", vt:["firm"], vg:"m", to:"pod kantor", where:"przy szyldzie",
+            intro:"{victim}, właściciel kantoru przy {street}, zastał rano szyld i drzwi wymazane farbą." },
+          { title:"Zamalowany przystanek", vt:["inst"], vg:"m", to:"na przystanek", where:"przy wiacie",
+            intro:"Ktoś wymazał farbą wiatę przystanku przy {street}. Dyżurny MPK {victim} zgłosił to rano." },
+          { title:"Plakaty wyborcze", vt:["priv"], vg:"m", to:"pod dom kultury", where:"przy tablicy",
+            intro:"Ktoś zamalował farbą plakaty wyborcze na tablicy przed domem kultury przy {street}. Kandydat {victim} mówi, że to sprawka konkurencji." },
+          { title:"Dekoracje do jasełek", vt:["inst"], vg:"f", to:"do świetlicy", where:"przy scenie", exclude:["swietlica"],
+            intro:"Instruktorka {victim} zastała rano dekoracje do jasełek w świetlicy przy {street} oblane farbą." },
+          { title:"Działka sąsiada", vt:["priv"], vg:"m", to:"na ogródki działkowe", where:"przy altanie", exclude:["dzialka"],
+            intro:"Działkowiec {victim} zastał swoją altanę na skraju {district_gen} wymazaną farbą, a grządki zadeptane." },
+          { title:"Tramwaj na pętli", vt:["inst"], vg:"m", to:"na pętlę tramwajową", where:"przy tramwaju",
+            intro:"Na pętli przy {street} ktoś wymazał farbą tramwaj, który stał tam na noc. Motorniczy {victim} zobaczył to rano." },
+          { title:"Drzwi przy {street}", vt:["priv"], vg:"f", to:"pod drzwi sąsiadki", where:"przy drzwiach",
+            intro:"{victim} z {street} zastała rano drzwi swojego mieszkania wymazane obraźliwym napisem." },
+          { title:"Szyba wypożyczalni", vt:["firm"], vg:"m", to:"pod wypożyczalnię", where:"przy witrynie", years:[1990,1999],
+            intro:"{victim}, właściciel wypożyczalni kaset przy {street}, zastał rano zamalowaną szybę i plakaty filmów oblane farbą." },
+          { title:"Wejście do przychodni", vt:["inst"], vg:"f", to:"pod przychodnię", where:"przy wejściu",
+            intro:"Ktoś wymazał farbą wejście do przychodni przy {street}. Kierowniczka {victim} zgłosiła to {police_dat}." },
+          { title:"Zamalowany stragan", vt:["firm"], vg:"f", to:"{market_to}", where:"przy straganie",
+            intro:"Handlarka {victim} zastała rano swój stragan {market_on} oblany farbą razem z towarem." },
+          { title:"Boisko szkolne", vt:["inst"], vg:"m", to:"na boisko szkolne", where:"przy bramce",
+            intro:"Woźny {victim} zastał rano boisko szkolne przy {street} wymazane farbą od bramki do bramki." }
+        ]
+      },
+
+      porwanie_psa: {
+        letters:[{ label:"Skarga", name:"Skarga na szczekanie", icon:"letter", k:["adult"], text:["Skarga do administracji na psa, który szczeka po nocach.","«Jak nikt nic nie zrobi, to ja zrobię.» Podpis: {ini}."] },
+                 { label:"Ogłoszenie", name:"Ogłoszenie z giełdy", icon:"letter", text:["Kartka z tablicy ogłoszeń na giełdzie zwierząt.","«Kupię rasowego psa, płacę w markach.» Kontakt przez dozorcę: {ini}."] },
+                 { label:"Długi", name:"Zeszyt z długami", icon:"notebook", k:["debt"], text:["Zeszyt sklepowej spod lady, długi na zeszyt.","Strona z dopiskiem «nie dawać więcej»: {ini}, razem {money}."] }],
+        name:"Porwanie psa", subtags:["klatka","sznur"], toolLabel:"Czym zabrano psa",
+        /* porwany pies zostawia sierść wszędzie, więc ślad psa sprawcy brzmi inaczej */
+        traitRule:{ glasses:{ yes:["Sprawca zgubił na miejscu etui na okulary.","Na miejscu leżał zausznik od okularów sprawcy, ułamany przy samym zawiasie."] }, dog:{ yes:["Na miejscu została sierść innego psa niż porwany. Przyniósł ją na ubraniu sprawca.","Porwany pies poszedł za sprawcą bez szczekania, jak za kimś, kto pachnie własnym psem."] } },
+        cause:{ klatka:"Psa wyniesiono w czymś zamkniętym, bo nikt nie słyszał szczekania.", sznur:"Psa wyprowadzono na prowizorycznej smyczy. Na furtce został po niej ślad." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły przedmioty, którymi dało się zabrać psa.",
+        alibiEvent:"Psa zabrano",
+        windowRule:["Porywacz osobiście zabrał to, czym potem uprowadził psa, z miejsca, w którym leżało, i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.", "To, czym zabrano psa, nie przechodziło z rąk do rąk. Porywacz był tam, skąd zniknęło, dokładnie wtedy, gdy znikało.", "Porywacz sam przyniósł to, czym zabrał psa. Był na miejscu, z którego zniknęło, wtedy, gdy znikało."],
+        keyRule:["Tam, skąd zniknęło to, czym zabrano psa, nie ma śladów włamania. Drzwi otworzył sam porywacz, kluczem.", "To, czym zabrano psa, wzięto zza zamkniętych drzwi, a zamek jest cały. Porywacz otworzył go kluczem, nikt mu nie otwierał.", "Po to, czym zabrał psa, porywacz nie musiał się włamywać. Drzwi otworzył sam, kluczem."],
+        motives:[{t:"[liczył|liczyła] na okup, bo [tonął|tonęła] w długach", k:["debt"]},"[wiedział|wiedziała], że właściciele zapłacą każde pieniądze za swojego psa",
+                 "[chciał|chciała] sprzedać rasowego psa na giełdzie za marki","[mścił|mściła] się na właścicielach za skargę na hałas",
+                 "[potrzebował|potrzebowała] pieniędzy na wyjazd do Niemiec","[przegrał|przegrała] w karty {money} i [szukał|szukała] łatwego zarobku"],
+        suspicion:["Ostatnio [wypytywał|wypytywała], ile kosztuje taki rasowy pies.",{t:"Ma długi u lichwiarza.", k:["debt"]},"[Pokłócił|Pokłóciła] się z właścicielami o szczekanie po nocach.",
+                   "Na giełdzie [sprzedawał|sprzedawała] już kiedyś szczeniaki niewiadomego pochodzenia.","Mówi, że za takiego psa w Niemczech płacą w markach.",{t:"[Pożyczał|Pożyczała] pieniądze od połowy klatki.", k:["debt"]},
+                   "Pies właścicieli [go|ją] kiedyś ugryzł, a [on|ona] [poprzysiągł|poprzysięgła] zemstę.","[Groził|Groziła] właścicielom, że „ten kundel jeszcze zniknie”.",{t:"Od miesiąca nie ma pracy i [szukał|szukała] każdego zarobku.", k:["fired"]},
+                   {t:"[Napisał|Napisała] skargę do administracji na psa właścicieli.", k:["adult"]},"Wie, ile właściciele wydali na psa na wystawie.",{t:"Komornik był u [niego|niej] w zeszłym tygodniu.", k:["debt"]}],
+        noMotive:["Kocha zwierzęta i co tydzień [zanosił|zanosiła] karmę do schroniska.","[Pomagał|Pomagała] właścicielom rozwieszać ogłoszenia o psie, bo trzyma z nimi od lat.",{t:"Nie ma żadnych długów.", k:["debt"]},
+                  "Z właścicielami zna się od lat i są w przyjaźni.","Pieniędzy [mu|jej] nie brakuje, a z właścicielami nigdy się nie [kłócił|kłóciła].","Właścicieli zna tylko z widzenia i nic do nich nie ma.",
+                  {t:"Ma dobrą pracę i nie potrzebuje pieniędzy.", k:["job"]},"Z właścicielami [jeździł|jeździła] na grzyby co roku.",{t:"Szczekanie [mu|jej] nie przeszkadza, a długów nie ma żadnych.", k:["debt"]},
+                  "[Sam|Sama] [złożył|złożyła] się na nagrodę za odnalezienie psa, bo właścicieli bardzo lubi.","Z właścicielami psa przyjaźni się od lat i nigdy nie [miał|miała] z nimi sporu.","Z właścicielami nie [miał|miała] nigdy żadnego sporu."],
+        motiveRule:["Porywacz liczył na okup. Potrzebował pieniędzy albo miał z właścicielami porachunki.", "To nie był przypadkowy złodziej. Porywacz wiedział, jak bardzo właściciele kochają psa, i chciał na tym zarobić.", "Ktoś miał powód, żeby uderzyć właśnie w tych właścicieli."],
+        alibiRule:["{ev} między {a} a {b}. Porywacz nie ma potwierdzonego alibi na ten czas.", "Sąsiedzi słyszeli ostatnie szczeknięcie między {a} a {b}. Kto ma potwierdzone alibi, nie jest porywaczem.", "Wszystko rozegrało się między {a} a {b}. Porywacz nie ma alibi na ten czas."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Porwany jamnik", vg:"f", vage:"old", to:"na podwórko", where:"przy furtce",
+            intro:"{victim} z {street} wypuściła jamnika na podwórko. Pies nie wrócił, a nazajutrz w skrzynce był list z żądaniem {ransom_gen}." },
+          { title:"Owczarek z {street}", vg:"m", to:"pod dom poszkodowanego", where:"przy budzie",
+            intro:"{victim} z {street} znalazł rano pustą budę. Owczarek zniknął, a na budzie wisiała kartka z żądaniem {ransom_gen}." },
+          { title:"Pudel z wystawy", vg:"f", to:"do mieszkania poszkodowanej", where:"w przedpokoju",
+            intro:"{victim} z {street} hoduje pudle na wystawy. Najlepszy z nich zniknął z przedpokoju, a ktoś zażądał za niego {ransom}." },
+          { title:"Kundel z placu budowy", vg:"m", to:"na plac budowy", where:"przy baraku",
+            intro:"Stróż {victim} z budowy przy {street} stracił psa, który pilnował placu. Rano przy baraku leżała kartka: {ransom} albo pies nie wróci." },
+          { title:"Seter prezesa", vg:"m", to:"pod dom prezesa", where:"przy furtce",
+            intro:"Prezes spółdzielni {victim} wypuścił setera do ogrodu przy {street} na dziesięć minut. Pies zniknął, a w skrzynce był list z żądaniem {ransom_gen}." },
+          { title:"Spaniel aptekarki", time:["17:00","19:30"], vg:"f", to:"pod aptekę", where:"przy wejściu",
+            intro:"Aptekarka {victim} przywiązała spaniela przed apteką przy {street}. Kiedy wyszła, psa nie było, a wieczorem ktoś zażądał {ransom_gen}." },
+          { title:"Bokser z warsztatu", vg:"m", to:"pod warsztat", where:"przy bramie",
+            intro:"Mechanik {victim} zamknął warsztat przy {street} i zostawił boksera na podwórku. Rano psa nie było, a pod bramą leżał list z żądaniem {ransom_gen}." },
+          { title:"Zaginiony pies przewodnik", vg:"m", vage:"old", to:"na klatkę schodową", where:"przy drzwiach",
+            intro:"Niewidomy {victim} z {street} stracił psa przewodnika. Ktoś zabrał go spod drzwi i zażądał {ransom_gen}." },
+          { title:"York z balkonu", vg:"f", to:"do mieszkania poszkodowanej", where:"przy balkonie", years:[1993,1999],
+            intro:"{victim} z {street} zostawiła yorka na balkonie na parterze. Pies zniknął, a na balkonie leżała karteczka z żądaniem {ransom_gen}." },
+          { title:"Wilczur dozorcy", vg:"m", to:"na podwórko", where:"przy budzie",
+            intro:"Dozorca {victim} z {street} stracił wilczura, który pilnował podwórka. Kartka z żądaniem {ransom_gen} wisiała na trzepaku." },
+          { title:"Chart z działek", vg:"m", vage:"old", to:"na ogródki działkowe", where:"przy altanie", exclude:["dzialka"],
+            intro:"Działkowiec {victim} zostawił charta przy altanie na skraju {district_gen}. Wieczorem psa nie było, a na furtce wisiał list z żądaniem {ransom_gen}." },
+          { title:"Szczeniak spod budki", time:["17:00","18:30"], vg:"f", to:"{market_to}", where:"przy budce",
+            intro:"Handlarka {victim}, która ma budkę {market_on}, straciła szczeniaka owczarka. Następnego dnia ktoś zażądał za niego {ransom}." },
+          { title:"Pacjent z lecznicy", time:["17:00","19:00"], vg:"f", to:"do lecznicy dla zwierząt", where:"przy klatkach",
+            intro:"Z lecznicy dla zwierząt przy {street} zniknął rasowy pies po operacji. Lekarka weterynarii {victim} dostała telefon z żądaniem {ransom_gen}." },
+          { title:"Kundelek kioskarki", vg:"f", to:"pod kiosk", where:"przy kiosku", exclude:["kiosk"],
+            intro:"Kioskarka {victim} trzymała w kiosku przy {street} małego kundelka. Wieczorem pies zniknął, a w okienku ktoś zostawił list z żądaniem {ransom_gen}." },
+          { title:"Owczarek z hurtowni", vg:"m", to:"pod hurtownię", where:"przy bramie", years:[1992,1999],
+            intro:"{victim}, właściciel hurtowni przy {street}, stracił owczarka, który pilnował towaru. Porywacz zażądał {ransom_gen}." },
+          { title:"Pies pod szkołą", time:["17:00","19:30"], vg:"f", to:"pod szkołę", where:"przy bramie szkoły",
+            intro:"Nauczycielka {victim} przywiązała psa przy bramie szkoły przy {street} na czas wywiadówki. Psa nie było, a wieczorem w skrzynce leżał list z żądaniem {ransom_gen}." },
+          { title:"Dog z willi", vg:"m", to:"pod willę", where:"przy ogrodzeniu", years:[1991,1999],
+            intro:"{victim}, który niedawno postawił willę przy {street}, stracił doga niemieckiego. Porywacz zażądał {ransom_gen}." },
+          { title:"Pies taksówkarza", vg:"m", to:"na postój taksówek", where:"przy taksówce",
+            intro:"Taksówkarz {victim} woził psa w taksówce. Kiedy wyszedł po papierosy na postoju przy {dworzec}, psa nie było, a wieczorem ktoś zażądał {ransom_gen}." },
+          { title:"Suczka z klatki przy {street}", vg:"f", vage:"mid", to:"pod drzwi poszkodowanej", where:"przy wycieraczce",
+            intro:"{victim} z {street} wypuściła suczkę na klatkę na chwilę. Pies zniknął, a pod wycieraczką leżał list z żądaniem {ransom_gen}." },
+          { title:"Pies z plebanii", vg:"m", vage:"old", to:"pod plebanię", where:"przy furtce plebanii",
+            intro:"Proboszcz {victim} z plebanii przy {street} stracił psa, który jej pilnował. Za zwrot ktoś zażądał {ransom_gen}." }
+        ]
+      },
+
+      otrucie_czlowieka: {
+        letters:[{ label:"Testament", vt:["priv"], name:"Odpis testamentu", icon:"card", heir:true, text:["Odpis testamentu ofiary, z pieczątką notariusza.","Mieszkanie i oszczędności przypadają jednej osobie: {ini}."] },
+                 { label:"Weksel", name:"Weksel na ofiarę", icon:"receipt", k:["debt"], text:["Weksel wystawiony na ofiarę, znaleziony w jej szufladzie.","Kwota {money}, termin minął w zeszłym tygodniu. Dłużnik: {ini}."] },
+                 { label:"List", name:"List z pretensjami", icon:"letter", k:["fired","adult"], text:["List znaleziony w kredensie ofiary.","«Przez ciebie nie mam pracy ani mieszkania. Jeszcze się policzymy.» Podpis: {ini}."] }],
+        name:"Otrucie człowieka", subtags:["trucizna"], toolLabel:"Trucizna",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{ glasses:{ yes:["Sprawca zgubił na miejscu etui na okulary.","Na miejscu leżał zausznik od okularów sprawcy, ułamany przy samym zawiasie."] } },
+        cause:{ trucizna:"Lekarz nie ma wątpliwości: to trucizna, i to podana celowo." },
+        itemsSentence:"Tego wieczoru z okolicy zniknęły substancje, które mogły do tego posłużyć.",
+        alibiEvent:"Truciznę podano",
+        windowRule:["Sprawca osobiście zabrał truciznę z miejsca, w którym leżała, i to dokładnie wtedy, gdy zniknęła. Nikt mu jej nie przekazał.", "Trucizna nie przechodziła z rąk do rąk. Sprawca był tam, skąd zniknęła, dokładnie wtedy, gdy znikała.", "Truciznę zabrała ta sama osoba, która ją podała ofierze. Była na miejscu wtedy, gdy trucizna znikała."],
+        keyRule:["Tam, skąd zniknęła trucizna, nie ma śladów włamania. Drzwi otworzył sam sprawca, kluczem.", "Truciznę wzięto z zamkniętego pomieszczenia, a zamek jest cały. Sprawca otworzył go kluczem, nikt mu nie otwierał.", "Drzwi tam, skąd zniknęła trucizna, sprawca otworzył kluczem, nie wytrychem."],
+        motives:[{t:"[liczył|liczyła] na spadek po ofierze", vt:["priv"], heir:true},{t:"[chciał|chciała] przejąć mieszkanie ofiary", vt:["priv"], k:["adult"], heir:true},
+                 {t:"od lat [nienawidził|nienawidziła] ofiary za dawny donos", ages:["mid","old"]},{t:"[był winien|była winna] ofierze {money} i nie [miał|miała] z czego oddać", k:["debt"]},
+                 {t:"[bał|bała] się, że ofiara wyda [jego|jej] lewe interesy", k:["adult"]},{t:"[chciał|chciała] przejąć posadę ofiary w zakładzie", vt:["work"], k:["job"]},
+                 "[chciał|chciała] się zemścić za upokorzenie przy ludziach","od lat [nosił|nosiła] w sobie urazę o dawną krzywdę, której ofiara nigdy nie naprawiła"],
+        suspicion:[{t:"Jest w testamencie ofiary.", vt:["priv"]},{t:"Od lat czeka na mieszkanie po ofierze.", vt:["priv"], k:["adult"]},"[Pokłócił|Pokłóciła] się z ofiarą o pieniądze przy świadkach.",
+                   {t:"Ofiara groziła, że [go|ją] wydziedziczy.", vt:["priv"]},{t:"[Był winien|Była winna] ofierze {money}.", k:["debt"]},{t:"Ofiara wiedziała o [jego|jej] lewych interesach.", k:["adult"]},
+                   "Sąsiadka słyszała, jak [mówił|mówiła], że ofiara „długo nie pociągnie”.",{t:"Ofiara chciała [go|ją] zwolnić z pracy.", vt:["work"], k:["job"]},"Od miesięcy nie [rozmawiał|rozmawiała] z ofiarą po kłótni o działkę.",
+                   {t:"Ofiara zabrała [mu|jej] posadę w zakładzie.", vt:["work"], k:["job"]},{t:"Ofiara odebrała [mu|jej] mieszkanie po dziadkach i [on|ona] nigdy tego nie [przebolał|przebolała].", vt:["priv"], k:["adult"]},"Ofiara publicznie [go|ją] oskarżyła o oszustwo."],
+        noMotive:["Z ofiarą [grał|grała] w karty co piątek i byli w przyjaźni.","Ofiarę [znał|znała] tylko z widzenia i nic [go|jej] z nią nie łączyło.","Nie [miał|miała] z ofiarą żadnych interesów.",
+                  "Na śmierci ofiary nic by nie [zyskał|zyskała], a z ofiarą nigdy się nie [kłócił|kłóciła].",{t:"Ofiara pomogła [mu|jej] znaleźć pracę i od tamtej pory się przyjaźnili.", vt:["work"], k:["job"]},"Z ofiarą nie ma nic wspólnego oprócz klatki schodowej.",
+                  {t:"Po ofierze nic nie dziedziczy i nigdy nie [miał|miała] z nią sporu.", vt:["priv"]},"Ofiara trzymała [go|ją] do chrztu.","Z ofiarą co niedzielę [chodził|chodziła] do kościoła i nigdy się nie poróżnili.",
+                  "Z ofiarą [jeździł|jeździła] na ryby co niedzielę.","Nigdy nie [kłócił|kłóciła] się z ofiarą, nawet o głupstwa.","Ofiara nie miała [mu|jej] nic do zarzucenia, a [on|ona] ofierze też nie."],
+        motiveRule:["To nie był wypadek ani pomyłka w aptece. Ktoś chciał zaszkodzić właśnie tej osobie.", "Truciznę podał ktoś, kto miał z ofiarą porachunki albo coś zyskiwał, gdyby ofiara zniknęła.", "Sprawca miał powód. Ofiara stała mu na drodze."],
+        alibiRule:["{ev} między {a} a {b}. Sprawca nie ma potwierdzonego alibi na ten czas.", "Lekarz ustalił, że truciznę podano między {a} a {b}. Nikt nie potwierdza, gdzie sprawca był w tym czasie.", "Wszystko rozegrało się między {a} a {b}. Kto ma potwierdzone alibi, nie jest sprawcą."],
+        epilogueEnd:"i [poszedł|poszła] prosto {to}.",
+        scenes:[
+          { title:"Herbata u wdowy", vt:["priv"], vg:"f", vage:"old", to:"do mieszkania wdowy", where:"przy filiżance",
+            intro:"Wdowa {victim} z {street} zasłabła po wieczornej herbacie. Lekarz pogotowia nie zdążył jej uratować." },
+          { title:"Nalewka w barze „{bar}”", time:["19:00","22:30"], vt:["priv"], vg:"m", to:"do baru „{bar}”", where:"przy kieliszku",
+            intro:"{victim}, stały bywalec baru „{bar}” przy {street}, padł po kieliszku nalewki. Przeżył dzięki płukaniu żołądka." },
+          { title:"Imieniny przy {street}", vt:["priv"], vg:"m", to:"na imieniny", where:"przy stole",
+            intro:"{victim} z {street} poczuł się źle na własnych imieninach. Do rana zmarł w szpitalu." },
+          { title:"Kawa w biurze spółdzielni", time:["16:30","18:30"], vt:["work"], vg:"f", to:"do biura spółdzielni", where:"przy biurku", exclude:["administracja"],
+            intro:"Kierowniczka biura spółdzielni przy {street}, {victim}, zasłabła przy biurku po wypiciu kawy. Przeżyła." },
+          { title:"Zupa w stołówce", time:["16:30","19:00"], vt:["work"], vg:"m", to:"do stołówki zakładowej", where:"przy stoliku",
+            intro:"Brygadzista {victim} trafił do szpitala prosto ze stołówki zakładowej przy {street}. Trucizna była tylko w jego talerzu." },
+          { title:"Ciasto pod drzwiami", vt:["priv"], vg:"m", vage:"old", to:"do mieszkania emeryta", where:"przy talerzyku",
+            intro:"Emeryt {victim} z {street} zmarł po zjedzeniu ciasta, które ktoś zostawił mu pod drzwiami." },
+          { title:"Tabletki na serce", vt:["priv"], vg:"f", vage:"old", to:"do mieszkania emerytki", where:"przy lekarstwach",
+            intro:"Emerytka {victim} z {street} połknęła wieczorem tabletki na serce. Ktoś podmienił je w pudełku." },
+          { title:"Wino w altanie", vt:["priv"], vg:"m", to:"na ogródki działkowe", where:"w altanie", exclude:["dzialka"],
+            intro:"Działkowiec {victim} został znaleziony nieprzytomny w swojej altanie na skraju {district_gen}. Obok stała butelka domowego wina." },
+          { title:"Wódka na weselu", vt:["priv"], vg:"m", to:"na wesele w remizie", where:"przy stole weselnym",
+            intro:"Ojciec panny młodej, {victim} z {street}, padł na weselu po wódce z osobnej butelki. Przeżył, ale tydzień leżał w szpitalu." },
+          { title:"Termos stróża", vt:["work"], vg:"m", to:"na portiernię", where:"w portierni",
+            intro:"Stróż {victim} został znaleziony nieprzytomny w portierni hurtowni przy {street}. W termosie z herbatą była trucizna." },
+          { title:"Bombonierka od rodzica", time:["16:30","19:00"], vt:["work"], vg:"f", to:"do pokoju nauczycielskiego", where:"przy bombonierce",
+            intro:"Nauczycielka {victim} ze szkoły przy {street} zasłabła w pokoju nauczycielskim po czekoladce z bombonierki od „wdzięcznego rodzica”." },
+          { title:"Kawa u zegarmistrza", vt:["work"], vg:"m", vage:"old", to:"do pracowni zegarmistrza", where:"przy kawie",
+            intro:"Zegarmistrz {victim} z {street} zmarł w pracowni nad niedopitą kawą." },
+          { title:"Kanapki w zajezdni", vt:["work"], vg:"m", to:"do zajezdni", where:"w kanciapie",
+            intro:"Motorniczy {victim} trafił do szpitala z kanciapy w zajezdni przy {street}. Ktoś dosypał czegoś do jego kanapek." },
+          { title:"Szklanka prezesa", time:["18:00","20:00"], vt:["work"], vg:"m", to:"na zebranie spółdzielni", where:"przy stole prezydialnym",
+            intro:"Prezes spółdzielni {victim} zasłabł na zebraniu w świetlicy przy {street} po łyku wody ze swojej szklanki. Przeżył." },
+          { title:"Karafka w kantorze", vt:["work"], vg:"m", to:"do kantoru", where:"za kontuarem",
+            intro:"{victim}, właściciel kantoru przy {street}, został znaleziony martwy za kontuarem. W karafce z wodą była trucizna." },
+          { title:"Zupa na trzecim piętrze", vt:["priv"], vg:"f", vage:"mid", to:"na trzecie piętro", where:"w kuchni",
+            intro:"{victim} z {street} zasłabła w kuchni po zupie, którą ugotowała dla całej rodziny. Trucizna była tylko w jej talerzu." },
+          { title:"Toast w restauracji", time:["19:00","22:00"], vt:["work"], vg:"m", to:"do restauracji", where:"przy stoliku", years:[1990,1999],
+            intro:"Biznesmen {victim} padł w restauracji przy {street} po toaście za udany interes. Przeżył." },
+          { title:"Termos w kasie dworcowej", vt:["work"], vg:"f", to:"do kasy na dworcu", where:"w kasie",
+            intro:"Kasjerka {victim} z kasy biletowej na {dworzec} zasłabła po herbacie z termosu." },
+          { title:"Krawiec z {street}", vt:["work"], vg:"m", vage:"old", to:"do pracowni krawieckiej", where:"przy maszynie",
+            intro:"Krawiec {victim} z {street} zmarł przy maszynie do szycia. W szklance z herbatą lekarz wyczuł gorzki zapach." },
+          { title:"Przyjęcie u dentystki", vt:["work"], vg:"f", to:"na przyjęcie u dentystki", where:"przy stole", years:[1990,1999],
+            intro:"Dentystka {victim} z {street} poczuła się źle na przyjęciu we własnym domu. Przeżyła, bo goście szybko wezwali pogotowie." }
+        ]
+      }
+    }
+  };
+
+  root.SIATKA_BASE = BASE;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { base: BASE } });
+  if (typeof module !== "undefined" && module.exports) module.exports = BASE;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/pl/cities.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — paczki miast (lata 1989–1999).
+ *
+ * Każde miasto daje: dzielnicę (z formami gramatycznymi), ulice w dopełniaczu
+ * („z Ząbkowskiej”, „przy Ząbkowskiej”), targ, bary, kościół, kino, gazetę,
+ * dworzec, drużynę, zakład pracy, uczelnię, własne role i smaczki.
+ * Pola mogą być tekstem albo listą {t, years} — wtedy generator bierze wariant z danego roku.
+ *
+ * Nowe miasto = nowy wpis o tej samej strukturze.
+ */
+(function (root) {
+  const CITIES = {
+    warszawa: {
+      name:"Warszawa",
+      district:{ nom:"Praga", gen:"Pragi", na:"na Pradze", po:"po Pradze" },
+      streets:["Ząbkowskiej","Brzeskiej","Targowej","Stalowej","Kawęczyńskiej","Okrzei","Wileńskiej","Inżynierskiej","Środkowej","Konopackiej"],
+      market:{ on:"na bazarze Różyckiego", from:"z bazaru Różyckiego", to:"na bazar Różyckiego" },
+      bars:["Pod Kogutem","Na Rogu","Pod Kasztanem"],
+      church_at:"u św. Floriana", teams:["Legii","Polonii"], cinema:"Praha", gazeta:"Express Wieczorny",
+      dworzec:"Dworcu Wileńskim", szpital:"szpitalu praskim", walk:"nad Wisłę", uni:"Politechniki",
+      zaklad_at:"w FSO na Żeraniu",
+      worker:{ id:"worker", age:["young","mid"], m:"Robotnik z FSO", f:"Robotnica z FSO", access:[],
+        outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Od dwudziestu lat skręca Polonezy na Żeraniu.","Boi się zwolnień, o których mówią w zakładzie."] },
+      locations:[
+        { id:"szczeka", pt:"street", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"w szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+          open:["Na bazarze w ciągu dnia każdy kręci się przy cudzych budkach.", "Plandekę z tyłu budki można po prostu odchylić.",
+                "Handlarze z sąsiednich szczęk pilnują swojego, a cudzej budki nikt.", "Blacha z tyłu szczęki odstaje i wystarczy ją odgiąć."],
+          desc:["Blaszana budka z pyzami w słoikach i kapustą na wagę.","Między budkami pachnie flakami i tanimi perfumami.",
+                "Na ladzie kalkulator, waga i stos reklamówek z Pewexu.","Pod plandeką skrzynki z towarem i stołek handlarza."] },
+        { id:"przystan", pt:"street", name:"Przystań nad Wisłą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Drewniany pomost i szopa na łodzie, z widokiem na Stare Miasto.","Łodzie wioślarzy leżą do góry dnem na stojakach.",
+                "Na ścianie szopy wiszą wiosła i kalendarz z zawodami.","Od Wisły ciągnie chłodem, a na pomoście suszą się sieci."] }
+      ],
+      roles:[
+        { id:"praski", age:["young","mid"], m:"Bazarowy cwaniak", f:null, access:[], outfit:{shape:"jacket",c:"#59493b",d:"#c9b98f"}, headwear:{m:["kaszkiet"]},
+          flavor:["Na bazarze załatwi wszystko, od części do Poloneza po bilety na Legię."] },
+        { id:"jarmark", age:["young","mid"], m:"Handlarz ze Stadionu Dziesięciolecia", f:"Handlarka ze Stadionu Dziesięciolecia", access:[], outfit:{shape:"jacket",c:"#3b3054",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+          flavor:["Na koronie Stadionu Dziesięciolecia sprzedaje wszystko, od dżinsów po kasety.","Po rosyjsku targuje się lepiej niż po polsku."] },
+        { id:"windziarz", age:["mid","old"], m:"Windziarz z Pałacu Kultury", f:"Windziarka z Pałacu Kultury", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Wozi turystów na taras widokowy na trzydziestym piętrze.","Zna każdą windę w Pałacu po dźwięku."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na przystani codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"kelner_wawa", age:["young","mid"], m:"Kelner z hotelu Europejskiego", f:"Kelnerka z hotelu Europejskiego", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Napiwki bierze tylko w dolarach.","Wie, który dyplomata pije co do obiadu."] }
+      ],
+      flavor:["Mówi praską gwarą, jak z piosenek Grzesiuka.","Mówi, że przez most na lewy brzeg chodzi tylko w ważnych sprawach.",
+              "Pamięta, jak w kamienicy był jeden telefon na całą klatkę.",
+              "W niedzielę chodzi z wnukami do ZOO na Pradze.","Na Stadion Dziesięciolecia jeździ po kasety i dżinsy.","Mówi „na bazarze”, a nie „na targu”, i poprawia każdego.",
+              "Na Wileńskim zna każdego bagażowego.","Pamięta Warszawę z czasów, kiedy na Pradze stały jeszcze drewniane domy.","Wieczorami słucha Kapeli Czerniakowskiej z płyty.",
+              "Twierdzi, że najlepsze flaki są w barze przy Targowej.","Przez Most Śląsko-Dąbrowski chodzi pieszo, bo boi się tramwajów.",
+              "Na Pałac Kultury mówi „pekin” i nie zamierza przestać.","Ma kuzyna na Woli i spotyka się z nim tylko na pogrzebach.","Kupuje „Express Wieczorny” co dzień o tej samej porze.",
+              {t:"Chodzi oglądać, jak budują nowe wieżowce w centrum.", years:[1995,1999]}],
+      quips:["Na Pradze nic się nie dzieje bez świadka.",
+        "Warszawa duża, ale plotka obiegnie ją szybciej niż tramwaj.",
+        "Złapany, zanim zdążył kupić bilet na Dworzec Centralny.",
+        "Stolica stolicą, a sprawa jak z podwórka na Pradze.",
+        "Wisła płynie dalej, a my mamy to z głowy.",
+        "W Warszawie wszystko załatwia się w kolejce, ta sprawa też się doczekała."]
+    },
+
+    poznan: {
+      name:"Poznań",
+      district:{ nom:"Jeżyce", gen:"Jeżyc", na:"na Jeżycach", po:"po Jeżycach" },
+      streets:["Dąbrowskiego","Kraszewskiego","Słowackiego","Szamarzewskiego","Prusa","Jackowskiego","Żeromskiego","Kościelnej","Poznańskiej","Mylnej"],
+      market:{ on:"na Rynku Jeżyckim", from:"z Rynku Jeżyckiego", to:"na Rynek Jeżycki" },
+      bars:["Pod Koziołkami","U Pyrki","Pod Arkadami"],
+      church_at:"w farze", teams:["Lecha","Warty"], cinema:"Muza", gazeta:"Głos Wielkopolski",
+      dworzec:"Dworcu Głównym", szpital:"szpitalu miejskim", walk:"nad Wartę", uni:"UAM",
+      zaklad_at:"w zakładach Cegielskiego",
+      worker:{ id:"worker", age:["young","mid"], m:"Robotnik z Cegielskiego", f:"Robotnica z Cegielskiego", access:[],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Pracuje przy silnikach okrętowych u Cegielskiego.","Po szychcie zawsze kupuje gazetę w tym samym kiosku."] },
+      locations:[
+        { id:"piekarnia", pt:"work", name:"Piekarnia na Jeżycach", label:"Piekarnia", gen:"piekarni", in:"w piekarni", from:"z piekarni", icon:"shop", roles:["piekarz"],
+          open:["Drzwi od zaplecza są otwarte, bo piekarze wychodzą na papierosa.", "Wieczorem wchodzi tu każdy, kto chce kupić chleb po godzinach.",
+                "Okno od podwórka jest otwarte, żeby uciekało gorąco od pieców.", "Na zaplecze wchodzi się przez sień, której nikt nie zamyka."],
+          desc:["Piekarnia, z której w listopadzie pachnie rogalami świętomarcińskimi na pół dzielnicy.","Piece rozgrzewają się o trzeciej w nocy.",
+                "Na zapleczu worki mąki i blachy ułożone w wieżę.","Na ladzie wiklinowe kosze na chleb i waga z odważnikami."] },
+        { id:"przystan", pt:"street", name:"Przystań nad Wartą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Przystań wioślarska z drewnianym pomostem nad Wartą.","Na ścianie szopy wisi tablica z wynikami regat.",
+                "Łodzie leżą na kozłach, a pod nimi stoją puszki ze smarem.","Z pomostu widać katedrę na Ostrowie Tumskim."] }
+      ],
+      roles:[
+        { id:"piekarz", age:"mid", m:"Piekarz", f:"Piekarka", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d8d2c4"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Ręce ma zawsze białe od mąki.","Na Świętego Marcina piecze rogale przez całą noc."] },
+        { id:"targi", age:["young","mid"], m:"Pracownik Targów Poznańskich", f:"Pracownica Targów Poznańskich", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["W czerwcu nie ma czasu na nic, bo na targi zjeżdża pół Europy."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na Warcie codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"piwowar", age:"mid", m:"Piwowar z browaru", f:"Laborantka z browaru", access:[], outfit:{shape:"apron",c:"#7a6a3b",d:"#e8d3a5"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Pracuje w browarze i pachnie słodem nawet w niedzielę.","Każde piwo w barze ocenia, zanim je wypije."] },
+        { id:"cukiernik", age:["mid","old"], m:"Cukiernik", f:"Cukierniczka", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Piecze rogale świętomarcińskie według przepisu dziadka.","Mak do rogali kupuje tylko u jednego handlarza na Rynku."] }
+      ],
+      flavor:["Na tramwaj mówi wyłącznie „bimba”.","Do kawy zawsze bierze sznekę z glancem.","Mówi „tej” prawie w każdym zdaniu.",
+              "Na ziemniaki mówi „pyry” i nie zna innego słowa.","Każdą złotówkę obraca dwa razy, zanim ją wyda.",
+              "W południe staje na Starym Rynku, żeby zobaczyć koziołki na ratuszu.","Na placki ziemniaczane mówi „plyndze”.","Na kurtkę mówi „jaka”.",
+              "Na Świętego Marcina zawsze kupuje rogala, choćby ostatniego.","W niedzielę jeździ nad Maltę.","Do ziemniaków zawsze robi gzik.",
+              "Jest kibicem {team} i na mecze chodzi z całą klatką.","Na paczkę znajomych mówi „wiara”.","Na wycieczki jeździ tylko do Kórnika i Rogalina.",
+              "Mówi, że w Poznaniu nikt niczego nie marnuje."],
+      quips:["Tej, kolejna sprawa z głowy.",
+        "W Poznaniu porządek musi być, nawet w śledztwie.",
+        "Zdążyliśmy przed obiadem, a w Poznaniu to rzecz święta.",
+        "Pyra z gzikiem zjedzona, sprawa zamknięta.",
+        "Koziołki na ratuszu jeszcze nie trykały, a my już po robocie.",
+        "Poznań lubi ordnung. Ta sprawa też go ma."]
+    },
+
+    krakow: {
+      name:"Kraków",
+      district:{ nom:"Kazimierz", gen:"Kazimierza", na:"na Kazimierzu", po:"po Kazimierzu" },
+      streets:["Szerokiej","Józefa","Miodowej","Krakowskiej","Dietla","Estery","Bożego Ciała","Meiselsa","Starowiślnej","Augustiańskiej"],
+      market:{ on:"na Starym Kleparzu", from:"ze Starego Kleparza", to:"na Stary Kleparz" },
+      bars:["Pod Baranami","U Wróbla","Pod Wawelem"],
+      church_at:"w kościele Bożego Ciała", teams:["Wisły","Cracovii"], cinema:"Kijów", gazeta:"Gazeta Krakowska",
+      dworzec:"Dworcu Głównym", szpital:"szpitalu miejskim", walk:"nad Wisłę, pod Wawel", uni:"UJ",
+      zaklad_at:[ {t:"w Hucie im. Lenina", years:[1989,1989]}, {t:"w Hucie im. Sendzimira", years:[1990,1999]} ],
+      worker:{ id:"worker", age:["young","mid"], m:"Hutnik z Nowej Huty", f:"Laborantka z huty", access:[],
+        outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
+        flavor:["Codziennie dojeżdża tramwajem do kombinatu w Nowej Hucie.","Mówi, że huta to całe [jego|jej] życie."] },
+      locations:[
+        { id:"stajnia", pt:"work", name:"Stajnia dorożkarska", label:"Stajnia", gen:"stajni", in:"w stajni", from:"ze stajni", icon:"stable", roles:["dorozkarz"],
+          open:["Wrota stajni stoją otwarte, żeby konie miały powietrze.", "Stajnię zamyka się dopiero na noc, wieczorem kręcą się tu dorożkarze i ich znajomi.",
+                "Stajenny wychodzi do baru i zostawia wrota uchylone.", "Do stajni wchodzi się przez bramę, której nikt nie pilnuje."],
+          desc:["Stajnia w podwórku, skąd rano wyjeżdżają dorożki na Rynek.","Pachnie sianem, skórą i końmi.",
+                "Na ścianie wiszą chomąta i uprząż z mosiężnymi okuciami.","W kącie stoi dorożka z podniesioną budą, czekająca na nowe koło."] },
+        { id:"piwnica_jazz", pt:"shop", name:"Piwnica jazzowa", label:"Klub", gen:"klubu", in:"w piwnicy jazzowej", from:"z piwnicy jazzowej", icon:"cellar", roles:["muzyk"],
+          open:["Wieczorem wejdzie każdy, kto zapłaci za bilet.", "Bramkarz wpuszcza każdego, kto zna któregoś z muzyków.",
+                "Drzwi do zaplecza stoją otwarte, bo muzycy wynoszą tamtędy sprzęt.", "Na przerwie między koncertami bramkarz idzie na papierosa i nikt nie pilnuje wejścia."],
+          desc:["Ceglana piwnica z małą sceną i fortepianem bez jednego klawisza.","Grają tu do rana, a dym siwieje pod sklepieniem.",
+                "Na ścianach plakaty z festiwali jazzowych i zdjęcia z autografami.","Za barem półka z kieliszkami i stara kasa fiskalna."] }
+      ],
+      roles:[
+        { id:"dorozkarz", age:["mid","old"], m:"Dorożkarz z Rynku", f:null, access:[], outfit:{shape:"jacket",c:"#2b2b2b",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+          flavor:["Wozi turystów dorożką wokół Rynku.","Konia zna lepiej niż własną rodzinę."] },
+        { id:"muzyk", age:["young","mid"], m:"Muzyk jazzowy", f:"Wokalistka jazzowa", access:["piwnica_jazz"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Gra do rana w piwnicy przy Rynku.","Mówi, że prawdziwy jazz skończył się na Komedzie."] },
+        { id:"obwarzanki", age:["mid","old"], m:"Sprzedawca obwarzanków", f:"Sprzedawczyni obwarzanków", access:[], outfit:{shape:"apron",c:"#8a6d55",d:"#e8d9c1"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+          flavor:["Od świtu stoi z wózkiem obwarzanków przy Plantach."] },
+        { id:"przewodnik", age:["mid","old"], m:"Przewodnik miejski", f:"Przewodniczka miejska", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Zna każdą legendę o smoku i każdą datę z historii miasta.","Mówi po niemiecku lepiej niż turyści, których oprowadza."] },
+        { id:"malarz_rynek", age:["young","mid","old"], m:"Malarz spod Bramy Floriańskiej", f:"Malarka spod Bramy Floriańskiej", access:[], outfit:{shape:"jacket",c:"#6b4a8a",d:"#e8d9c1"}, headwear:{m:["beret"],f:["beret"]},
+          flavor:["Sprzedaje turystom akwarele z Wawelem i Sukiennicami.","Na murach przy Floriańskiej ma swoje stałe miejsce od lat."] }
+      ],
+      flavor:["Mówi, że wychodzi „na pole”, a nie na dwór.","Codziennie rano kupuje obwarzanka na rogu.",
+              "Narzeka na turystów, choć [sam|sama] na nich zarabia.","Wie, w której piwnicy przy Rynku grają najlepszy jazz.",
+              "Na jagody mówi „borówki”.","W każdą niedzielę spaceruje Plantami dookoła Starego Miasta.","Na hejnał z wieży Mariackiej zawsze podnosi głowę.",
+              "Pamięta Kazimierz z czasów, kiedy połowa kamienic stała pusta.","Mówi, że w Krakowie nawet gołębie są starsze niż gdzie indziej.","Jest kibicem {team} od dziecka i nie wymawia nazwy drugiego klubu.",
+              "Na Wawel chodzi tylko z gośćmi z innych miast.","Mówi „sznycel” na kotlet mielony.","Na każde święta kupuje szopkę krakowską od tego samego twórcy.",
+              "Twierdzi, że prawdziwy obwarzanek jest tylko z wózka, a nie z piekarni.",{t:"Chodzi do kina na filmy o Kazimierzu, odkąd kręcili tu „Listę Schindlera”.", years:[1994,1999]}],
+      quips:["Hejnał jeszcze nie zagrał, a sprawa zamknięta.",
+        "Smok na Wawelu nie zionął, a sprawa się wyjaśniła sama.",
+        "W Krakowie wszyscy się znają, więc długo by się nie ukrył.",
+        "Na Plantach już o tym szeptają.",
+        "Kawa w Sukiennicach wystygła, ale sprawa jest zamknięta.",
+        "Rynek widział już gorsze historie, ta była wyjątkowo szybka."]
+    },
+
+    lodz: {
+      name:"Łódź",
+      district:{ nom:"Bałuty", gen:"Bałut", na:"na Bałutach", po:"po Bałutach" },
+      streets:["Zgierskiej","Limanowskiego","Łagiewnickiej","Franciszkańskiej","Smugowej","Lutomierskiej","Wojska Polskiego","Drewnowskiej","Piotrkowskiej","Ogrodowej"],
+      market:{ on:"na Bałuckim Rynku", from:"z Bałuckiego Rynku", to:"na Bałucki Rynek" },
+      bars:["Pod Fabrykantem","Na Bałutach","U Szymona"],
+      church_at:"w archikatedrze", teams:["ŁKS-u","Widzewa"], cinema:"Bałtyk", gazeta:"Express Ilustrowany",
+      dworzec:"Dworcu Fabrycznym", szpital:"szpitalu miejskim", walk:"do parku na Zdrowiu", uni:"filmówki",
+      zaklad_at:"w zakładach włókienniczych",
+      worker:{ id:"worker", age:["young","mid"], m:"Majster z przędzalni", f:"Włókniarka", access:[],
+        outfit:{shape:"apron",c:"#7d6a8f",d:"#d8cfe3"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Pracuje na trzy zmiany przy krosnach, jak kiedyś [jego|jej] matka.",
+                {t:"Boi się, że fabryka padnie jak sąsiednie zakłady.", years:[1990,1999]}] },
+      locations:[
+        { id:"przedzalnia", pt:"work", name:"Hala przędzalni", label:"Przędzalnia", gen:"przędzalni", in:"w przędzalni", from:"z przędzalni", icon:"factory", roles:["worker","portier_fab"],
+          open:["Na zmianie przez portiernię przechodzą setki ludzi i nikt nie sprawdza przepustek.", "Boczna brama od torów nie ma stróża.",
+                "Okna hali są otwarte, bo przy maszynach jest gorąco jak w łaźni.", "Portier śpi w budce, a bramka obok jest zawsze otwarta."],
+          desc:["Hala z ceglanymi łukami i rzędami maszyn, które nie milkną nawet nocą.","Na portierni wisi tablica z kluczami do każdego oddziału.",
+                "W powietrzu fruwa bawełniany pył, który osiada na wszystkim.","Pod oknami stoją kosze z cewkami i bele materiału."] },
+        { id:"filmowka", pt:"work", name:"Magazyn rekwizytów filmówki", label:"Rekwizytornia", gen:"rekwizytorni", in:"w rekwizytorni", from:"z rekwizytorni filmówki", icon:"workshop", roles:["student","operator"],
+          open:["Zeszyt wypożyczeń leży otwarty, a drzwi stoją uchylone.", "Wieczorem ciągle ktoś coś stąd wynosi na zdjęcia i nikt nie pilnuje drzwi.",
+                "Magazynier wychodzi na kawę i zostawia drzwi szeroko otwarte.", "Do magazynu wchodzi się przez korytarz, którym chodzą wszyscy studenci."],
+          desc:["Magazyn w pałacu przy Targowej, pełen kostiumów, reflektorów i starych taśm.","Studenci pożyczają stąd sprzęt na etiudy, wpisując się do zeszytu.",
+                "Na wieszakach wiszą mundury z różnych wojen i suknie balowe.","Pod sufitem reflektory, a na podłodze zwoje kabli."] }
+      ],
+      roles:[
+        { id:"operator", age:["young","mid"], m:"Operator z filmówki", f:"Montażystka z filmówki", access:["filmowka"], outfit:{shape:"jacket",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Kręci etiudy studentów i zna każdą kamerę w szkole.","Mówi, że Łódź wygląda najlepiej na czarno-białej taśmie."] },
+        { id:"portier_fab", age:["mid","old"], m:"Portier z przędzalni", f:"Portierka z przędzalni", access:["przedzalnia"], outfit:{shape:"collar",c:"#4f5560",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Od trzydziestu lat siedzi w budce przy bramie fabryki.","Zna każdą włókniarkę po imieniu i po kroku."] },
+        { id:"podmiejski", age:"mid", m:"Motorniczy tramwaju podmiejskiego", f:"Motorniczka tramwaju podmiejskiego", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+          flavor:["Jeździ tramwajem podmiejskim do Zgierza i Ozorkowa.","Na każdym przystanku zna kogoś, kto wsiada codziennie."] },
+        { id:"grand", age:["young","mid"], m:"Kelner z Grand Hotelu", f:"Kelnerka z Grand Hotelu", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Podawał kawę aktorom, którzy przyjeżdżają na zdjęcia do Łodzi.","Wie, który reżyser zostawia największe napiwki."] },
+        { id:"szwaczka", age:["mid","old"], m:"Krojczy ze szwalni", f:"Szwaczka ze szwalni", access:[], outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Szyje płaszcze na eksport, które potem widać w zachodnich katalogach.","Ma na palcu naparstek nawet przy obiedzie."] }
+      ],
+      flavor:["Na bułkę mówi „angielka”.","Mieszka w kamienicy z podwórkiem-studnią.","Pamięta, jak fabryczne syreny wyznaczały rytm dnia.",
+              "W niedzielę zawsze spaceruje po Piotrkowskiej.",
+              "Na chodnik mówi „trytuar”.","Na bilet miesięczny mówi „migawka”.","Na balkon mówi „ganek”, choć mieszka na trzecim piętrze.",
+              "Mówi, że w Łodzi każda kamienica ma swojego fabrykanta i swoją legendę.","Pamięta, jak na Bałutach woda była tylko w podwórkowej studni.","Jest kibicem {team} i nie rozmawia z sąsiadem, który kibicuje drugiej drużynie.",
+              "Do fabryki Poznańskiego ma dwa przystanki, a całe życie przepracował tam ktoś z rodziny.","W niedzielę chodzi do kina „{cinema}” na poranek.",
+              {t:"Martwi się, że zamykają kolejne fabryki.", years:[1990,1999]},"Mówi „szaber” na wszystko, co wynosi się z zakładu.","Zna każdy pasaż między Piotrkowską a Kościuszki."],
+      quips:["W Łodzi każdy każdego zna, więc i tak by się wydało.",
+        "Piotrkowska jeszcze nie zasnęła, a sprawa jest już rozwiązana.",
+        "Fabryka gwiżdże, sprawa zamknięta, można iść do domu.",
+        "Łódź nie lubi tajemnic, szczególnie na Bałutach.",
+        "Włókniarze mówili, że to się źle skończy. Mieli rację.",
+        "Wszystko się plecie, ale ta nitka się rozplątała."]
+    },
+
+    gdansk: {
+      name:"Gdańsk",
+      district:{ nom:"Wrzeszcz", gen:"Wrzeszcza", na:"we Wrzeszczu", po:"po Wrzeszczu" },
+      streets:["Wajdeloty","Grunwaldzkiej","Jaśkowej Doliny","Danusi","Konopnickiej","Lendziona","Kościuszki","Mickiewicza","Aldony","Partyzantów"],
+      market:{ on:"w Hali Targowej", from:"z Hali Targowej", to:"do Hali Targowej" },
+      bars:["Pod Żurawiem","Kotwica","U Rybaka"],
+      church_at:"w Bazylice Mariackiej", teams:["Lechii"], cinema:"Neptun", gazeta:"Dziennik Bałtycki",
+      dworzec:"Dworcu Głównym", szpital:"szpitalu miejskim", walk:"nad morze, do Brzeźna", uni:"Politechniki",
+      zaklad_at:"w Stoczni Gdańskiej",
+      worker:{ id:"worker", age:["young","mid"], m:"Stoczniowiec", f:"Suwnicowa ze stoczni", access:[],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#c9a646"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Od lat pracuje przy pochylni w stoczni.","Przy każdej okazji wspomina sierpień osiemdziesiątego."] },
+      locations:[
+        { id:"szopa_rybacka", pt:"work", name:"Szopa rybacka w Brzeźnie", label:"Szopa", gen:"szopy rybackiej", in:"w szopie rybackiej", from:"z szopy rybackiej", icon:"shed", roles:["rybak"],
+          open:["Szopa na plaży nie ma zamka, tylko drewniany skobel.", "Rybacy nigdy nie zamykają szopy. Mówią, że i tak wszyscy się znają.",
+                "Wiatr od morza ciągle otwiera drzwi szopy, więc nikt ich już nie domyka.", "Rybacy zostawiają szopę otwartą, żeby sieci schły w przeciągu."],
+          desc:["Smołowana szopa na plaży, pełna sieci i skrzynek na ryby.","Od morza ciągnie chłodem, a w środku pachnie śledziem.",
+                "Pod ścianą stoją beczki, a na hakach wiszą sztormiaki.","Przez szpary w deskach widać łodzie wyciągnięte na piasek."] },
+        { id:"magazyn_port", pt:"work", name:"Magazyn w porcie", label:"Nabrzeże", gen:"magazynu portowego", in:"w magazynie portowym", from:"z magazynu w porcie", icon:"garage", roles:["portowiec"],
+          open:["W ogrodzeniu nabrzeża jest dziura, o której wiedzą wszyscy portowcy.", "Brama magazynu stoi otwarta, bo wieczorem jeszcze rozładowują frachtowiec.",
+                "Wartownik obchodzi nabrzeże raz na godzinę, a boczne drzwi zostają otwarte.", "Przez rampę załadunkową wchodzi każdy, kto ma na sobie kombinezon portowca."],
+          desc:["Magazyn przy nabrzeżu, gdzie składa się towar z frachtowców.","Magazyn z czerwonej cegły, pełen skrzyń i worków z kawą.",
+                "Pod sufitem suwnica, a na podłodze ślady wózków widłowych.","Na skrzyniach napisy po szwedzku i po niemiecku."] }
+      ],
+      roles:[
+        { id:"rybak", age:["mid","old"], m:"Rybak z Brzeźna", f:null, access:[], outfit:{shape:"jacket",c:"#3e4a6b",d:"#c9d9e0"}, headwear:{m:["beret"]},
+          flavor:["Wypływa łodzią przed świtem.","Ręce ma spękane od soli."] },
+        { id:"portowiec", age:["young","mid"], m:"Portowiec", f:null, access:[], outfit:{shape:"plain",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kaszkiet"]},
+          flavor:["Wie, co przypłynęło do portu, zanim przeczyta o tym gazeta."] },
+        { id:"bursztyn", age:["mid","old"], m:"Bursztyniarz", f:"Bursztyniarka", access:[], outfit:{shape:"apron",c:"#a5835a",d:"#e8c34a"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Szlifuje bursztyn w pracowni przy Mariackiej.","Po zapachu odróżni prawdziwy bursztyn od kalafonii."] },
+        { id:"marynarz", age:["young","mid"], m:"Marynarz z PLO", f:null, access:[], outfit:{shape:"collar",c:"#1f3a5a",d:"#e6e6e6"}, headwear:{m:["kolejarz",""]},
+          flavor:["Pół roku pływa, pół roku jest w domu i przywozi towar z Zachodu.","Na przedramieniu ma tatuaż z kotwicą."] },
+        { id:"ratownik", age:"young", m:"Ratownik WOPR", f:"Ratowniczka WOPR", access:[], outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Latem siedzi na wieży ratowniczej w Brzeźnie.","Pływa w morzu nawet w październiku."] }
+      ],
+      flavor:["W weekendy jeździ kolejką do Sopotu.","W szufladzie trzyma bursztyn znaleziony na plaży.","Zimą chodzi nad morze patrzeć na sztorm.",
+              "Na Długi Targ chodzi tylko z gośćmi.","Pamięta sierpień osiemdziesiątego jak wczoraj.","Na molo w Sopocie zawsze płaci za wejście, choć zna dziurę w płocie.",
+              "Mówi, że prawdziwy Gdańsk zaczyna się dopiero za Bramą Wyżynną.","W niedzielę jedzie do Oliwy na koncert organowy.","Kupuje wędzone ryby tylko w jednej budce w Brzeźnie.",
+              "Jest kibicem {team} i chodzi na mecze w deszczu.","Ma w domu barometr i codziennie rano go sprawdza.","Mówi „bulwa” na ziemniaka, jak babcia z Kaszub.",
+              "Wspomina, jak w dzieciństwie [kąpał|kąpała] się w morzu, zanim zamknęli plażę przez sinice.",{t:"Chodzi na Jarmark Dominikański co roku w sierpniu.", years:[1989,1999]},"Po samych kominach wie, które statki stoją na redzie."],
+      quips:["Wiatr od morza wszystko wywieje, ale tej sprawy już nie.",
+        "Stocznia gwiżdże na zmianę, a my kończymy sprawę.",
+        "Mewy krzyczą, sprawa zamknięta.",
+        "Na Długim Targu już o tym gadają.",
+        "Morze się uspokoiło i ta sprawa też.",
+        "W Gdańsku fale zmywają ślady, ale nie wszystkie."]
+    },
+
+    katowice: {
+      name:"Katowice",
+      district:{ nom:"Nikiszowiec", gen:"Nikiszowca", na:"na Nikiszowcu", po:"po Nikiszu" },
+      streets:["Szopienickiej","Odrzańskiej","Rymarskiej","Zamkowej","Krawczyka","Janowskiej","Mariackiej","Gliwickiej"],
+      market:{ on:"na targowisku w Szopienicach", from:"z targowiska w Szopienicach", to:"na targowisko w Szopienicach" },
+      bars:["Pod Szybem","U Ecika","Na Grubie"],
+      church_at:"w kościele św. Anny", teams:["GieKSy"], cinema:"Rialto", gazeta:"Trybuna Śląska",
+      dworzec:"Dworcu Głównym", szpital:"szpitalu górniczym", walk:"do Parku Śląskiego", uni:"Uniwersytetu Śląskiego",
+      zaklad_at:"na kopalni „Wieczorek”",
+      worker:{ id:"worker", age:["young","mid"], m:"Górnik z „Wieczorka”", f:"Lampiarka z kopalni", access:[],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Po szychcie zawsze idzie z kamratami na piwo.","Pod paznokciami ma pył węglowy, którego nie da się domyć."] },
+      locations:[
+        { id:"golebnik", pt:"cellar", name:"Gołębnik na strychu familoka", label:"Gołębnik", gen:"gołębnika", in:"w gołębniku", from:"z gołębnika", icon:"dovecote", roles:["golebiarz"],
+          open:["Drzwi na strych familoka nie mają zamka.", "Gołębnik zamyka się na haczyk, który otworzy każdy.",
+                "Okienko gołębnika jest otwarte przez cały dzień, żeby ptaki mogły wracać.", "Na strych wchodzi, kto chce, bo lokatorzy suszą tam pranie."],
+          desc:["Gołębnik na strychu, z wylotem nad dachami familoków.","Pachnie zbożem, a na ścianie wiszą dyplomy z lotów.",
+                "Na półkach stoją kosze transportowe i puszki z ziarnem.","Na tablicy kredą wypisane wyniki ostatniego lotu z Niemiec."] },
+        { id:"lampownia", pt:"work", name:"Lampownia kopalni „Wieczorek”", label:"Lampownia", gen:"lampowni", in:"w lampowni", from:"z lampowni", icon:"mine", roles:["worker","sztygar"],
+          open:["Przy zmianie szychty przez lampownię przechodzi cała zmiana i nikt nikogo nie pilnuje.", "Okienko lampowni jest otwarte przez całą noc.",
+                "Lampiarka wychodzi na chwilę do cechowni i zostawia drzwi otwarte.", "Do lampowni wchodzi się prosto z łaźni, a drzwi między nimi nie mają zamka."],
+          desc:["Lampownia pod szybem, gdzie górnicy pobierają lampy przed szychtą.","Na regałach równe rzędy lamp i numerowanych znaczków.",
+                "Na ścianie wisi figura świętej Barbary, a pod nią świeże kwiaty.","Ładowarki do lamp brzęczą przez całą dobę."] }
+      ],
+      roles:[
+        { id:"golebiarz", age:"old", m:"Gołębiarz", f:null, access:[], outfit:{shape:"jacket",c:"#4f5560",d:"#a9b4c0"}, headwear:{m:["kaszkiet"]},
+          flavor:["Jego gołębie wracały z lotów z Niemiec szybciej niż pociąg.","Na strychu ma gołębnik i zna każdego ptaka po imieniu."] },
+        { id:"sztygar", age:"mid", m:"Sztygar z „Wieczorka”", f:null, access:["lampownia"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+          flavor:["Prowadzi zmianę na dole i zna każdy chodnik kopalni.","Na Barbórkę zakłada galowy mundur z pióropuszem."] },
+        { id:"hutnik", age:["young","mid"], m:"Hutnik z Baildona", f:"Laborantka z huty Baildon", access:[], outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Pracuje przy piecu w hucie Baildon i ma przypalone brwi.",{t:"Boi się, że hutę zamkną jak inne zakłady.", years:[1990,1999]}] },
+        { id:"skarbek", age:["young","mid"], m:"Sprzedawca w Skarbku", f:"Sprzedawczyni w Skarbku", access:[], outfit:{shape:"collar",c:"#8c3b4a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Pracuje w domu towarowym Skarbek i wie, kiedy rzucą towar.","Odkłada spod lady dla znajomych z familoka."] },
+        { id:"orkiestra", age:["mid","old"], m:"Muzyk z orkiestry górniczej", f:null, access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kolejarz"]},
+          flavor:["Gra na tubie w orkiestrze kopalni na każdej Barbórce.","Marsze górnicze zna na pamięć od dziecka."] }
+      ],
+      flavor:["Mieszka w familoku od urodzenia.","Na niedzielny obiad zawsze są rolady, modro kapusta i kluski.",
+              "Mówi po śląsku tak, że przybysze nic nie rozumieją.","Na balkonie suszy pranie, choć z kopalni wciąż leci sadza.",
+              "Na ziemniaki mówi „kartofle”, a na pomidory „tomaty”.","Mówi „fajrant” na koniec pracy i „szychta” na zmianę.","W szafie trzyma galowy mundur górniczy po ojcu.",
+              "Na Barbórkę zawsze idzie na karczmę piwną.","W niedzielę jeździ do Parku Śląskiego na Elkę.","Mówi „ancug” na garnitur.",
+              "Na każdy dom z czerwonej cegły mówi „familok”, nawet jeśli to szkoła.","Jest kibicem {team} i pamięta każdy mecz z Ruchem.","W kuchni ma kredens, który przeżył trzy pokolenia.",
+              {t:"Martwi się, że kopalnie zaczynają zamykać.", years:[1993,1999]},"Mówi „gryfnie” na wszystko, co [mu|jej] się podoba."],
+      quips:["Szczęść Boże. Sprawa zamknięta przed szychtą.",
+        "Sprawa wyjaśniona, można zjechać na dół spokojnie.",
+        "Na Śląsku porządek musi być, nawet w kryminałach.",
+        "Wszyscy wiedzieli, tylko nikt nie mówił.",
+        "Kopalnia nie czeka, my też nie będziemy.",
+        "Na Śląsku nie lubią kłamstw. Ten też się nie wywinął."]
+    },
+
+    wroclaw: {
+      name:"Wrocław",
+      district:{ nom:"Nadodrze", gen:"Nadodrza", na:"na Nadodrzu", po:"po Nadodrzu" },
+      streets:["Jedności Narodowej","Roosevelta","Kurkowej","Dubois","Pomorskiej","Łokietka","Trzebnickiej","Słowiańskiej","Daszyńskiego","Prusa"],
+      market:{ on:"w Hali Targowej", from:"z Hali Targowej", to:"do Hali Targowej" },
+      bars:["Pod Kalamburem","U Krasnala","Na Nadodrzu"],
+      church_at:"w katedrze na Ostrowie Tumskim", teams:["Śląska"], cinema:"Warszawa", gazeta:"Wieczór Wrocławia",
+      dworzec:"Dworcu Głównym", szpital:"szpitalu miejskim", walk:"nad Odrę", uni:"Politechniki",
+      zaklad_at:"w Pafawagu",
+      worker:{ id:"worker", age:["young","mid"], m:"Robotnik z Pafawagu", f:"Robotnica z Pafawagu", access:[],
+        outfit:{shape:"plain",c:"#3d5a85",d:"#2b3f5e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Od lat buduje lokomotywy w Pafawagu."] },
+      locations:[
+        { id:"zajezdnia", pt:"work", name:"Zajezdnia tramwajowa", label:"Zajezdnia", gen:"zajezdni", in:"w zajezdni", from:"z zajezdni", icon:"depot", roles:["motorniczy"],
+          open:["Bramą wjeżdżają i wyjeżdżają tramwaje, a portier ledwo nadąża.", "Furtki od strony torów nikt nie pilnuje.",
+                "Drzwi do warsztatu zajezdni stoją otwarte, bo mechanicy wynoszą tamtędy części.", "Portier chodzi na obchód, a brama zostaje otwarta dla tramwajów zjeżdżających z trasy."],
+          desc:["Zajezdnia z ceglaną halą i kanałami pod torami.","Nocą stoją tu rzędem tramwaje, a dyżurny gra w karty w kanciapie.",
+                "Na ścianie wisi rozkład jazdy ze zmianami dopisanymi długopisem.","W kanale pod tramwajem leżą narzędzia i puszka smaru."] },
+        { id:"przystan", pt:"street", name:"Przystań nad Odrą", label:"Przystań", gen:"przystani", in:"na przystani", from:"z przystani", icon:"pier", roles:["wioslarz"],
+          open:["Szopa z łodziami zamyka się na sznurek.", "Na pomost i do szopy wejdzie każdy, kto przyjdzie od strony wału.",
+                "Drzwi szopy wiszą na jednym zawiasie i nie da się ich domknąć.", "Wioślarze zostawiają szopę otwartą, bo i tak wracają wieczorem."],
+          desc:["Pomost nad Odrą, z łodziami przypiętymi łańcuchem.","Wieczorem nad wodą unosi się mgła.",
+                "Na ścianie szopy wiszą wiosła i zdjęcia osad sprzed wojny.","Z pomostu widać wieże katedry na Ostrowie Tumskim."] }
+      ],
+      roles:[
+        { id:"przewodnik", age:["mid","old"], m:"Przewodnik miejski", f:"Przewodniczka miejska", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Oprowadza Niemców, którzy przyjeżdżają szukać swoich dawnych domów.","Zna historię każdej kamienicy na Nadodrzu."] },
+        { id:"wioslarz", age:"young", m:"Wioślarz z klubu", f:"Wioślarka z klubu", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trenuje na Odrze codziennie o świcie.","Ma ramiona jak drzwi od szafy."] },
+        { id:"zoo", age:["young","mid"], no:["dogfear"], m:"Opiekun w zoo", f:"Opiekunka w zoo", access:[], outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Karmi słonie w zoo i pachnie sianem.","Mówi, że zwierzęta są uczciwsze od ludzi."] },
+        { id:"kaletnik", age:["mid","old"], m:"Kaletnik z Nadodrza", f:"Kaletniczka z Nadodrza", access:[], outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Szyje teczki i paski w warsztacie na parterze kamienicy.","Skórę wybiera, wąchając ją jak wino."] },
+        { id:"antykwariusz", age:"old", m:"Antykwariusz", f:"Antykwariuszka", access:[], outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Handluje książkami, które zostały po dawnych mieszkańcach miasta.","Czyta po niemiecku i po łacinie."] }
+      ],
+      flavor:["Mieszka w Trójkącie Bermudzkim i nikogo się nie boi.","Babcia przyjechała tu ze Lwowa i do dziś mówi z zaśpiewem.",
+              {t:"Pamięta, jak w powodzi w 1997 roku woda zalała całe podwórko.", years:[1998,1999]},
+              "Mówi „ta joj” jak babcia ze Lwowa.","W niedzielę chodzi do Ogrodu Japońskiego.","Na Wyspie Słodowej spędza każde ciepłe popołudnie.",
+              "W piwnicy [znalazł|znalazła] kiedyś niemieckie gazety sprzed wojny.","Jest kibicem {team} od czasów mistrzostwa.","Mówi, że w Hali Ludowej [był|była] na wszystkich koncertach.",
+              "Na tramwaj czeka przy Dworcu Świebodzkim, choć to daleko.","W domu ma kredens poniemiecki, który przyjechał z kamienicą.","Na Rynku zawsze zagląda do Piwnicy Świdnickiej, choćby na chwilę.",
+              "Zna wszystkie mosty na Odrze, a jest ich ponad sto.",{t:"Po powodzi trzyma na strychu worki z piaskiem.", years:[1997,1999]},"Mówi „mieszkanie po Niemcach” i nikt się nie dziwi."],
+      quips:["Odra płynie spokojnie, a sprawa rozwiązana.",
+        "Krasnale na Rynku już wiedziały, kto to zrobił.",
+        "Wrocław przeżył gorsze rzeczy niż jedna taka sprawa.",
+        "Mosty stoją, sprawa zamknięta.",
+        "Ostrów Tumski spokojny, jak po dobrej spowiedzi.",
+        "Tyle mostów, a ten nie miał którędy uciec."]
+    }
+  };
+
+  root.SIATKA_CITIES = CITIES;
+  // treści języka polskiego dla generatora (warstwa językowa: data/i18n/i18n.js)
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { cities: CITIES } });
+  if (typeof module !== "undefined" && module.exports) module.exports = CITIES;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/pl/changelog.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — dziennik zmian („Co nowego” w Ustawieniach), po polsku.
+ * Najnowsza wersja pierwsza. Wpisy piszemy dla gracza: krótko, bez żargonu. `v` = wersja generatora.
+ * Nowe wydanie = nowy wpis na górze; kropka przy zębatce zapala się, gdy gracz nie widział najnowszego `v`.
+ * Treść jest kluczem „ui.changelog” polskiej paczki językowej (tłumaczenie: ten sam klucz w en.js).
+ */
+(function (root) {
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { messages: { "ui.changelog": [
+    { v: "2.2.1", date: "2026-11-18", items: [
+      "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
+      "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",
+      "Godziny zbrodni zależą od sceny: targ, sklep, apteka i poczta wtedy, kiedy są czynne albo zaraz po zamknięciu.",
+      "Czytelniejszy zapis relacji w wyjaśnieniu: „Piotr Kowal i Alicja Baran: szwagrostwo, a nie sąsiedzi z klatki”.",
+      "Komentarze komisarza zależą od pory roku, a realia lat 90. są dokładniejsze (seriale, telefony, pagery, auta, gazety)."
+    ] },
+    { v: "2.2", date: "2026-11-15", items: [
+      "Nowe rodzaje wskazówek w notatniku: porównanie wzrostu, powiązania podejrzanych z innymi ludźmi, zeszyt dozorcy i ślady, które mówią, czego nie było.",
+      "Nowy typ sprawy: oś czasu. Nikt nie jest w dwóch miejscach naraz. Z tabeli czasów dojścia i godzin w teczkach ustalasz, kto zdążył dobiec na miejsce zdarzenia.",
+      "Kwoty z lat 90. są bliższe prawdy: parking za kilka złotych, OC za kilkaset."
+    ] },
+    { v: "2.1.2", date: "2026-11-11", items: [
+      "Naprawiony błąd: podejrzany nie bywa już w dwóch miejscach o tej samej godzinie ani w trakcie własnego alibi.",
+      "Reguły o zniknięciu przedmiotu są jaśniejsze: „Sprawca osobiście zabrał… i to dokładnie wtedy, gdy zniknęło. Nikt mu tego nie przekazał.”",
+      "Portrety nie zdradzają cech z notatnika: papieros pojawia się u części palących, a okulary znikają ze zdjęć, gdy dotyczy ich reguła.",
+      "Krótszy samouczek: 4 kroki, „Pomiń” jest lepiej widoczny, a „Jak grać” zawsze znajdziesz w Ustawieniach.",
+      "Naprawiony samouczek."
+    ] },
+    { v: "2.1.1", date: "2026-11-06", items: [
+      "11 rodzajów zbrodni zamiast 4: kradzież, otrucie zwierzęcia, podpalenie, szantaż, fałszerstwo, sabotaż, napad, wandalizm, porwanie psa, otrucie człowieka.",
+      "220 scen, nowe role, miejsca i przedmioty z ikonami, więcej różnych zdań w aktach.",
+      "Dokładniejsze realia lat 90.: kartki, kwoty, nazwy i daty."
+    ] },
+    { v: "2.1", date: "2026-11-05", items: [
+      "Dowody rzeczowe: polaroidy z przedmiotami i dokumentami, które łączysz z podejrzanymi po inicjałach albo numerze mieszkania.",
+      "Imiona pasują do wieku postaci, a gra unika powtarzania tych samych imion i scen z ostatnich spraw."
+    ] }
+  ] } });
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/pl/glossary.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — Kartoteka (słownik haseł) po polsku. Źródło: docs/kartoteka-hasla.md.
+ * id = znacznik {g:id} albo {g:id|tekst} w treściach; term = hasło, text = objaśnienie (1 zdanie), note = lata albo region.
+ * Każde id użyte w treściach musi mieć hasło w obu językach (tools/i18n-check.js).
+ */
+(function (root) {
+  const GLOSSARY = {
+    mo: { term:"MO (Milicja Obywatelska)", note:"do V 1990", text:"Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja.", forms:["MO","milicja","milicji","milicję","milicją"] },
+    dzielnicowy: { term:"Dzielnicowy", text:"Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca.", forms:["dzielnicowy","dzielnicowego","dzielnicowemu","dzielnicowym","dzielnicowa","dzielnicowej","dzielnicową"] },
+    dozorca: { term:"Dozorca / dozorczyni", text:"Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki.", forms:["dozorca","dozorcy","dozorcę","dozorcą","dozorcom","dozorców","dozorczyni","dozorczynię","dozorczynią"] },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", text:"Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku.", forms:["książeczka mieszkaniowa","książeczkę mieszkaniową","książeczki mieszkaniowej","książeczce mieszkaniowej","książeczką mieszkaniową","książeczka","książeczkę","książeczki","książeczce","książeczką"] },
+    komitet: { term:"Komitet kolejkowy", note:"do ok. 1990", text:"Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności.", forms:["komitet kolejkowy","komitetu kolejkowego","komitetem kolejkowym","komitecie kolejkowym"] },
+    inkasent: { term:"Inkasent gazowni", text:"Chodził po domach, spisywał liczniki i pobierał opłaty.", forms:["inkasent","inkasenta","inkasentowi","inkasentem","inkasentka","inkasentki","inkasentkę","inkasentką","inkasentce"] },
+    spolem: { term:"Społem", text:"Sieć spółdzielczych sklepów spożywczych, obecna w każdej dzielnicy.", forms:["Społem","Społemu"] },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"Zielone kioski z gazetami, papierosami i biletami.", forms:["Ruchu","kiosk Ruchu","kiosku Ruchu","kioskiem Ruchu","kiosków Ruchu"] },
+    pewex: { term:"Pewex", note:"do ok. połowy lat 90.", text:"Sklep z zachodnimi towarami za dolary i bony.", forms:["Pewex","Pewexu","Peweksu","Peweksie","Peweksem","Pewexie"] },
+    cpn: { term:"CPN", text:"Państwowe stacje benzynowe, do połowy lat 90. jedyne w kraju.", forms:["CPN","CPN-u","CPN-ie"] },
+    pzu: { term:"PZU", text:"Państwowy ubezpieczyciel, u którego obowiązkowo ubezpieczało się auta.", forms:["PZU"] },
+    pko: { term:"PKO", text:"Państwowy bank oszczędnościowy, u którego trzymało się książeczki i oszczędności.", forms:["PKO"] },
+    mpo: { term:"MPO", text:"Miejskie służby oczyszczania, czyli śmieciarze.", forms:["MPO"] },
+    mpk: { term:"MPK", text:"Miejskie tramwaje i autobusy.", forms:["MPK"] },
+    pkp: { term:"PKP", text:"Polskie Koleje Państwowe.", forms:["PKP"] },
+    wopr: { term:"WOPR", text:"Ratownicy wodni na plażach i kąpieliskach.", forms:["WOPR","WOPR-u"] },
+    talon: { term:"Talon", note:"do ok. 1990", text:"Przydział na towar, którego nie dało się po prostu kupić, np. auto.", forms:["talon","talonu","talonem","talony","talonów"] },
+    szczeka: { term:"Szczęka", text:"Blaszany rozkładany stragan na bazarze.", forms:["szczęka","szczęki","szczęce","szczękę","szczęką","szczęk","szczękach"] },
+    saksy: { term:"Saksy", text:"Wyjazd do pracy na Zachód, zwykle do Niemiec, „na czarno”.", forms:["saksy","saksach","saksów"] },
+    cinkciarz: { term:"Cinkciarz", note:"do ok. 1990", text:"Uliczny handlarz walutą. Zaczepiał hasłem „change money?”.", forms:["cinkciarz","cinkciarza","cinkciarzem","cinkciarzy","cinkciarka","cinkciarki","cinkciarką"] },
+    totek: { term:"Totek / Lotto", text:"Gry liczbowe Totalizatora Sportowego. Skreślanie w środy i soboty.", forms:["Totek","Totka","Totku","totek","totka","totku","Lotto"] },
+    pekin: { term:"Pekin", note:"Warszawa", text:"Potoczna nazwa Pałacu Kultury i Nauki.", forms:["Pekin","Pekinie","Pekinu"] },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"Melodia grana co godzinę z wieży Mariackiej, urwana w połowie.", forms:["hejnał","hejnału","hejnałem"] },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"Główny targ Bałut: budki, handel i ciasno.", forms:["Bałucki Rynek","Bałuckim Rynku","Bałuckiego Rynku","Bałuckiemu Rynkowi"] },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"Fabryka przędzy. Łódź była polskim zagłębiem włókienniczym.", forms:["przędzalnia","przędzalni","przędzalnię","przędzalnią","przędzalnie"] },
+    familok: { term:"Familok", note:"Śląsk", text:"Ceglany dom robotniczy na Śląsku, jak na Nikiszowcu.", forms:["familok","familoka","familoku","familokiem","familoki","familoków","familokach"] },
+    lampownia: { term:"Lampownia", note:"Śląsk", text:"Pomieszczenie w kopalni, gdzie górnicy pobierali lampy przed zjazdem.", forms:["lampownia","lampowni","lampownię","lampownią"] },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Wielki letni jarmark w Gdańsku, od średniowiecza.", forms:["Jarmark Dominikański","Jarmarku Dominikańskim","Jarmarku Dominikańskiego","Jarmark Dominikańskiego"] },
+    szychta: { term:"Szychta", note:"Śląsk", text:"Zmiana w kopalni lub hucie.", forms:["szychta","szychty","szychcie","szychtę","szychtą"] },
+    barborka: { term:"Barbórka", note:"Śląsk", text:"Święto górników 4 grudnia, w dzień świętej Barbary, z orkiestrami i galowymi mundurami.", forms:["Barbórka","Barbórki","Barbórkę","Barbórką","Barbórce"] },
+    fajrant: { term:"Fajrant", text:"Koniec pracy.", forms:["fajrant","fajrantu","fajrancie"] },
+    kamrat: { term:"Kamrat", note:"Śląsk", text:"Kolega z pracy, kumpel.", forms:["kamrat","kamrata","kamratem","kamraci","kamratów","kamratami"] },
+    gryfnie: { term:"Gryfnie", note:"Śląsk", text:"Ładnie, fajnie.", forms:["gryfnie"] },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"Powiedzonko z gwary lwowskiej, przywiezione do Wrocławia po wojnie.", forms:["ta joj"] },
+    mankut: { term:"Mańkut", text:"Osoba leworęczna.", forms:["mańkut","mańkuta","mańkutem","mańkutka","mańkutki","mańkuty","mańkutów"] },
+    matura: { term:"Matura", text:"Egzamin na koniec liceum, przepustka na studia.", forms:["matura","matury","maturę","maturą","maturze","maturalne","maturalnego","maturalnym"] },
+    ortalion: { term:"Ortalion", text:"Szeleszcząca nylonowa kurtka, hit lat 80. i 90.", forms:["ortalion","ortalionu","ortalionem","ortalionie","ortalionowa","ortalionową","ortalionowej","ortalionowy","ortalionowego","ortalionowym","ortalionowe"] },
+    relaks: { term:"Relaks", text:"Popularne polskie buty, zwłaszcza zimowe.", forms:["Relaks","Relaksu","Relaksy","Relaksach"] },
+    mebloscianka: { term:"Meblościanka", text:"Rząd szafek na całą ścianę, w każdym mieszkaniu.", forms:["meblościanka","meblościanki","meblościankę","meblościance","meblościanką"] },
+    kredens: { term:"Kredens", text:"Stara szafa kuchenna na naczynia i „specjalne okazje”.", forms:["kredens","kredensu","kredensie","kredensem"] },
+    trzepak: { term:"Trzepak", text:"Metalowa rama na podwórku do trzepania dywanów, a dla dzieci plac zabaw.", forms:["trzepak","trzepaka","trzepaku","trzepakiem"] },
+    lucznik: { term:"Łucznik", text:"Polska maszyna do pisania z Radomia.", forms:["Łucznik","Łucznika","Łucznikiem","Łuczniku"] },
+    zenit: { term:"Zenit", text:"Radziecki aparat fotograficzny, ciężki i niezniszczalny.", forms:["Zenit","Zenita","Zenitem","Zenicie"] },
+    pegasus: { term:"Pegasus", note:"od ok. 1993", text:"Bazarowa konsola do gier, podróbka Nintendo.", forms:["Pegasus","Pegasusa","Pegasusem","Pegasusie"] },
+    wigry: { term:"Wigry", text:"Polski składany rower, w każdej piwnicy.", forms:["Wigry","Wigrach","Wigrami"] },
+    polsilver: { term:"Polsilver", text:"Polskie żyletki.", forms:["Polsilver","Polsilvera","Polsilverem","Polsilvery"] },
+    denaturat: { term:"Denaturat", text:"Fioletowy, skażony spirytus do czyszczenia. „Nie do picia”, ale bywało różnie.", forms:["denaturat","denaturatu","denaturatem"] },
+    luminal: { term:"Luminal", text:"Silny lek nasenny z dawnych aptek.", forms:["luminal","luminalu","luminalem"] },
+    maluch: { term:"Maluch (Fiat 126p)", text:"Najmniejsze i najpopularniejsze auto w Polsce.", forms:["Maluch","Malucha","Maluchem","Maluchu","Maluchy","Maluchów"] },
+    polonez: { term:"Polonez", text:"Większe polskie auto z FSO, marzenie wielu rodzin.", forms:["Polonez","Poloneza","Polonezem","Polonezie","Polonezy","Polonezów"] },
+    syrenka: { term:"Syrenka", text:"Stare polskie auto, produkowane do 1983 roku. W latach 90. już zabytek.", forms:["Syrenka","Syrenki","Syrenkę","Syrenką","Syrence"] },
+    zuk: { term:"Żuk", text:"Polski dostawczak: do sklepu, przeprowadzki i na budowę.", forms:["Żuk","Żuka","Żukiem","Żuku","Żuki"] },
+    cinquecento: { term:"Cinquecento", note:"od 1991", text:"Mały Fiat produkowany w Tychach, następca Malucha.", forms:["Cinquecento"] },
+    tico: { term:"Daewoo Tico", note:"od ok. 1996", text:"Małe koreańskie auto, popularne pod koniec lat 90.", forms:["Daewoo Tico","Tico"] },
+    sygnal: { term:"Sygnał czasu", text:"Piknięcia w Polskim Radiu o pełnej godzinie.", forms:["sygnał czasu","sygnału czasu","sygnałem czasu"] },
+    trojka: { term:"Trójka", text:"Program Trzeci Polskiego Radia, kultowa stacja z muzyką.", forms:["Trójka","Trójki","Trójkę","Trójką","Trójce"] },
+    discopolo: { term:"Disco polo", note:"lata 90.", text:"Prosta muzyka taneczna, sprzedawana na kasetach z bazaru.", forms:["disco polo"] },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"od V 1989", text:"Pierwszy niezależny dziennik, założony przed wyborami w 1989 roku.", forms:["Gazeta Wyborcza","Gazety Wyborczej","Gazetę Wyborczą","Gazecie Wyborczej","Gazetą Wyborczą","Wyborcza","Wyborczej","Wyborczą"] },
+    sporty: { term:"Sporty", text:"Najtańsze polskie papierosy bez filtra.", forms:["Sporty","Sportów","Sportami","Klubowe","Klubowych","Klubowymi"] }
+  };
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("pl", { content: { glossary: GLOSSARY } });
+  if (typeof module !== "undefined" && module.exports) module.exports = GLOSSARY;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/en.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka – a Polish Crime Board — English: grammar for the template engine and all UI/generator strings (key → text).
+ *
+ * Style: British English, dry noir tone. Polish names, places, brands and untranslatable terms stay Polish
+ *. Placeholders {name}, HTML ids and classes are kept exactly as in pl.js.
+ *
+ * Grammar (SiatkaI18n.grammar()):
+ *   tx(text, gender, vars)  {k} → vars[k], then [a|b|c|d] → variant by gender (m, f, n, pl)
+ *                           glossary marker {g:term} / {g:term|label} → SiatkaI18n.glossary(term, label)
+ *   plural(n, one, few, many) → English has only one/other: few and many are the same form
+ *   list(["a","b","c"]) → "a, b and c" (British, no serial comma)
+ *   slug(text) → id without diacritics
+ *   amount(n, unit) → "2 thousand złoty", "5 million złoty", "2.5 million złoty", "40 złoty"
+ *   moneyGen(s) → English has no genitive for money: returns s unchanged
+ *
+ * Reviewed against the engine (see git log): fragments are composed by engine/archetypes/*.js, so some keys carry
+ * English word order of their own (gen.classic.it_* = "it was"/"they were", gen.timeline.o_tb_… with explicit pronouns,
+ * gen.classic.at_time, owner_is, pair_names). Polish-only words that used to sit in the code are keys now.
+ */
+(function (root) {
+  "use strict";
+  const GIDX = { m: 0, f: 1, n: 2, pl: 3 };
+  function tx(str, g, vars) {
+    let s = String(str);
+    if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m));
+    s = s.replace(/\[([^\[\]]*)\]/g, (_, body) => { const parts = body.split("|"); return parts[Math.min(GIDX[g] || 0, parts.length - 1)]; });
+    s = s.replace(/\{g:([\w-]+)(?:\|([^{}]*))?\}/g, (m, id, label) => (root.SiatkaI18n ? root.SiatkaI18n.glossary(id, label) : (label != null ? label : id)));
+    // a/an before a word starting with a vowel sound (simple rule; "an hour", "a uniform" handled by exceptions)
+    return s.replace(/(^|[^\p{L}\p{N}_])([Aa]) (?=[A-Za-z])(\w+)/gu, (m, pre, a, word) => {
+      const w = word.toLowerCase();
+      const vowelSound = /^[aeiou]/.test(w) && !/^(uni|use|usu|eur|one|once)/.test(w) || /^(hour|honest|honour|heir)/.test(w);
+      return pre + (vowelSound ? (a === "A" ? "An" : "an") : a) + " " + word;
+    });
+  }
+  const list = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+  const plural = (n, one, few, many) => (n === 1 ? one : (many !== undefined ? many : few));
+  const slug = s => s.toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  function amount(n, unit) {
+    if (unit === "thousand") return `${n} thousand złoty`;
+    if (unit === "million") return `${n} million złoty`;
+    if (unit === "millionFrac") return `${n} million złoty`;
+    if (unit === "zloty") return `${n} złoty`;
+    throw new Error("Unknown amount unit: " + unit);
+  }
+  const moneyGen = s => s;
+  const decimal = s => s; // decimal point: 1.72
+  const itemRef = it => it.acc; // items in a list: „the jar of paint and the brush”
+  const grammar = { tx, plural, list, slug, amount, moneyGen, decimal, itemRef };
+
+  /* BEGIN MESSAGES */
+  const messages = {
+    "gen.size.S": "Small",
+    "gen.size.M": "Medium",
+    "gen.size.L": "Large",
+    "gen.size.XL": "Huge",
+    "gen.police_dat.militia": "the Militia",
+    "gen.police_dat.police": "the police",
+    "ui.html.title": "Siatka – a Polish Crime Board",
+    "ui.html.loading_case": "Loading the case…",
+    "ui.html.tab_files": "Files",
+    "ui.html.tab_notes": "Notebook",
+    "ui.html.accuse_title": "Indictment",
+    "ui.html.culprit": "Culprit",
+    "ui.html.tool": "Weapon",
+    "ui.html.back_to_board": "Back to the board",
+    "ui.html.accuse_go": "Bring the charge",
+    "ui.html.newcase_sub": "Pick a city, a year and the size of the investigation. “Random” leaves the choice to the generator.",
+    "ui.html.city": "City",
+    "ui.html.year": "Year",
+    "ui.html.size": "Size",
+    "ui.html.cancel": "Cancel",
+    "ui.html.open_case": "Open the case",
+    "ui.html.skip": "Skip",
+    "ui.html.back": "Back",
+    "ui.html.archive_stamp": "ARCHIVE",
+    "ui.html.limit_title": "The archive is closed for today.",
+    "ui.html.limit_text": "Come back tomorrow for more cases, or unlock unlimited cases with the premium version (coming soon).",
+    "ui.html.lives": "Charges left",
+    "ui.html.settings": "Settings",
+    "ui.html.board": "Corkboard",
+    "gen.classic.it_m": "it was",
+    "gen.classic.it_f": "it was",
+    "gen.classic.it_n": "it was",
+    "gen.classic.it_pl": "they were",
+    "gen.classic.klasyczna_sprawa": "Classic case",
+    "gen.classic.alibi_from_to": "From {from} to {to} [he|she] {text}.",
+    "gen.classic.at_time": "At {toHM}",
+    "gen.classic.pair_names": "{a} and {b}:",
+    "gen.classic.owner_is": "{what} ({mark}) belongs to {who}",
+    "gen.classic.flat_short": "flat {n}",
+    "gen.classic.brak_modulu_sprites": "Sprites module missing",
+    "gen.classic.a_narzedzie_znaleziono_dumpplace_gdzie_bywa": "and the weapon turned up {dumpPlace}, where [he|she] goes every day",
+    "gen.classic.a_los_narzedzia_zgadza_sie_z": "what happened to the weapon matches the findings",
+    "gen.classic.nie_ma_alibi": "has no alibi",
+    "gen.classic.jego_jej_papiery_sa_z_innego": "[his|her] papers are from a different day, so there is no alibi",
+    "gen.classic.jego_jej_papiery_pokazuja_inne_godziny": "[his|her] papers show different times from [his|her] statement, so there is no alibi",
+    "gen.classic.jego_jej_alibi_okazalo_sie_klamstwem": "[his|her] alibi turned out to be a lie",
+    "gen.classic.byl_byla_in_we_wlasciwym_czasie": "was {in} at the right time",
+    "gen.classic.ma_klucz_do_gen": "has a key to {gen}",
+    "gen.classic.wf_regula_n": "{wf} (rule {n}).",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_t": "could have taken {acc}, but {T}, and that doesn't fit rule {n}.",
+    "gen.classic.we_wlasciwym_czasie": " at the right time",
+    "gen.classic.ma_klucz_do_gen_ale": "has a key to {gen}, but ",
+    "gen.classic.mogl_mogla_zabrac_acc_ale_nie": "could have taken {acc}, but isn't {T} every day, and that is where {it} found (rule {n}).",
+    "gen.classic.ma_potwierdzone_alibi_alibitxt_regula_n": "has a confirmed alibi: {alibiTxt} (rule {n}).",
+    "gen.classic.regula_n_v": "Rule {n}: {v}",
+    "gen.classic.regula_n_hint": "Rule {n}: {hint}",
+    "gen.classic.regula_n_replace": "Rule {n}: {replace}",
+    "gen.classic.regula_n_porownaj_gdzie_znaleziono_przedmiot": "Rule {n}: compare where the items were found with where each person goes every day.",
+    "gen.classic.regula_n_sprawdz_w_aktach_przedmiotow": "Rule {n}: check the item files for what happened to each of them.",
+    "gen.classic.regula_n_sprawdz_kto_ma_klucze": "Rule {n}: check who has keys to which places.",
+    "gen.classic.regula_n_kto_byl_przy_przedmiocie": "Rule {n}: who was near the item at the right time but had no key?",
+    "gen.classic.regula_n_porownaj_godziny_znikniecia_przedmi": "Rule {n}: compare when the items went missing with who was there and when.",
+    "gen.classic.regula_n_kto_ma_potwierdzone_alibi": "Rule {n}: who has a confirmed alibi for {a}–{b}?",
+    "gen.classic.jego": "his",
+    "gen.classic.jej": "her",
+    "gen.classic.zeznal": "stated",
+    "gen.classic.zeznala": "stated",
+    "gen.classic.ktory": "who",
+    "gen.classic.ktora": "who",
+    "gen.classic.widzial": "saw",
+    "gen.classic.widziala": "saw",
+    "gen.classic.stal": "stood",
+    "gen.classic.stala": "stood",
+    "gen.classic.niego": "him",
+    "gen.classic.niej": "her",
+    "gen.classic.tego_wieczoru": "That evening",
+    "gen.classic.to_falszywy_trop_nie_pasuje_do": "is a false lead. It doesn't fit the rules about where, when and by whom the weapon went missing.",
+    "gen.classic.to_falszywe_tropy_zaden_nie_pasuje": "are false leads. None of them fits the rules about where, when and by whom the weapon went missing.",
+    "gen.classic.dowod_rzeczowy": "Evidence:",
+    "gen.classic.dowody_rzeczowe": "Evidence:",
+    "gen.classic.spelnia_wszystkie_reguly_join": "fits every rule: {join}.",
+    "gen.classic.nie_ma_go_jej_w_zeszycie": "isn't in the {g:dozorca|dozorca}'s notebook",
+    "gen.classic.relacja_z_osoba_refname_what": "connection to {refName} ({what})",
+    "gen.classic.mniej": "less",
+    "gen.classic.wiecej": "more",
+    "gen.classic.jest_w_zeszycie_dozorcy_o_tohm": "is in the {g:dozorca|dozorca}'s notebook: crossed the courtyard at {toHM} (rule {n}).",
+    "gen.classic.w_teczce_nie_ma_nic_co": "nothing in the file connects them (rule {n}).",
+    "gen.classic.relnoun_a_nie_relnoun2_regula_n": "{relNoun}, not {relNoun2} (rule {n}).",
+    "gen.classic.nizszy": "shorter",
+    "gen.classic.wyzszy": "taller",
+    "gen.classic.szwagrostwo": "in-laws",
+    "gen.classic.szwagierki": "sisters-in-law",
+    "gen.classic.szwagrowie": "brothers-in-law",
+    "gen.classic.sasiedzi_z_jednej_klatki": "neighbours on the same staircase",
+    "gen.classic.sasiedzi_z_klatki": "neighbours on the staircase",
+    "gen.classic.wspolpracownicy_z_jednego_zakladu": "workmates at the same plant",
+    "gen.classic.papiery_nie_zawsze_mowia_to_samo": "Papers don't always say what the suspects say. Compare the times and dates on the documents with their statements.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
+    "gen.classic.dowody_rzeczowe_nie_maja_nazwisk_inicjaly": "Evidence carries no names. Match the initials and flat numbers to the people's files.",
+    "gen.classic.nie_kazde_alibi_sie_trzyma_porownaj": "Not every alibi holds up. Compare what different people say about the same evening.",
+    "gen.classic.dowod_rzeczowy_2": "Evidence",
+    "gen.classic.przedmiot": "Item",
+    "gen.classic.gone_from_tego_dnia": "{gone} {from} that day.",
+    "gen.classic.gone_from_miedzy_tohm_a_tohm2": "{gone} {from} between {toHM} and {toHM2}.",
+    "gen.classic.zniknely": "Went missing",
+    "gen.classic.zniknelo": "Went missing",
+    "gen.classic.zniknela": "Went missing",
+    "gen.classic.zniknal": "Went missing",
+    "gen.classic.miejsce": "Place",
+    "gen.classic.drzwi_zwykle_stoja_otwarte_wejsc_mogl": "The door usually stands open. Anyone could walk in.",
+    "gen.classic.nikt_z_podejrzanych_nie_ma_tu": "None of the suspects has a key here. The lock is intact.",
+    "gen.classic.klucz_ma": "Key held by",
+    "gen.classic.klucze_maja": "Keys held by",
+    "gen.classic.only_zamek_nieuszkodzony": "{only} The lock is intact.",
+    "gen.classic.tego_wieczoru_zniknely_stad_dwie_rzeczy": "That evening two things went missing from here: {plList}.",
+    "gen.classic.szwagier": "brother-in-law",
+    "gen.classic.szwagierka": "sister-in-law",
+    "gen.classic.byl_byla_in_v_ale_nie": "was {in}{v}, but has no key (rule {n}).",
+    "gen.classic.v_byl_byla_in_o_tohm": "{v}was {in} at {toHM}, outside the time the items went missing (rule {n}).",
+    "gen.classic.first_pick_v_zabral_zabrala_acc": "{first} {pick}. {v} [he|she] took {acc} {from} {epilogueEnd}",
+    "gen.classic.ma_cm_cm_v_niz_refname": "is {cm} cm, {v} than {refName} ({refCm} cm)",
+    "gen.classic.ma_cm_cm_a_sprawca_jest": "is {cm} cm, and the culprit is {v} than {refName} ({refCm} cm) (rule {n}).",
+    "gen.classic.v_pllist_zamek_nieuszkodzony": "{v} {plList}. The lock is intact.",
+    "gen.classic.v_pllist_others_zamek_nieuszkodzony": "{v} {plList}. {others} The lock is intact.",
+    "gen.timeline.os_czasu": "Timeline",
+    "gen.timeline.also": ". On top of that [he|she] {tw}",
+    "gen.timeline.owner_is": "{what} ({mark}) belongs to {who}",
+    "gen.timeline.nikt_nie_jest_w_dwoch_miejscach": "Nobody can be in two places at once. So who made it in time?",
+    "gen.timeline.first_pick_o_tohm_byl_byla": "{first} {pick}. At {toHM} [he|she] was still {in}, at {toHM2} already at the scene, and at {toHM3} [he|she] turned up {in2} as if nothing had happened.",
+    "gen.timeline.dowod_rzeczowy": "Evidence:",
+    "gen.timeline.dowody_rzeczowe": "Evidence:",
+    "gen.timeline.zdazyl_a_o_tb_in_dp": "made it: at {tb} [he|she] was {in}, {dp} min on foot, then at the scene from {arr} to {back}, that's {len} min inside the window ({from}–{to}); then {dq} min on foot and at {ta} [he|she] was {in2}{v}.",
+    "gen.timeline.mogl_mogla_zdazyc_na_miejsce_zdarzenia": "could have reached the scene, but {wf} (rule {ruleNo}).",
+    "gen.timeline.nadal_tam": "still there",
+    "gen.timeline.nie_zdazylby_zdazylaby_tam_byc_w": "couldn't have been there for a single minute of the window",
+    "gen.timeline.moglby_moglaby_tam_byc_najwyzej_od": "could have been there from {toHM} to {toHM2} at most, that's {len} min",
+    "gen.timeline.dowody_rzeczowe_nie_maja_nazwisk_porownaj": "Evidence carries no names. Match the initials to the names in the files.",
+    "gen.timeline.regula_ruleno_lc1": "Rule {ruleNo}: {lc1}",
+    "gen.timeline.dowod_rzeczowy_2": "Evidence",
+    "gen.timeline.miejsce": "Place",
+    "gen.timeline.miejsce_zdarzenia": "Scene of the crime",
+    "gen.timeline.stad_pieszo_join": "On foot from here: {join}.",
+    "gen.timeline.miejsce_zdarz": "Scene",
+    "gen.timeline.miejsce_zdarzenia_2": " (scene of the crime)",
+    "gen.timeline.tu_to_sie_stalo": "This is where it happened.",
+    "gen.timeline.tu_to_sie_stalo_where": "This is where it happened, {where}.",
+    "gen.timeline.o_tb_byl_byla_in_a": "at {tb} [he|she] was {in}, and at {ta} [he|she] was {v}. With the walk to the scene ({dp} min) and back ({dq} min), [he|she] {where}, and the culprit spent at least {stay} min there (rule {ruleNo}).",
+    "gen.solver.id_fakt_type_dotyczy_who_nie": "{id}: fact {type} concerns {who}, not the owner",
+    "gen.solver.id_znak_wskazuje_v_a_dowod": "{id}: the mark points to {v}, but the evidence belongs to {owner}",
+    "gen.solver.id_znak_kind_value_pasuje_do": "{id}: mark {kind}={value} fits {length} people",
+    "ui.game.label_city_name_year_size_seed": "{label} · {city_name}, {year} · {size} · seed {seed} · generator {caseVersion} · {st}, mistakes {wrong}, hints {hints}",
+    "ui.game.rozwiazana": "solved",
+    "ui.game.samouczek_pierwsze_uruchomienie": "Tutorial: first launch",
+    "ui.game.zapis_sprawy_z_archiwum_pominiety": "Archive case save skipped",
+    "ui.game.zapis_sprawy_dnia_pominiety": "Daily case save skipped",
+    "ui.game.sprawa_na_rozgrzewke": "Warm-up case",
+    "ui.game.sprawa_dnia": "Case of the Day",
+    "ui.game.limit_nowych_spraw_wyczerpany": "No new cases left today",
+    "ui.game.nowe_sprawy_za_v_v2_min": "New cases in {v}{v2} min, at midnight.",
+    "ui.game.zostalo": "left",
+    "ui.game.zostala": "left",
+    "ui.game.nowa_sprawa_left_daily_new_cases": "New case · {left}/{DAILY_NEW_CASES}",
+    "ui.game.nowa_sprawa": "New case",
+    "ui.game.nie_udalo_sie": "That didn't work",
+    "ui.game.wynik_jako_obrazek": "Result as an image",
+    "ui.game.udostepniono": "Shared",
+    "ui.game.brak_obrazka": "no image",
+    "ui.game.archiwum": "archive",
+    "ui.game.wsparcie_tworcy_wynik": "Support the creator: result",
+    "ui.game.blad_w_sprawie_logice": "Error in case/logic",
+    "ui.game.wynik_udostepniony": "Result shared",
+    "ui.game.wynik_skopiowany": "Result copied",
+    "ui.game.podoba_ci_sie_postaw_komisarzowi_html": "<p class=\"support-line\"><a id=\"supportLink\" href=\"{url}\" target=\"_blank\" rel=\"noopener\">Enjoying it? Buy the commissioner a coffee ☕</a></p>",
+    "ui.game.nowa_sprawa_html": "<button class=\"btn red full\" id=\"againBtn\">New case</button>",
+    "ui.game.sprawa_dnia_html": "<button class=\"btn red full\" id=\"toDailyBtn\">Case of the Day</button>",
+    "ui.game.kopiuj_wynik": "Copy result",
+    "ui.game.udostepnij": "Share",
+    "ui.game.niedomkniety": "not closed",
+    "ui.game.domkniety": "closed",
+    "ui.game.a_narzedziem_v": ", and the weapon was {v}",
+    "ui.game.byl": "was",
+    "ui.game.byla": "was",
+    "ui.game.sprawa_umorzona": "CASE DROPPED",
+    "ui.game.sprawa_zamknieta": "CASE CLOSED",
+    "ui.game.siatka_powiazan_label_city_name_year": "Siatka · {label}\n{city_name}, {year}\n{repeat}{v} {repeat2}{repeat3}\nHints: {hints} · {time}",
+    "ui.game.sprawa_dnia_2": "case of the day",
+    "ui.game.przegrana": "Lost",
+    "ui.game.wygrana": "Won",
+    "ui.game.wynik": "Result",
+    "ui.game.zostaly_left_proby": "{left} tries left.",
+    "ui.game.zostala_1_proba": "1 try left.",
+    "ui.game.podpowiedz_hints": "Hint {hints}",
+    "ui.game.podpowiedz_v": "Hint ({v})",
+    "ui.game.podpowiedz_v_max": "Hint {v}/{max}",
+    "ui.game.powiazania_html": "<p class=\"how\">Connections: {join}</p>",
+    "ui.game.wyklucz": "Rule out",
+    "ui.game.przywroc": "Restore",
+    "ui.game.notatnik_detektywa_ustalenia_technikow_i_html": "<h2>Detective's notebook</h2><div class=\"kind\">Findings from forensics and the doctor</div><ol>{join}</ol>{travelTable}",
+    "ui.game.czasy_dojscia_pieszo_html": "<div class=\"lbl tt-h\">Walking times</div><table class=\"tt\"><tbody>{join}</tbody></table>{v}",
+    "ui.game.stuknij_pulsujaca_pinezke_albo_zdjecie_zeby": "Tap a pulsing pin or a photo to run a string from: {name}.",
+    "ui.game.laczenie": "Connecting",
+    "ui.game.przetnij_sznurek_html": "<path class=\"s\" data-k=\"{k}\" d=\"{d}\"/><path class=\"hit\" data-k=\"{k2}\" d=\"{d2}\"><title>Cut the string</title></path>",
+    "ui.game.name_otworz_akta": "{name}, open the file",
+    "ui.game.oskarz": "Accuse",
+    "ui.game.os_czasu_karta_wprowadzajaca": "Timeline: intro card",
+    "ui.game.nowy_typ_sprawy_os_czasu_html": "<div class=\"card tl-card\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"tlH\"><h3 id=\"tlH\">New kind of case: the timeline</h3>\n    <p>Nobody can be in two places at once. The notebook has a table of walking times, and the files say when each person was seen and where. Work out who could have walked to the scene, stayed there as long as the rule says, and got back in time.</p>\n    <table class=\"tt\"><tbody><tr><td>Kiosk ↔ Scene of the crime</td><td>10 min</td></tr><tr><td>Bar ↔ Scene of the crime</td><td>15 min</td></tr></tbody></table>\n    <p class=\"ex\">The culprit spent at least 10 min at the scene. Anna was at the kiosk at 19:00 and at the bar at 19:40. The walk there (10 min), 10 min at the scene and the walk to the bar (15 min) make 35 min. She had 40, so she could have made it. Had she been at the bar at 19:30, she couldn't.</p>\n    <p>You only accuse the culprit. No weapon this time.</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"tlGo\">Get to work</button></div></div>",
+    "ui.game.hl_cars_re": "(?<v>(?:Żuk|Polonez|Maluch|Syren|Trabant|Wartburg|Fiat|Nys)\\p{L}*)",
+    "ui.game.hl_keys_re": "(?<k>(?:key|padlock|lock|alibi|witness)\\p{L}*|\\p{Lu}\\.\\p{Lu}\\.|flat (?:no\\. )?\\d+|(?:number|no\\.) \\d+)",
+    "ui.game.sprawa_dnia_v": "Case of the Day, {v}",
+    "ui.game.nowa_sprawa_na_dzis_v_left": "New case, {left} of {DAILY_NEW_CASES} {v} today",
+    "ui.game.sprawca_html": "<p>The culprit {v} {name}{v2}.</p>",
+    "ui.game.prokurator_odrzuca_akt_oskarzenia_fakty_sie": "The prosecutor throws out the indictment. The facts don't add up. {v}",
+    "ui.game.akta_sprawy_html": "<h2>{name}</h2><div class=\"kind\">{kind}</div><ul>{join}</ul>\n    <div class=\"row\">{v}\n    <button class=\"chip\" id=\"backBtn\">Case file</button></div>\n    {v2}",
+    "ui.game.akta_sprawy_podejrzanych_regul_stuknij_html": "<h2>{title}</h2><div class=\"kind\">Case file · {np} suspects · {v}{evTxt} · {rules}</div><p>{rich}</p>\n      <p class=\"how\">Tap a photo to read the file. Drag a string from pin to pin to connect the facts. Tap a string to cut it. The rules are in the notebook.</p>",
+    "ui.game.sprawa_porzucona_v_size_devicetype": "Case abandoned: {v} {size} ({deviceType})",
+    "ui.game.rozumowanie_twoja_tablica_sznurki_zgodne_html": "\n    <div class=\"stamp {v}\">{v2}</div>\n    <h3></h3>\n    {v3}\n    <p class=\"epi\">{epilogue}</p>\n    <div class=\"lbl\">Reasoning</div>\n    <ul class=\"why\">{join}</ul>\n    <div class=\"lbl\">Your board</div>\n    <div class=\"stat\">Strings backed by facts: {good} · unsupported: {bad}<br>Culprit's circuit ({label} → {label2}{v4}): {v5}</div>\n    {v6}\n    <div class=\"lbl\">Cases of the Day</div>\n    <div class=\"st-grid mini\"><div><b>{cur}</b><span>streak</span></div><div><b>{best}</b><span>best</span></div><div><b>{pct}%</b><span>won</span></div><div><b>{played}</b><span>played</span></div></div>\n    <div class=\"lbl\">All cases</div>\n    <div class=\"st-grid mini three\"><div><b>{played2}</b><span>played</span></div><div><b>{pct2}%</b><span>won</span></div><div><b>{v7}</b><span>average time</span></div></div>\n    <div class=\"lbl\">Result to share</div>\n    <div class=\"share\" id=\"shareTxt\"></div>\n    <div class=\"foot wrap\"><button class=\"btn ghost\" id=\"copyBtn\">{v8}</button><button class=\"btn ghost\" id=\"imgBtn\">Save image</button>{v9}</div>\n    <p class=\"fb-line\"><button class=\"linkish\" id=\"fbBtn\">Something doesn't add up? Report it</button></p>\n    {v10}",
+    "ui.settings.wsparcie_tworcy_ustawienia": "Support the creator: settings",
+    "ui.settings.wibracje": "Vibration",
+    "ui.settings.spokojny_jazz_z_plyty": "Quiet jazz on vinyl",
+    "ui.settings.efekty_dzwiekowe": "Sound effects",
+    "ui.settings.osiagniecia_html": "<button class=\"pick wide set-ach\" id=\"setAch\">Achievements <small>{got}/{all}</small></button>",
+    "ui.settings.zainstaluj_gre_html": "<p class=\"set-note\"><b>Install the game:</b> {hint}</p>",
+    "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Install the game</button><p class=\"set-note\">An icon on your home screen, full screen, and it works offline.</p>",
+    "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">The game is installed on this device.</p>",
+    "ui.settings.co_nowego_wroc_html": "<h3>What's new</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Back</button></div>",
+    "ui.gloss.title": "Glossary",
+    "ui.gloss.close": "Close",
+    "ui.gloss.count": "Entries from the files you have read: {n} of {all}. Tap any word with a dotted underline in the files or the notebook.",
+    "ui.gloss.empty": "The glossary is still empty. Words with a dotted underline in the files and the notebook (old shops, offices, cars, words of the era) are added here once they turn up in files you have read.",
+    "ui.gloss.list_html": "<h3>Glossary</h3>{body}\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"glBack\">Back</button></div>",
+    "ui.settings.pelny_ekran": "Full screen",
+    "ui.settings.wyjdz_z_pelnego_ekranu": "Exit full screen",
+    "ui.settings.zgloszenie_uwagi": "Feedback: ",
+    "ui.settings.przegladarka": "browser",
+    "ui.settings.aplikacja": "app",
+    "ui.settings.inna_przegladarka": "other browser",
+    "ui.settings.samsung_internet": "Samsung Internet ",
+    "ui.settings.inny_system": "other system",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu": "Click the install icon in the address bar, or the <b>⋮</b> menu → <b>“Cast, save and share”</b> → <b>“Install page as app”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b": "Tap the <b>⋮</b> menu, then <b>“Add to Home screen”</b> → <b>“Install”</b>.",
+    "ui.settings.kliknij_ikone_instalacji_w_pasku_adresu_2": "Click the install icon in the address bar, or the <b>…</b> menu → <b>“Apps”</b> → <b>“Install this site as an app”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_2": "Tap the <b>…</b> menu, then <b>“Add to phone”</b>.",
+    "ui.settings.stuknij_menu_b_b_potem_b_3": "Tap the <b>⋮</b> menu, then <b>“Install”</b> (or “Add to Home screen”).",
+    "ui.settings.stuknij_menu_b_b_potem_b_4": "Tap the <b>☰</b> menu, then <b>“Add page to”</b> → <b>“Home screen”</b>.",
+    "ui.settings.w_safari_stuknij_b_udostepnij_b": "In Safari, tap <b>Share</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, then <b>“Add to Home Screen”</b>.",
+    "ui.settings.gra_zainstalowana": "Game installed",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick\" id=\"setNews\">What's new{v}</button><button class=\"pick\" id=\"setGloss\">Glossary</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
+    "ui.settings.case_lang_next": "This case stays in the language it was started in. The new language applies from the next case.",
+    "ui.settings.cases_in_progress": "(cases: translation in progress)",
+    "ui.tutorial.samouczek_wyjscie_z_gry_na_kroku": "Tutorial: left the game at step {v}",
+    "ui.tutorial.samouczek_pominiety_na_kroku_v": "Tutorial skipped at step {v}",
+    "ui.tutorial.samouczek_ukonczony": "Tutorial completed",
+    "ui.tutorial.zainstaluj_gre_na_telefonie_ikona_html": "<button class=\"btn ghost\" id=\"hwInstallBtn\">Install the game on your phone</button><small>An icon on your home screen, full screen, works offline.</small>",
+    "ui.tutorial.graj_jak_w_aplikacji_html": "<b>Play it like an app.</b> {hintHtml}",
+    "ui.tutorial.dalej": "Next",
+    "ui.tutorial.oskarz_akt_oskarzenia_sprawca_narzedzie_html": "<div class=\"hw-desk\"></div><span class=\"hw-lives\"><i></i><i></i><i></i></span>\n        <span class=\"hw-btn\">Accuse</span>\n        <div class=\"hw-acc\"><b class=\"h\">Indictment</b><span>Culprit: <b>{name}</b></span><span>Weapon: <b>{toLowerCase}</b></span>\n          <span class=\"hw-stamp\">CASE CLOSED</span><span class=\"hw-stars\">★★★</span></div>{F}",
+    "ui.tutorial.podpowiedz_nie_zdradza_odpowiedzi_wskazuje_r": "A hint never gives the answer away. It points to a rule worth checking.",
+    "ui.tutorial.gdy_wiesz_kto_i_czym_stuknij": "Once you know who did it and with what, tap “Accuse”. You get three tries. Every mistake costs a star, and so does using a hint.",
+    "ui.tutorial.oskarzenie": "The charge",
+    "ui.tutorial.spelnia_br_wszystkie": "fits<br>all",
+    "ui.tutorial.lamie_br_3": "breaks<br>3",
+    "ui.tutorial.lamie_br_1": "breaks<br>1",
+    "ui.tutorial.alibi": "alibi",
+    "ui.tutorial.garazu": "the garage",
+    "ui.tutorial.klucz": "key",
+    "ui.tutorial.ten_kto_nie_lamie_zadnej_reguly": "Whoever breaks no rule is the culprit. Made a mistake? “Restore” undoes it.",
+    "ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika": "The culprit fits every rule in the notebook. Every innocent breaks at least one – when they do, tap “Rule out” in their file.",
+    "ui.tutorial.sznurki_to_twoje_notatki_gra_nie": "The strings are your notes. The game won't tell you which are right. It only counts them at the end.",
+    "ui.tutorial.przeciagnij_sznurek_od_pinezki_do_pinezki": "Drag a string from pin to pin to connect a person with a place or an item. Pins that can be connected pulse. Tap a string to cut it.",
+    "ui.tutorial.sznurek": "The string",
+    "ui.tutorial.swiadkow": "Witnesses",
+    "ui.tutorial.spal": "asleep",
+    "ui.tutorial.spala": "asleep",
+    "ui.tutorial.piwnicy": "the cellar",
+    "ui.tutorial.ja": "her",
+    "ui.tutorial.na_tablicy_wisza_podejrzani_miejsca_i": "Suspects, places and items hang on the board. A red dot on a photo means you haven't read that file yet.",
+    "ui.tutorial.codziennie_nowa_sprawa_z_lat_90": "A new case from 1990s Poland every day. Tap a photo to open the file.",
+    "ui.tutorial.notatnik_sprawca_ma_do_nie_html": "<div class=\"hw-desk\"></div>\n        <div class=\"hw-note\"><b class=\"h\">Notebook</b><ol>\n          <li class=\"q1\">The culprit has a {k} to {l}.</li>\n          <li class=\"q2\">The culprit has no {k2} between {fxT} and {fxT2}.</li>\n          <li class=\"q3\">The culprit wears glasses.</li></ol></div>\n        {join}\n        {tag}{tag2}{tag3}",
+    "ui.stats.statystyki_otwarte": "Statistics opened",
+    "ui.stats.umorzone": "dropped",
+    "ui.stats.statystyki_wyniki_w_tej_przegladarce_html": "<h3>Statistics</h3><p class=\"sub\">Results in this browser.</p>\n    <div class=\"lbl\">Cases of the Day</div>\n    <div class=\"st-grid\">\n      <div><b>{cur}</b><span>streak</span></div><div><b>{best}</b><span>best</span></div>\n      <div><b>{pct}%</b><span>won</span></div><div><b>{played}</b><span>played</span></div>\n    </div>\n    <div class=\"lbl\">Stars in Cases of the Day</div>\n    {row}{row2}{row3}{row4}\n    <div class=\"lbl\">All cases</div>\n    <div class=\"st-grid three\">\n      <div><b>{played2}</b><span>played</span></div><div><b>{pct2}%</b><span>won</span></div>\n      <div><b>{v}</b><span>average time</span></div>\n    </div>\n    <p class=\"stat\">Archive cases: solved {won} of {played3}.</p>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"statsClose\">Close</button></div>",
+    "ui.ach.osiagniecia_html": "\n  <div class=\"overlay ach-pop\" id=\"achPop\" hidden><div class=\"card\" id=\"achPopCard\" role=\"dialog\" aria-modal=\"true\" aria-live=\"assertive\"></div></div>\n  <div class=\"overlay\" id=\"achList\" hidden><div class=\"card\" id=\"achListCard\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Achievements\"></div></div>",
+    "ui.ach.osiagniecia_otwarte": "Achievements opened",
+    "ui.ach.osiagniecia_zdobyte_z_zapisane_w_html": "<h3>Achievements</h3><p class=\"sub\">Earned: {got} of {all}. Saved in this browser.</p>\n    <ul class=\"ach-list\">{rows}</ul>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"achClose\">Close</button></div>",
+    "ui.ach.nowe_osiagniecie_html": "\n    <div class=\"ach-kicker\">New achievement</div>\n    <div class=\"ach-stage\"><div class=\"ach-rays\"></div>{badge}{repeat}</div>\n    <div class=\"ach-tier t{tier}\">{tierName}</div>\n    <h3>{name}</h3>\n    <p class=\"ach-desc\">{desc}</p>\n    <div class=\"foot\"><button class=\"btn red\" id=\"achOk\">{v}</button></div>",
+    "ui.ach.osiagniecie_name": "Achievement: {name}",
+    "ui.ach.zloto": "gold",
+    "ui.ach.braz": "bronze",
+    "ui.ach.weteran": "Veteran",
+    "ui.ach.zamknij_sprawe_z_kazdego_roku_od": "Close a case from every year from 1989 to 1999.",
+    "ui.ach.cala_dekada": "The whole decade",
+    "ui.ach.rozwiaz_sprawe_dnia_30_dni_z": "Solve the Case of the Day 30 days in a row.",
+    "ui.ach.miesiac_na_sluzbie": "A month on duty",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi_na": "Close a case with six suspects for three stars.",
+    "ui.ach.wielka_szostka": "The big six",
+    "ui.ach.zamknij_sprawe_kazdego_z_11_typow": "Close a case of each of the 11 kinds of crime.",
+    "ui.ach.wszechstronny": "All-rounder",
+    "ui.ach.zamknij_sprawe_w_kazdym_z_siedmiu": "Close a case in each of the seven cities.",
+    "ui.ach.delegacja": "Out of town",
+    "ui.ach.rozwiaz_sprawe_dnia_siedem_dni_z": "Solve the Case of the Day seven days in a row.",
+    "ui.ach.tydzien_na_sluzbie": "A week on duty",
+    "ui.ach.zamknij_sprawe_z_szescioma_podejrzanymi": "Close a case with six suspects.",
+    "ui.ach.grube_akta": "A thick file",
+    "ui.ach.wygraj_z_co_najmniej_10_sznurkami": "Win with at least 10 strings backed by facts.",
+    "ui.ach.pajeczyna": "Spider's web",
+    "ui.ach.wygraj_z_domknietym_obwodem_sprawcy_i": "Win with the culprit's circuit closed and not a single unsupported string.",
+    "ui.ach.czysta_robota": "Clean job",
+    "ui.ach.zamknij_sprawe_w_mniej_niz_dwie": "Close a case in under two minutes.",
+    "ui.ach.blyskawica": "Lightning",
+    "ui.ach.staly_bywalec": "Regular",
+    "ui.ach.rozwiaz_sprawe_dnia_trzy_dni_z": "Solve the Case of the Day three days in a row.",
+    "ui.ach.staly_rytm": "Steady beat",
+    "ui.ach.zamknij_sprawe_miedzy_polnoca_a_czwarta": "Close a case between midnight and four in the morning.",
+    "ui.ach.nocna_zmiana": "Night shift",
+    "ui.ach.przed_oskarzeniem_wyklucz_wszystkich_niewinn": "Rule out every innocent before you accuse.",
+    "ui.ach.sito": "Sieve",
+    "ui.ach.wygraj_przy_ostatniej_probie": "Win on your last try.",
+    "ui.ach.ostatni_naboj": "Last bullet",
+    "ui.ach.zamknij_sprawe_na_trzy_gwiazdki": "Close a case for three stars.",
+    "ui.ach.bez_pudla": "Dead on",
+    "ui.ach.zamknij_pierwsza_sprawe": "Close your first case.",
+    "ui.ach.pierwsza_sprawa": "First case",
+    "ui.share.sprawa_umorzona": "CASE DROPPED",
+    "ui.share.sprawa_zamknieta": "CASE CLOSED",
+    "ui.share.dni": "days",
+    "ui.share.dzien": "day",
+    "ui.share.seria": "streak",
+    "ui.share.podpowiedzi": "hints",
+    "ui.share.pomylki": "mistakes",
+    "ui.share.czas": "time",
+    "ui.share.siatka_powiazan": "Siatka – a Polish Crime Board",
+    "ui.track.dniach": "days",
+    "ui.track.dniu": "day",
+    "ui.track.nowy_gracz": "New player",
+    "ui.track.powrot_w_dniu_n_po_pierwszej": "Return on day {n} after first game ({device})",
+    "ui.track.powrot_po_n_v": "Return after {n} {v}",
+    "ui.game.samouczek_przycisk": "Tutorial: button",
+    "ui.game.zaznaczono_skopiuj": "Selected – copy it",
+    "ui.game.min_html": "<tr><td>{nm} ↔ {nm2}</td><td>{m} min</td></tr>",
+    "ui.settings.aplikacja_html": "<div class=\"lbl\">App</div>{app}",
+    "ui.settings.nowe_html": "<span class=\"dot\" aria-label=\"new\"></span>",
+    "ui.settings.wersja_html": "<h4>Version {v}<small>{fmtDate}</small></h4><ul>{join}</ul>",
+    "ui.tutorial.krok_html": "<button data-j=\"{j}\" aria-label=\"Step {v}: {title}\"{v2}></button>",
+    "ui.tutorial.widziano_o_ma_do_od_html": "<div class=\"hw-desk\"></div>{pol}\n        <div class=\"hw-sheet\"><b class=\"h\">{name}</b><ul>\n          <li>Seen in {l} at {fxT}.</li>\n          <li>Has a {k} to {l2}.</li>\n          <li>{v2} from {fxT2}. {k2}: none.</li></ul></div>\n        <i class=\"hw-f\" style=\"--x:53px;--y:86px\"></i>",
+    "ui.ach.zdobyte_html": "<small>{v} · earned {date}</small>",
+    "ui.game.z_3_html": "<div class=\"stars\" aria-label=\"{stars} of 3\">{repeat}{repeat2}</div>",
+    "ui.ach.z_html": "<div class=\"ach-bar\"><i style=\"width:{v}%\"></i></div><small>{prog} of {need}</small>",
+    "ui.game.n_dowod_1": "piece of evidence",
+    "ui.game.n_dowod_2": "pieces of evidence",
+    "ui.game.n_dowod_5": "pieces of evidence",
+    "ui.game.n_przedmiot_1": "item",
+    "ui.game.n_przedmiot_2": "items",
+    "ui.game.n_przedmiot_5": "items",
+    "ui.game.n_miejsce_1": "place",
+    "ui.game.n_miejsce_2": "places",
+    "ui.game.n_miejsce_5": "places",
+    "ui.game.n_regula_1": "rule",
+    "ui.game.n_regula_2": "rules",
+    "ui.game.n_regula_5": "rules",
+    "ui.game.w_trakcie": "in progress",
+    "ui.game.sprawa_z_archiwum": "Archive case",
+    "ui.game.sprawa_padstart": "Case #{padStart}",
+    "ui.game.seria_cur": "\nStreak: {cur} 🔥",
+    "ui.game.seria_cur_dni": "{cur}-day streak",
+    "ui.game.wynik_starsof_z_3_gwiazdek": "Result: {starsOf} of 3 stars",
+    "ui.game.wygrana_devicetype": "Won ({deviceType})",
+    "ui.game.wykluczony": " · ruled out",
+    "ui.game.pinezka_name": "Pin: {name}",
+    "ui.game.start_v_size": "Start: {v} {size}",
+    "ui.settings.co_nowego": "What's new",
+    "ui.settings.muzyka_w_tle": "Background music",
+    "ui.settings.instalacja_v_where": "Install: {v} ({where})",
+    "ui.tutorial.do_roboty": "Get to work!",
+    "ui.tutorial.krok_v_z_length": "Step {v} of {length}",
+    "ui.tutorial.ilustracja_title": "Illustration: {title}",
+    "ui.tutorial.notatnik_i_wykluczanie": "Notebook and ruling out",
+    "ui.tutorial.na_miejscu": "at the scene",
+    "ui.tutorial.tablica_i_akta": "The board and the files",
+    "ui.ach.do_akt": "File it",
+    "ui.ach.dalej_left": "Next ({left})",
+    "gen.classic.komisarz_detective": "Commissioner {detective}",
+    "gen.classic.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
+    "gen.timeline.komisarz_detective": "Commissioner {detective}",
+    "gen.timeline.porucznik_detective_z_mo": "Lieutenant {detective}, Citizens' Militia ({g:mo|MO})",
+    "gen.timeline.label_split_re": " (?:on|at|in|of|by|from|outside|near|behind|under|beside) ",
+    "gen.timeline.name_d_min": "{name}: {d} min",
+    "ui.changelog": null // „What's new”: the list is in data/i18n/en/changelog.js (null here never overrides it)
+  };
+  /* END MESSAGES */
+
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("./i18n.js") : null);
+  if (I18N) I18N.register("en", { messages, grammar });
+  if (typeof module !== "undefined" && module.exports) module.exports = { messages, grammar };
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/en/base.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — treści generatora po angielsku (warstwa epoki: Polska 1989–1999).
+ * Ta sama struktura, kolejność i długości list co data/i18n/pl/base.js (ten sam seed = ta sama sprawa;
+ * pilnuje tego tools/i18n-check.js). Różnią się tylko teksty. Opis pól: docs/i18n-en-spec.md.
+ * Wspólne dla wszystkich miast: imiona, role, miejsca, przedmioty, cechy,
+ * alibi, typy zbrodni i sceny. Realia konkretnych lat mają zakres `years`.
+ *
+ * Konwencje tekstowe:
+ *   [męska|żeńska]    wariant wg płci postaci; dla przedmiotów [m|f|n]
+ *   {klucz}           wstawka z miasta, roku lub sprawy, np. {street}, {market_on},
+ *                     {team}, {church_at}, {money}, {police_dat}, {district_na}
+ *   {t:"…", years:[od,do]}   tekst tylko dla danych lat (włącznie)
+ *
+ * Wszystko, co wpływa na logikę (klucze, cechy, przedmioty, miejsca), jest danymi.
+ * Smaczki tylko ubierają fakty i niczego nie przesądzają.
+ */
+(function (root) {
+  const BASE = {
+    years: [1989, 1999],
+    /* wyrażenia, którymi silnik rozpoznaje treść (classic.js): wspomina dozorcę (noJanitor), „tamten wieczór” w dokumencie
+       (bez kłamstwa „inny dzień”), późny dokument (ostatni seans, nocna zmiana). Muszą trafiać w te same wpisy w każdym
+       języku (pilnuje tego tools/i18n-check.js). janitor i thatEvening bez rozróżniania wielkości liter, lateDoc z rozróżnianiem. */
+    textRe: { janitor:"dozorca|caretaker|janitor", thatEvening:"that (evening|day|night)", lateDoc:"last (showing|perm)|\\bnight (post|shift|bus|scenes|duty)|on the night|up late" },
+  /* Cennik (2.2): rodzaj kwoty → [od, do] w złotych dla 1989, 1990–1994 (stare złote) i od 1995 (nowe złote).
+     W tekście {kwota_<rodzaj>} (dowody rzeczowe) albo {money} / {ransom} (sceny, motywy; z _gen w dopełniaczu). */
+  prices: {
+    parking: [[300, 1000], [10000, 40000], [3, 8]],          // doba na parkingu strzeżonym
+    fine:    [[2000, 10000], [50000, 300000], [20, 100]],    // mandat
+    shoes:   [[8000, 25000], [250000, 700000], [60, 160]],   // półbuty skórzane
+    repair:  [[10000, 40000], [300000, 900000], [80, 250]],  // naprawa auta w warsztacie
+    oc:      [[10000, 30000], [600000, 2500000], [200, 600]],// składka OC na rok
+    optic:   [[1000, 4000], [30000, 120000], [10, 30]],      // drobna naprawa okularów
+    lenses:  [[5000, 20000], [200000, 600000], [60, 200]],   // nowe szkła
+    vet:     [[1000, 5000], [50000, 200000], [20, 60]],      // wizyta w lecznicy
+    dogtax:  [[500, 2000], [30000, 100000], [20, 50]],       // roczna opłata za psa
+    sewing:  [[500, 2000], [20000, 80000], [5, 15]],         // wszycie zamka
+    jacket:  [[10000, 40000], [300000, 900000], [50, 150]],  // kurtka z ortalionu
+    keycopy: [[200, 800], [10000, 40000], [4, 12]],          // dorobienie klucza
+    bribe:   [[5000, 20000], [500000, 2000000], [50, 200]],  // łapówka za zwolnienie lekarskie
+    money:   [[200000, 900000], [3000000, 60000000], [500, 8000]], // dług, żądanie szantażysty, straty
+    ransom:  [[100000, 500000], [3000000, 20000000], [300, 2000]]  // okup za psa
+  },
+    months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
+    detective: "Wacław Grzyb",
+
+    /* ------------------------------------------------------------------ */
+    /* IMIONA I NAZWISKA                                                    */
+    /* ------------------------------------------------------------------ */
+    /* Imiona wg pokolenia (w latach 90.): old = urodzeni do ok. 1935, mid = 1936–1960, young = po 1960.
+       Rola ma `age` (jedno albo lista); bez `age` imię może być z każdego pokolenia. */
+    names: {
+      m: {
+        old:   ["Henryk","Tadeusz","Stanisław","Kazimierz","Edward","Józef","Czesław","Mieczysław","Zenon","Eugeniusz",
+                "Bronisław","Witold","Władysław","Bolesław","Alojzy","Zygmunt","Ludwik","Florian","Antoni","Stefan",
+                "Feliks","Ignacy","Franciszek","Wincenty","Leon","Walenty","Teodor"],
+        mid:   ["Roman","Zbigniew","Mirosław","Ryszard","Jerzy","Wiesław","Andrzej","Marek","Zdzisław","Bogdan",
+                "Leszek","Janusz","Waldemar","Lech","Sławomir","Jan","Ireneusz","Bogusław","Edmund","Romuald",
+                "Lucjan","Gerard","Marian","Karol","Bernard"],
+        young: ["Grzegorz","Krzysztof","Jacek","Wojciech","Dariusz","Tomasz","Piotr","Adam","Jarosław","Robert",
+                "Artur","Mariusz","Paweł","Marcin","Michał","Rafał","Sebastian","Łukasz","Przemysław","Radosław",
+                "Daniel","Bartosz","Maciej","Szymon","Damian","Jakub","Arkadiusz","Kamil"]
+      },
+      f: {
+        old:   ["Jadwiga","Wanda","Stanisława","Zofia","Genowefa","Kazimiera","Helena","Leokadia","Czesława","Marianna",
+                "Regina","Janina","Bronisława","Henryka","Ludmiła","Aniela","Apolonia","Józefa","Franciszka","Rozalia",
+                "Eugenia","Władysława","Stefania","Cecylia","Pelagia","Waleria","Michalina"],
+        mid:   ["Bożena","Halina","Grażyna","Krystyna","Danuta","Teresa","Barbara","Elżbieta","Irena","Bogumiła",
+                "Lucyna","Mirosława","Jolanta","Urszula","Ewa","Hanna","Alicja","Wiesława","Celina","Sabina",
+                "Gabriela","Lidia","Zdzisława","Bogusława","Mariola","Elwira","Ryszarda"],
+        young: ["Renata","Beata","Dorota","Iwona","Agnieszka","Małgorzata","Joanna","Anna","Edyta","Aneta",
+                "Monika","Katarzyna","Marzena","Violetta","Magdalena","Justyna","Sylwia","Ilona","Kinga","Izabela",
+                "Marta","Ewelina","Agata","Dominika","Karolina","Paulina","Patrycja"]
+      }
+    },
+    /* [forma męska, forma żeńska] */
+    surnames: [
+      ["Kulesza","Kulesza"],["Sitek","Sitek"],["Morawski","Morawska"],["Wrzos","Wrzos"],["Pawlak","Pawlak"],
+      ["Kowalczyk","Kowalczyk"],["Zając","Zając"],["Wróblewski","Wróblewska"],["Majewski","Majewska"],["Jabłoński","Jabłońska"],
+      ["Sowa","Sowa"],["Malinowski","Malinowska"],["Grabowski","Grabowska"],["Kaczmarek","Kaczmarek"],["Piątek","Piątek"],
+      ["Szczepański","Szczepańska"],["Borkowski","Borkowska"],["Lis","Lis"],["Dudek","Dudek"],["Wieczorek","Wieczorek"],
+      ["Sadowski","Sadowska"],["Kurek","Kurek"],["Czarnecki","Czarnecka"],["Ostrowski","Ostrowska"],["Cieślak","Cieślak"],
+      ["Rogalski","Rogalska"],["Nowicki","Nowicka"],["Gajewski","Gajewska"],["Mazur","Mazur"],["Jasiński","Jasińska"],
+      ["Wilk","Wilk"],["Kalinowski","Kalinowska"],["Bąk","Bąk"],["Sobczak","Sobczak"],["Rutkowski","Rutkowska"],
+      ["Michalak","Michalak"],["Krawczyk","Krawczyk"],["Przybylski","Przybylska"],["Gołębiowski","Gołębiowska"],["Kozłowski","Kozłowska"],
+      ["Wysocki","Wysocka"],["Adamczyk","Adamczyk"],["Ziółkowski","Ziółkowska"],["Baran","Baran"],["Sikora","Sikora"],
+      ["Chmielewski","Chmielewska"],["Tomaszewski","Tomaszewska"],["Zawadzki","Zawadzka"],["Kubiak","Kubiak"],["Pietrzak","Pietrzak"],
+      ["Malina","Malina"],["Kos","Kos"],["Cichy","Cicha"],["Szulc","Szulc"],["Frankowski","Frankowska"]
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* ROLE (wspólne). Miasta dokładają własne role i „robotnika”.          */
+    /* access: miejsca, do których rola naturalnie ma klucz.               */
+    /* ------------------------------------------------------------------ */
+    roles: [
+      { id:"dozorca", age:["mid","old"], m:"Building {g:dozorca|dozorca}", f:"Building {g:dozorca|dozorca}", access:["piwnica","pralnia","kotlownia"],
+        outfit:{shape:"apron",c:"#6c7a8a",d:"#a9b4c0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Knows every tenant by their footsteps on the stairs.","Keeps a notebook of who comes home at what time."] },
+      { id:"administrator", age:"mid", m:"Building manager", f:"Building manager", access:["piwnica","kotlownia","pralnia"],
+        outfit:{shape:"collar",c:"#4f5560",d:"#d8d2c4"}, headwear:{m:[],f:[]},
+        flavor:["Wears a bunch of keys on [his|her] belt that jangles up the whole staircase."] },
+      { id:"aptekarz", age:["mid","old"], m:"Pharmacist", f:"Pharmacist", access:["apteka"],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#3e6b5c"}, headwear:{m:[],f:[]},
+        flavor:["Remembers who bought something stronger, and when.","Speaks slowly and very precisely."] },
+      { id:"mechanik", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"Mechanic", f:null, access:["garaz"],
+        outfit:{shape:"plain",c:"#3d5a85",d:"#2b3f5e"}, headwear:{m:["kaszkiet",""]},
+        flavor:["[His|Her] nails are black with grease.","Fixes the neighbours' {g:maluch|Maluchs} after hours.",
+                {t:"Does up cars brought in from Germany so they pass inspection.", years:[1991,1999]}] },
+      { id:"stolarz", age:["mid","old"], m:"Carpenter", f:null, access:["warsztat"],
+        outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Smells of sawdust and varnish.","Has been making furniture to order for thirty years."] },
+      { id:"fryzjer", age:["young","mid"], m:"Hairdresser", f:"Hairdresser", access:["fryzjer"],
+        outfit:{shape:"collar",c:"#e6d3dd",d:"#8c3b4a"}, headwear:{m:[],f:[]},
+        flavor:["Knows every bit of gossip in the district.","Does perms and cuts hair “like Bond”."] },
+      { id:"sklepowa", age:"mid", m:"Grocery shop assistant", f:"Grocery shop assistant", access:["sklep"],
+        outfit:{shape:"apron",c:"#f1f1ea",d:"#b0423a"}, headwear:{m:[],f:[""]},
+        flavor:["Knows the delivery times better than the driver.",
+                {t:"Still keeps things under the counter for friends.", years:[1989,1990]},
+                {t:"Now the shelves are full, complains that people have no money.", years:[1990,1999]}] },
+      { id:"kioskarz", age:["mid","old"], m:"Kiosk vendor", f:"Kiosk vendor", access:["kiosk"],
+        outfit:{shape:"jacket",c:"#5d6b4f",d:"#c9b98f"}, headwear:{m:["beret"],f:["beret"]},
+        flavor:["Puts the morning papers aside for regulars.","Also sells tokens for the phone box.",
+                {t:"Sells lottery coupons and scratchcards.", years:[1993,1999]}] },
+      { id:"palacz", age:"mid", m:"Boiler-room stoker", f:null, access:["kotlownia"],
+        outfit:{shape:"plain",c:"#3a3a3a",d:"#5a5a5a"}, headwear:{m:["kaszkiet"]},
+        flavor:["[His|Her] face is grey with coal dust.","From October onwards practically lives in the boiler room."] },
+      { id:"dzialkowiec", age:"old", m:"Allotment holder", f:"Allotment holder", access:["dzialka"],
+        outfit:{shape:"jacket",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Grows tomatoes and talks about them tenderly.","Wins the biggest-pumpkin contest every year."] },
+      { id:"hydraulik", age:"mid", m:"Plumber", f:null, access:["kotlownia","piwnica"],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Always carries an adjustable spanner.","Takes payment for side jobs in Deutschmarks."] },
+      { id:"maglarka", age:"old", m:null, f:"Mangle woman", access:["pralnia"],
+        outfit:{shape:"apron",c:"#7d6a8f",d:"#d8cfe3"}, headwear:{f:["chustka"]},
+        flavor:["Washes and mangles for half the tenement.","Knows who has new bed linen and who's patching the old."] },
+      { id:"emeryt", age:"old", no:["job","fired"], m:"Retired railwayman", f:"Retired schoolteacher", access:[],
+        outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["kolejarz",""],f:[""]},
+        flavor:["Spends all day at the window with a cushion under [his|her] elbows.","Writes to the local paper about potholes in the pavement."] },
+      { id:"taksowkarz", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"Taxi driver", f:null, access:[],
+        outfit:{shape:"jacket",c:"#2b2b2b",d:"#d9a648"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Takes fares from the rank at {dworzec}.","Knows every shortcut in town.",
+                {t:"Drives for a radio taxi firm and has a CB radio in the car.", years:[1991,1999]}] },
+      { id:"listonosz", age:["young","mid"], m:"Postman", f:"Postwoman", access:[],
+        outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+        flavor:["Knows every letterbox by heart.","Delivers pensions and knows who gets how much."] },
+      { id:"student", age:"young", no:["job","fired"], m:"Student at {uni}", f:"Student at {uni}", access:[],
+        outfit:{shape:"jacket",c:"#7a3b3b",d:"#d8c3a5"}, headwear:{m:[""],f:[""]},
+        flavor:["Rents a room from an old lady on the third floor.","Plays Kult on the cassette player so loud you can hear it in the yard."] },
+      { id:"handlarz", age:["young","mid"], m:"Trader {market_from}", f:"Trader {market_from}", access:[], years:[1989,1999],
+        outfit:{shape:"jacket",c:"#7a6a3b",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Counts money faster than a till.",
+                {t:"Sells jeans “straight from Turkey”.", years:[1990,1997]},
+                {t:"Brings goods back from West Berlin in checked plastic bags.", years:[1989,1990]}] },
+      { id:"pielegniarka", age:["young","mid"], m:"Nurse", f:"Nurse", access:[],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#6f8fae"}, headwear:{m:[""],f:[""]},
+        flavor:["Works shifts at {szpital}.","Always carries plasters and mints."] },
+      { id:"motorniczy", age:"mid", m:"Tram driver", f:"Tram driver", access:[],
+        outfit:{shape:"collar",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+        flavor:["Knows the timetable by heart.","Still hears the tram bell an hour after the shift ends."] },
+      { id:"lokator", age:["young","mid","old"], m:"Ground-floor tenant", f:"Ground-floor tenant", access:[],
+        outfit:{shape:"jacket",c:"#5a5f6a",d:"#b9bcc2"}, headwear:{m:[""],f:[""]},
+        flavor:["Lives right by the gate and hears everyone who comes in.","Keeps a canary that starts singing at six in the morning."] },
+      { id:"cinkciarz", age:["young","mid"], m:"Black-market money changer", f:"Black-market money changer", access:[], years:[1989,1989],
+        outfit:{shape:"jacket",c:"#3b3054",d:"#c0b0d8"}, headwear:{m:[""],f:[""]},
+        flavor:["Asks passers-by outside the hotel if they have dollars.","Wears a gold signet ring and carries a fat roll of notes."] },
+      { id:"bylycinkciarz", age:"mid", m:"Former black-market money changer", f:"Former black-market money changer", access:[], years:[1990,1995],
+        outfit:{shape:"jacket",c:"#3b3054",d:"#c0b0d8"}, headwear:{m:[""],f:[""]},
+        flavor:["Still knows the dollar rate by heart, though the exchange bureaux took [his|her] living away.","Wears a gold signet ring and carries a fat roll of notes."] },
+      { id:"krawcowa", age:["mid","old"], m:"Tailor", f:"Dressmaker", access:[],
+        outfit:{shape:"collar",c:"#8a6d55",d:"#e8d9c1"}, headwear:{m:[""],f:[""]},
+        flavor:["Turns parents' old overcoats into fashionable jackets.","Keeps pins in [his|her] mouth while talking."] },
+      { id:"organista", age:["mid","old"], m:"Parish organist", f:null, access:[],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#e6e6e6"}, headwear:{m:[""]},
+        flavor:["Plays at evening Mass {church_at}.","Knows every wedding and funeral in the district."] },
+      { id:"wideo", age:"young", m:"Video rental shop owner", f:"Video rental shop owner", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#1f3a5a",d:"#e0662b"}, headwear:{m:[""],f:[""]},
+        flavor:["Knows every Van Damme film by heart.","Keeps the hit tapes under the counter for regulars."] },
+      { id:"akwizytor", age:"young", m:"Door-to-door salesman", f:"Door-to-door saleswoman", access:[], years:[1991,1999],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#d8d2c4"}, headwear:{m:[""],f:[""]},
+        flavor:["Goes from door to door with pots, vacuum cleaners and a huge smile.","Doesn't take no for an answer."] },
+      { id:"ochroniarz", age:"young", m:"Security guard", f:null, access:[], years:[1992,1999],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:[""]},
+        flavor:["Guards a wholesale warehouse on the night shift.","Wears tall black boots even in July."] },
+      { id:"prywaciarz", age:["young","mid"], m:"Clothes stall owner", f:"Clothes stall owner", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:[""]},
+        flavor:["Sets up the tin stall in the morning and padlocks it in the evening.","Always has change, but never gives a receipt."] },
+      /* --- wydanie 2.1.1: kolejne role (każda ma alibi zawodowe w alibiConfirmed) --- */
+      { id:"kaowiec", age:["young","mid"], m:"Community centre instructor", f:"Community centre instructor", access:["swietlica"],
+        outfit:{shape:"jacket",c:"#6b4a8a",d:"#d8cfe3"}, headwear:{m:["beret",""],f:[""]},
+        flavor:["Runs an art club and a children's choir for the estate.","Paints the banners and decorations for every holiday."] },
+      { id:"ksiegowa", age:"mid", m:"Cooperative accountant", f:"Cooperative accountant", access:["administracja"],
+        outfit:{shape:"collar",c:"#4f5560",d:"#e6e6e6"}, headwear:{m:[],f:[]},
+        flavor:["Is faster on an adding machine than others on a calculator.","Knows which tenants are behind with the rent, and since when."] },
+      { id:"maszynistka", age:["mid","old"], m:null, f:"Typist at the cooperative office", access:["administracja"],
+        outfit:{shape:"collar",c:"#8c3b4a",d:"#eee8dc"}, headwear:{f:[""]},
+        flavor:["Types without looking at the keys.","Keeps slippers under the desk and biscuits in the drawer."] },
+      { id:"inkasent", age:"mid", m:"Gas board {g:inkasent|meter man}", f:"Gas board {g:inkasent|meter woman}", access:["piwnica"],
+        outfit:{shape:"jacket",c:"#3e4a6b",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["beret"]},
+        flavor:["Reads the meters in every cellar in the district.","Keeps a notebook of readings and logs every visit to the minute."] },
+      { id:"zegarmistrz", age:["mid","old"], m:"Watchmaker", f:null, access:[],
+        outfit:{shape:"collar",c:"#2b2b33",d:"#c9a646"}, headwear:{m:[""]},
+        flavor:["Wears a loupe in one eye even out in the street.","Says [he|she] can tell every clock in the tenement by its tick."] },
+      { id:"szewc", age:["mid","old"], m:"Cobbler", f:null, access:[],
+        outfit:{shape:"apron",c:"#5a3a2a",d:"#a5835a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Has a workshop in the basement and knows everyone by their shoes.","Keeps the tacks in [his|her] mouth while talking."] },
+      { id:"kucharka", age:["mid","old"], m:"Canteen cook", f:"Canteen cook", access:[],
+        outfit:{shape:"apron",c:"#f1f1ea",d:"#d8d2c4"}, headwear:{m:[""],f:["chustka"]},
+        flavor:["Cooks lunches in the works canteen and knows everyone by their appetite.","Always takes a jar of soup home."] },
+      { id:"nauczyciel", age:["mid","old"], m:"Maths teacher", f:"Maths teacher", access:[],
+        outfit:{shape:"collar",c:"#59493b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+        flavor:["Teaches half the children in the tenement at the primary school round the corner.","Marks tests in red biro at the kitchen table."] },
+      { id:"lekarz", age:["mid","old"], m:"Local clinic doctor", f:"Local clinic doctor", access:[],
+        outfit:{shape:"collar",c:"#f1f1ea",d:"#6f8fae"}, headwear:{m:[""],f:[""]},
+        flavor:["Sees patients at the district clinic and does home visits.","Writes prescriptions only the pharmacist can read."] },
+      { id:"weterynarz", age:"mid", no:["dogfear"], m:"Vet", f:"Vet", access:[],
+        outfit:{shape:"collar",c:"#3f6b3a",d:"#e6e6e6"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Treats the whole district's dogs and cats, often for free.","Carries treats in [his|her] pocket for the patients in the waiting room."] },
+      { id:"kierowca", age:"mid", need:{car:"yes"}, no:["nodrive"], m:"{g:mpk|MPK} bus driver", f:null, access:[],
+        outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["kolejarz"]},
+        flavor:["Drives the night bus and knows every passenger coming home at midnight.","Waits at a stop for exactly one minute, not a second more."] },
+      { id:"kombatant", age:"old", no:["job","fired"], m:"Retired warrant officer", f:null, access:[],
+        outfit:{shape:"collar",c:"#4c6b3a",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+        flavor:["Walks as straight-backed as on parade.","Pins [his|her] medals to the jacket on every anniversary."] },
+      { id:"konduktor", age:["young","mid"], m:"{g:pkp|PKP} ticket inspector", f:"{g:pkp|PKP} ticket inspector", access:[],
+        outfit:{shape:"collar",c:"#2b3f5e",d:"#c9a646"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+        flavor:["Knows the timetable of trains to Warsaw and back by heart.","Carries a ticket punch in [his|her] pocket."] },
+      { id:"bibliotekarka", age:["mid","old"], m:"Librarian", f:"Librarian", access:["swietlica"],
+        outfit:{shape:"collar",c:"#7d6a8f",d:"#e8d9c1"}, headwear:{m:[""],f:[""]},
+        flavor:["Runs the estate library in the back of the community centre.","Knows who hasn't returned “The Leper” for a year."] },
+      { id:"sprzataczka", age:["mid","old"], m:"Office cleaner", f:"Office cleaner", access:["administracja"],
+        outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Cleans offices after hours and knows who leaves papers on their desk.","Wears a bunch of keys on a string tied to [his|her] apron."] },
+      { id:"elektryk", age:["young","mid"], m:"Electrician", f:null, access:["kotlownia","piwnica"],
+        outfit:{shape:"plain",c:"#5a5f6a",d:"#c9a646"}, headwear:{m:["kaszkiet",""]},
+        flavor:["Has a voltage tester and a roll of insulating tape in [his|her] pocket.","Fixes the neighbours' TVs, though [he|she] says it's not [his|her] trade."] },
+      { id:"malarz", age:["young","mid"], m:"Painter and decorator", f:null, access:[],
+        outfit:{shape:"plain",c:"#e8e8e0",d:"#c9c2b0"}, headwear:{m:["kaszkiet"]},
+        flavor:["Has paint stains on [his|her] hands that no thinner will shift.","Paints flats to order, cash in hand."] },
+      { id:"kominiarz", age:["young","mid"], m:"Chimney sweep", f:null, access:["kotlownia"],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kolejarz"]},
+        flavor:["People grab a button when they pass [him|her], for luck.","Knows every roof in the district, from attic to chimney."] },
+      { id:"kwiaciarka", age:["mid","old"], m:"Florist", f:"Florist", access:[],
+        outfit:{shape:"apron",c:"#4c6b3a",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
+        flavor:["Sells flowers from a stall by the cemetery.","Ties wreaths all night before All Saints' Day."] },
+      { id:"pewex", age:["young","mid"], m:"{g:pewex|Pewex} shop assistant", f:"{g:pewex|Pewex} shop assistant", access:[], years:[1989,1990],
+        outfit:{shape:"collar",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+        flavor:["Smells of Western perfume you can't buy for złoty.","Knows the voucher rate better than anyone in the tenement."] },
+      { id:"komis", age:"mid", m:"Second-hand electronics shop owner", f:"Second-hand electronics shop owner", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#2b2b33",d:"#c9a646"}, headwear:{m:[""],f:[""]},
+        flavor:["Has VCRs, Walkmans and TVs from Germany in the shop on {street2}.","Doesn't ask where the stock comes from if the price is right."] },
+      { id:"strazak", age:["young","mid"], m:"Firefighter", f:null, access:[],
+        outfit:{shape:"jacket",c:"#2b2b2b",d:"#c9a646"}, headwear:{m:[""]},
+        flavor:["Works 24-hour shifts at the fire station, then gets two days off.","Always the first into a burning cellar."] },
+      { id:"smieciarz", age:["young","mid"], m:"{g:mpo|MPO} binman", f:null, access:[],
+        outfit:{shape:"plain",c:"#e0662b",d:"#5a5f6a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Drives a bin lorry and knows what everyone throws away.","Gets up at four, and by then already knows the whole street."] },
+      { id:"licealista", age:"young", no:["job","fired","debt","adult"], need:{car:"no"}, m:"Secondary school pupil", f:"Secondary school pupil", access:[],
+        outfit:{shape:"jacket",c:"#1f3a5a",d:"#c9d9e0"}, headwear:{m:[""],f:[""]},
+        flavor:["Has rock band stickers on [his|her] exercise books.","Hangs out with friends outside the block after school."] },
+      { id:"bezrobotny", age:["young","mid"], no:["job"], m:"Unemployed", f:"Unemployed", access:[], years:[1990,1999],
+        outfit:{shape:"jacket",c:"#5a5f6a",d:"#8a8f99"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Since [his|her] works closed, goes to the job centre every week.","Picks up work wherever [he|she] can, mostly cash in hand."] },
+      { id:"szklarz", age:["mid","old"], m:"Glazier", f:null, access:[],
+        outfit:{shape:"apron",c:"#5e8aa0",d:"#c9d9e0"}, headwear:{m:["kaszkiet"]},
+        flavor:["Keeps a glass-cutting diamond in [his|her] breast pocket.","Every broken window in the district is good for business."] },
+      { id:"gospodyni", age:["mid","old"], no:["job","fired"], m:null, f:"Housewife", access:[],
+        outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{f:["chustka",""]},
+        flavor:["Sings in the parish choir and has never missed a rehearsal.","Can see the whole courtyard from the kitchen window."] },
+      { id:"drukarz", age:["mid","old"], m:"Printer", f:null, access:[],
+        outfit:{shape:"apron",c:"#2b2b2b",d:"#5a5f6a"}, headwear:{m:["kaszkiet"]},
+        flavor:["Works at the print shop where the local paper is typeset.","[His|Her] fingers are grey with printer's ink."] },
+      { id:"fotograf", age:["young","mid"], m:"Photographer", f:"Photographer", access:[],
+        outfit:{shape:"jacket",c:"#3a3a3a",d:"#c9a646"}, headwear:{m:["beret",""],f:["beret",""]},
+        flavor:["Runs a photo studio and takes ID pictures.","Wears a {g:zenit|Zenit} round [his|her] neck even to buy bread."] },
+      { id:"kasjer", age:"mid", m:"Bank cashier", f:"Bank cashier", access:[],
+        outfit:{shape:"collar",c:"#2f4f6f",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+        flavor:["Works behind the counter at the bank branch on {street2}.","Counts money twice, even [his|her] own."] },
+      { id:"ogrodnik", age:["mid","old"], m:"City parks gardener", f:"City parks gardener", access:[],
+        outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Trims the hedges in the park and knows every bench.","In autumn rakes leaves in the park from first light."] },
+      { id:"cpn", age:["young","mid"], need:{car:"yes"}, no:["nodrive"], m:"{g:cpn|CPN} petrol station attendant", f:"{g:cpn|CPN} petrol station attendant", access:[],
+        outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:["kaszkiet",""],f:[""]},
+        flavor:["Pumps petrol at the {g:cpn|CPN} station on the way out of town.",{t:"Knows who fills up and who buys twenty thousand złoty's worth.", years:[1989,1994]},{t:"Knows who fills up and who buys twenty złoty's worth.", years:[1995,1999]}] },
+      { id:"portier", age:["mid","old"], m:"Hotel porter", f:"Hotel porter", access:[],
+        outfit:{shape:"collar",c:"#5c2f2f",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+        flavor:["Works the night shift at the hotel by the station.","Knows who in the district rents a room by the hour."] }
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* MIEJSCA (skąd mogą zniknąć przedmioty)                              */
+    /* ------------------------------------------------------------------ */
+    locations: [
+      { id:"garaz", pt:"yard", name:"Garage in the courtyard", label:"Garage", gen:"the garage", in:"in the garage", from:"from the garage", icon:"garage",
+        open:["The lock broke long ago. The door is held shut with wire.", "The garage door stands ajar because it sticks in the frost.",
+              "The padlock hangs on the hasp just for show. Nobody snaps it shut.", "The owner keeps the door open because the neighbours are always borrowing tools."],
+        desc:["A brick lock-up in the back courtyard, with an inspection pit and shelves of tools.","A tin door, and inside a smell of grease and petrol.",
+              "A {g:pewex|Pewex} calendar hangs on the wall, with a row of tyres beneath it.","In the corner an old {g:maluch|Maluch} up on blocks, a year into waiting for parts."] },
+      { id:"apteka", pt:"shop", name:"“Pod Orłem” pharmacy", label:"Pharmacy", gen:"the pharmacy", in:"at the pharmacy", from:"from the back of the pharmacy", icon:"pharmacy",
+        open:["The back door onto the courtyard doesn't shut, and the whole tenement knows it.", "In the evening the back room stands open for deliveries.",
+              "The back-room window is open day and night, because it's stuffy with medicines.", "You get to the back room through a passage where nobody watches the door."],
+        desc:["A corner pharmacy on {street2}, with wooden drawers and a back room onto the courtyard.","Closes at 19:00. The back door opens onto the courtyard.",
+              "Behind the counter, rows of porcelain jars with Latin labels.","In the back, a table for making ointments and a stack of wholesaler's boxes."] },
+      { id:"piwnica", pt:"cellar", name:"Cellar under the tenement", label:"Cellar", gen:"the cellar", in:"in the cellar", from:"from the cellar", icon:"cellar",
+        open:["The cellar door hasn't had a lock since the war.", "Someone cut the padlock off the door long ago, and nobody fitted a new one.",
+              "The cellar door is propped open with a brick so the tenants don't have to hunt for the key.", "The lock on the cellar door was torn out in the last flood and never replaced."],
+        desc:["A damp corridor of tenants' storerooms and one bare bulb.","Steps down from the courtyard, a smell of potatoes and mildew.",
+              "Jars of pickles and stewed fruit on the shelves, each labelled with the year.","Pipes run along the ceiling, with old bikes and sledges beneath them."] },
+      { id:"warsztat", pt:"work", name:"Carpenter's workshop", label:"Workshop", gen:"the workshop", in:"in the workshop", from:"from the workshop", icon:"workshop",
+        open:["The carpenter leaves the key under the mat, and the whole tenement knows it.", "The door stands open so the freshly varnished furniture can dry.",
+              "You reach the workshop through a shed whose door is never locked.", "The carpenter lets in anyone who brings a chair to be glued."],
+        desc:["A cramped workshop in the back courtyard, ankle-deep in shavings.","A plane, a vice, and a board with the outlines of every tool.",
+              "A planing machine under the window, and boards drying on the rafters.","An unfinished chest of drawers on the bench, with a pot of bone glue beside it."] },
+      { id:"pralnia", pt:"cellar", name:"Laundry in the attic", label:"Laundry", gen:"the laundry", in:"in the laundry", from:"from the laundry", icon:"laundry",
+        open:["The attic door is never locked.", "The laundry key hangs on a nail right by the door.",
+              "Anyone can go up to the attic, because tenants dry their washing there at all hours.", "The laundry door hangs on one hinge and won't close."],
+        desc:["A shared laundry under the roof, with a boiler and washing lines.","The washing rota is pinned to the door.",
+              "A Frania washing machine stands under the window, with a washboard and a tub beside it.","Sheets stiff with starch hang under the beams."] },
+      { id:"dzialka", pt:"field", name:"Allotment summerhouse", label:"Summerhouse", gen:"the summerhouse", in:"in the summerhouse", from:"from the summerhouse", icon:"shed",
+        open:["The summerhouse shuts with a latch anyone can open.", "There's a hole in the allotment fence on the railway side.",
+              "The summerhouse door hangs crooked. Just lift it to get in.", "The allotment holders leave the summerhouse open so the neighbour can water the tomatoes."],
+        desc:["A wooden summerhouse by the railway, with a rain barrel.","On the allotments at the edge of {district_gen}.",
+              "Inside: a deckchair, a camping stove and a toolbox.","Dill and cucumbers in the beds, and sacks drying on the fence."] },
+      { id:"kiosk", pt:"shop", name:"{g:ruch|Ruch} kiosk", label:"Kiosk", gen:"the kiosk", in:"at the kiosk", from:"from the kiosk", icon:"kiosk",
+        open:["The kiosk vendor lets anyone into the back who'll help carry the bundles of papers.", "The kiosk's little back door lost its lock long ago.",
+              "When the kiosk lady pops out, she only pulls the door to.", "The back door is held by a hook you can lift with one finger."],
+        desc:["A green kiosk with a hatch, full of newspapers and cigarettes.","It stands by the tram stop on {street2}.",
+              "Crosswords and glossy magazines are pegged to the window.","Cramped inside: a stool, a fan heater and bundles of papers up to the ceiling."] },
+      { id:"sklep", pt:"work", name:"{g:spolem|Społem} grocery", label:"Shop", gen:"the shop", in:"in the back of the shop", from:"from the back of the shop", icon:"shop",
+        open:["The door to the back stands open because someone is always carrying crates in.", "You walk into the back straight from the courtyard. There's no lock.",
+              "Only a bead curtain separates the back room from the courtyard.", "The manageress leaves the back open until the evening milk delivery."],
+        desc:["A grocery with a chilled counter and a back room full of crates.","The bread arrives at six, and there's a queue before opening.",
+              "In the back: a platform scale, a barrel of sauerkraut and a stack of empty bottles.","A sign above the counter: “Goods from crates issued only in the presence of the manager”."] },
+      { id:"fryzjer", pt:"shop", name:"Hairdresser's", label:"Hairdresser", gen:"the hairdresser's", in:"at the hairdresser's", from:"from the hairdresser's", icon:"barber",
+        open:["The salon is open until the evening, and anyone can walk in.", "There's always someone waiting in the salon, and nobody watches the back room.",
+              "The door to the back room is only pulled to, to let the steam out.", "The hairdresser lets any customer into the back to fix her make-up."],
+        desc:["Two chairs, a hood dryer and a cracked mirror.","A sign in the window: “Permanent waves”.",
+              "A row of birch-water tonics and cans of hairspray on the shelf.","Hairstyle photos from Western fashion magazines on the wall."] },
+      { id:"kotlownia", pt:"work", name:"Boiler room", label:"Boiler room", gen:"the boiler room", in:"in the boiler room", from:"from the boiler room", icon:"boiler",
+        open:["The boiler-room door stands open so the furnace draws.", "The boiler-room lock broke last winter.",
+              "You walk straight down into the boiler room from the cellars, through a doorless passage.", "The stoker airs the boiler room and leaves the door wide open."],
+        desc:["A hot, dark boiler room with a heap of coke.","The furnace roars all through the heating season.",
+              "A cuckoo clock hangs on the wall. The stoker times his shovelling by it.","A tangle of pipes under the ceiling, and the stoker's cot in the corner."] },
+      /* wydanie 2.1.1: miejsca dla szantażu i fałszerstwa (maszyny do pisania, pieczątki, farby) */
+      { id:"administracja", pt:"shop", name:"Estate management office", label:"Estate office", gen:"the estate office", in:"at the estate office", from:"from the estate office", icon:"office",
+        open:["The cleaner leaves the office open while she takes out the rubbish.", "The office door stands open until evening, because tenants come in to pay rent.",
+              "The office window onto the courtyard hasn't shut since last winter.", "The manager steps out for a smoke and leaves the office open."],
+        desc:["Two desks, a cabinet of files and a typewriter under its cover.","A sign on the door: “Callers received Tuesdays and Thursdays”.",
+              "A fern on the windowsill, and a map of the estate with staircase numbers on the wall.","On the manager's desk, a box of rubber stamps and an ink pad."] },
+      { id:"swietlica", pt:"shop", name:"Cooperative community centre", label:"Community centre", gen:"the community centre", in:"at the community centre", from:"from the community centre", icon:"hall",
+        open:["The community centre is open until evening because a band rehearses there.", "The door is propped with a chair to air the hall after a meeting.",
+              "Anyone who fancies it can walk into the art club.", "The instructor leaves the centre open when she runs to the kiosk."],
+        desc:["A hall with an upright piano, a ping-pong table and a noticeboard.","Art club pictures and song contest certificates hang on the wall.",
+              "In the cupboard: poster paints, brown paper and an old typewriter.","Folding chairs on the stage, nativity-play scenery in the wings."] }
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* PRZEDMIOTY                                                           */
+    /* tags: tepe | ostre | sznur | wlam | trucizna | ogien                 */
+    /*       pismo | pieczec | sabotaz | farba | klatka                     */
+    /* g: rodzaj gramatyczny (m/f/n, pl = liczba mnoga: widły, nożyce)      */
+    /*    teksty o przedmiocie: [m|f|n|pl], np. [Znaleziony|…|Znalezione]   */
+    /* ------------------------------------------------------------------ */
+    items: [
+      { id:"lewar", name:"Cast-iron jack", label:"Jack", acc:"the jack", g:"m", tags:["tepe"], origins:["garaz"],
+        icon:{shape:"bar",p:{a:"#2b2b2e",l:"#6b6b72"}}, desc:["Heavy, cast iron, with a worn handle."] },
+      { id:"klucz", name:"Adjustable spanner", label:"Spanner", acc:"the adjustable spanner", g:"m", tags:["tepe"], origins:["garaz","warsztat"],
+        icon:{shape:"wrench",p:{a:"#8a8f99",l:"#c9ced6"}}, desc:["A big adjustable spanner, nearly a kilo of iron."] },
+      { id:"lom", name:"Steel crowbar", label:"Crowbar", acc:"the crowbar", g:"m", tags:["wlam","tepe"], origins:["garaz","kotlownia","piwnica"],
+        icon:{shape:"bar",p:{a:"#7a2b2b",l:"#b04a4a"}}, desc:["A red crowbar, bent at the end."] },
+      { id:"lyzka", name:"Tyre lever", label:"Tyre lever", acc:"the tyre lever", g:"f", tags:["wlam"], origins:["garaz"],
+        icon:{shape:"bar",p:{a:"#3d5a85",l:"#8a8f99"}}, desc:["A flat steel lever for taking tyres off."] },
+      { id:"kanister", name:"Jerrycan of petrol", label:"Jerrycan", acc:"the jerrycan of petrol", g:"m", tags:["ogien"], origins:["garaz"],
+        icon:{shape:"can",p:{a:"#2b2b2b",b:"#3f6b3a",w:"#c9d9a8"}}, desc:["An army jerrycan, three-quarters full."] },
+      { id:"linka", name:"Tow rope", label:"Tow rope", acc:"the tow rope", g:"f", tags:["sznur"], origins:["garaz"],
+        icon:{shape:"rope",p:{a:"#c9772b"}}, desc:["A thick orange rope with hooks."] },
+      { id:"mozdzierz", name:"Brass mortar", label:"Mortar", acc:"the mortar", g:"m", tags:["tepe"], origins:["apteka"],
+        icon:{shape:"mortar",p:{p:"#a8823a",y:"#c99a3e",o:"#f1d27a"}}, desc:["A heavy brass mortar with a pestle."] },
+      { id:"luminal", name:"Phial of {g:luminal|Luminal}", label:"{g:luminal|Luminal}", acc:"the phial of {g:luminal|Luminal}", g:"f", tags:["trucizna"], origins:["apteka"],
+        icon:{shape:"vial",p:{a:"#3a3a3a",b:"#7a5a2b",w:"#e8dcc0"}}, desc:["A brown phial of strong sleeping pills."] },
+      { id:"trutka", name:"Rat poison", label:"Rat poison", acc:"the rat poison", g:"f", tags:["trucizna"], origins:["piwnica","sklep"],
+        icon:{shape:"box",p:{b:"#b0423a",w:"#eee8dc",h:"#2b2b2b"}}, desc:["A red box with a skull on the label."] },
+      { id:"siekiera", name:"Axe", label:"Axe", acc:"the axe", g:"f", tags:["ostre","tepe"], origins:["piwnica","dzialka"],
+        icon:{shape:"axe",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["An old axe for chopping kindling."] },
+      { id:"nafta", name:"Bottle of paraffin", label:"Paraffin", acc:"the bottle of paraffin", g:"f", tags:["ogien"], origins:["piwnica"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#5e8aa0",w:"#e8dcc0"}}, desc:["An old orangeade bottle with lamp paraffin in it."] },
+      { id:"mlotek", name:"Claw hammer", label:"Hammer", acc:"the hammer", g:"m", tags:["tepe"], origins:["warsztat"],
+        icon:{shape:"hammer",p:{h:"#5a5f6a",a:"#a5835a"}}, desc:["A hammer with a split claw for pulling nails."] },
+      { id:"dluto", name:"Chisel", label:"Chisel", acc:"the chisel", g:"n", tags:["ostre"], origins:["warsztat"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#a5835a"}}, desc:["A sharp chisel with a beech handle."] },
+      { id:"srubokret", name:"Large screwdriver", label:"Screwdriver", acc:"the screwdriver", g:"m", tags:["wlam"], origins:["warsztat"],
+        icon:{shape:"blade",p:{h:"#8a8f99",a:"#c22a2a"}}, desc:["A flat-head screwdriver as long as your forearm."] },
+      { id:"rozpuszczalnik", name:"Tin of solvent", label:"Solvent", acc:"the tin of solvent", g:"f", tags:["ogien"], origins:["warsztat"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#c9a646",w:"#2b2b2b"}}, desc:["A tin of paint thinner."] },
+      { id:"sznur", name:"Washing line", label:"Line", acc:"the washing line", g:"m", tags:["sznur"], origins:["pralnia"],
+        icon:{shape:"rope",p:{a:"#d8d2c4"}}, desc:["Hemp line, cut from the drying room."] },
+      { id:"zelazko", name:"Cast-iron iron", label:"Iron", acc:"the iron", g:"n", tags:["tepe"], origins:["pralnia"],
+        icon:{shape:"iron",p:{a:"#2b2b2b",h:"#5a5f6a"}}, desc:["An old charcoal iron, heavy as a brick."] },
+      { id:"sekator", name:"Secateurs", label:"Secateurs", acc:"the secateurs", g:"m", tags:["ostre"], origins:["dzialka"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#3f6b3a"}}, desc:["Rose secateurs with green handles."] },
+      { id:"mszyce", name:"Aphid killer", label:"Aphid killer", acc:"the aphid killer", g:"m", tags:["trucizna"], origins:["dzialka"],
+        icon:{shape:"box",p:{b:"#3f6b3a",w:"#eee8dc",h:"#c9a646"}}, desc:["Powder in a packet marked “Poison! Keep away from children”."] },
+      { id:"lopata", name:"Shovel", label:"Shovel", acc:"the shovel", g:"f", tags:["tepe"], origins:["dzialka","kotlownia"],
+        icon:{shape:"shovel",p:{h:"#6b6b72",a:"#7a5232"}}, desc:["A wide shovel with a wooden handle."] },
+      { id:"nozyk", name:"Box cutter", label:"Box cutter", acc:"the box cutter", g:"m", tags:["ostre"], origins:["kiosk"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#c9a646"}}, desc:["A knife with a retractable blade for slitting open bundles of papers."] },
+      { id:"zapalki", name:"Box of matches", label:"Matches", acc:"the box of matches", g:"n", tags:["ogien"], origins:["kiosk","kotlownia"],
+        icon:{shape:"box",p:{b:"#c9a646",w:"#eee8dc",h:"#b0423a"}}, desc:["A big kitchen box of matches."] },
+      { id:"denaturat", name:"Bottle of {g:denaturat|meths}", label:"Meths", acc:"the bottle of meths", g:"f", tags:["ogien","trucizna"], origins:["sklep"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#6b4a8a",w:"#e8dcc0"}}, desc:["A purple bottle labelled “Not for drinking”."] },
+      { id:"noz", name:"Butcher's knife", label:"Knife", acc:"the butcher's knife", g:"m", tags:["ostre"], origins:["sklep"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#2b2b2b"}}, desc:["A long knife with a black handle, sharpened every morning."] },
+      { id:"brzytwa", name:"Cut-throat razor", label:"Razor", acc:"the razor", g:"f", tags:["ostre"], origins:["fryzjer"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#d8d2c4"}}, desc:["A cut-throat razor with a bone handle, honed on a strop."] },
+      { id:"lakier", name:"Hairspray", label:"Hairspray", acc:"the hairspray", g:"m", tags:["ogien"], origins:["fryzjer"],
+        icon:{shape:"bottle",p:{a:"#b0423a",h:"#e6e6e6",b:"#d48aa8",w:"#f5e9ef"}}, desc:["An aerosol can of hairspray. Flammable."] },
+      { id:"pogrzebacz", name:"Poker", label:"Poker", acc:"the poker", g:"m", tags:["tepe","wlam"], origins:["kotlownia"],
+        icon:{shape:"bar",p:{a:"#1f1f22",l:"#4a4a52"}}, desc:["A long wrought-iron stove poker."] }
+      ,
+      /* --- uduszenia: sznury i kable w wielu miejscach --- */
+      { id:"przedluzacz", name:"Extension lead", label:"Extension lead", acc:"the extension lead", g:"m", tags:["sznur"], origins:["warsztat","garaz","zajezdnia"],
+        icon:{shape:"rope",p:{a:"#e8e8e0"}}, desc:["A five-metre extension lead with a rubber plug."] },
+      { id:"lina", name:"Hemp rope", label:"Rope", acc:"the hemp rope", g:"f", tags:["sznur"], origins:["piwnica","kotlownia","lampownia"],
+        icon:{shape:"rope",p:{a:"#a5835a"}}, desc:["A thick hemp rope, coiled on a hook."] },
+      { id:"pasek", name:"Razor strop", label:"Strop", acc:"the razor strop", g:"m", tags:["sznur"], origins:["fryzjer"],
+        icon:{shape:"rope",p:{a:"#6b4a2e"}}, desc:["A leather strop, worn smooth by years of honing."] },
+      { id:"szpagat", name:"Parcel twine", label:"Twine", acc:"the twine", g:"m", tags:["sznur"], origins:["kiosk","sklep","piekarnia"],
+        icon:{shape:"rope",p:{a:"#c9b98f"}}, desc:["Thick string for tying parcels."] },
+      { id:"drut", name:"Coil of wire", label:"Wire", acc:"the coil of wire", g:"m", tags:["sznur"], origins:["dzialka","golebnik"],
+        icon:{shape:"rope",p:{a:"#8a8f99"}}, desc:["Soft galvanised wire for tying up plants and patching fences."] },
+
+      /* --- przedmioty z miejsc, które mają tylko niektóre miasta (data/cities.js) --- */
+      { id:"wioslo", name:"Oar", label:"Oar", acc:"the oar", g:"n", tags:["tepe"], origins:["przystan"],
+        icon:{shape:"shovel",p:{h:"#a5835a",a:"#7a5232"}}, desc:["A wooden oar with a metal-tipped blade."] },
+      { id:"lina_cum", name:"Mooring rope", label:"Mooring rope", acc:"the mooring rope", g:"f", tags:["sznur"], origins:["przystan","szopa_rybacka","magazyn_port"],
+        icon:{shape:"rope",p:{a:"#3e4a6b"}}, desc:["A wet navy-blue rope for mooring boats."] },
+      { id:"bosak", name:"Boat hook", label:"Boat hook", acc:"the boat hook", g:"m", tags:["ostre","tepe"], origins:["przystan","szopa_rybacka"],
+        icon:{shape:"bar",p:{a:"#7a5232",l:"#8a8f99"}}, desc:["A long pole with an iron hook at the end."] },
+      { id:"banka", name:"Can of diesel", label:"Can", acc:"the can of diesel", g:"f", tags:["ogien"], origins:["przystan","magazyn_port","zajezdnia"],
+        icon:{shape:"can",p:{a:"#2b2b2b",b:"#7a2b2b",w:"#e8dcc0"}}, desc:["A tin can full of diesel for the engine."] },
+      { id:"odwaznik", name:"Cast-iron weight", label:"Weight", acc:"the weight", g:"m", tags:["tepe"], origins:["szczeka"],
+        icon:{shape:"weight",p:{a:"#5a5f6a",h:"#2b2b2e"}}, desc:["A one-kilo weight from a balance scale."] },
+      { id:"noz_kapusta", name:"Cabbage knife", label:"Knife", acc:"the cabbage knife", g:"m", tags:["ostre"], origins:["szczeka"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#7a5232"}}, desc:["A broad knife for cutting cabbage sold by weight."] },
+      { id:"plandeka", name:"Tarpaulin cord", label:"Cord", acc:"the tarpaulin cord", g:"f", tags:["sznur"], origins:["szczeka"],
+        icon:{shape:"rope",p:{a:"#4c6b3a"}}, desc:["The green cord that ties the tarpaulin to the stall."] },
+      { id:"walek", name:"Rolling pin", label:"Rolling pin", acc:"the rolling pin", g:"m", tags:["tepe"], origins:["piekarnia"],
+        icon:{shape:"bar",p:{a:"#c9a66b",l:"#e8d3a5"}}, desc:["A heavy beech rolling pin, white with flour."] },
+      { id:"noz_piekarski", name:"Bread knife", label:"Knife", acc:"the bread knife", g:"m", tags:["ostre"], origins:["piekarnia"],
+        icon:{shape:"blade",p:{h:"#e6e6e6",a:"#c9a66b"}}, desc:["A long serrated knife for slicing bread."] },
+      { id:"podkowa", name:"Horseshoe", label:"Horseshoe", acc:"the horseshoe", g:"f", tags:["tepe"], origins:["stajnia"],
+        icon:{shape:"horseshoe",p:{a:"#5a5f6a"}}, desc:["A worn horseshoe that hung over the door for luck."] },
+      { id:"bat", name:"Cabman's whip", label:"Whip", acc:"the whip", g:"m", tags:["sznur"], origins:["stajnia"],
+        icon:{shape:"rope",p:{a:"#2b2b2b"}}, desc:["A long whip with a plaited lash."] },
+      { id:"widly", name:"Pitchfork", label:"Pitchfork", acc:"the pitchfork", g:"pl", tags:["ostre"], origins:["stajnia"],
+        icon:{shape:"shovel",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["A three-pronged hay fork."] },
+      { id:"statyw", name:"Tripod", label:"Tripod", acc:"the tripod", g:"m", tags:["tepe"], origins:["piwnica_jazz","filmowka"],
+        icon:{shape:"bar",p:{a:"#1f1f22",l:"#8a8f99"}}, desc:["A heavy steel tripod with folding legs."] },
+      { id:"kabel", name:"Amplifier cable", label:"Cable", acc:"the cable", g:"m", tags:["sznur"], origins:["piwnica_jazz","filmowka"],
+        icon:{shape:"rope",p:{a:"#1f1f22"}}, desc:["A thick black cable, coiled in a figure of eight."] },
+      { id:"wrzeciono", name:"Steel spindle", label:"Spindle", acc:"the spindle", g:"n", tags:["tepe"], origins:["przedzalnia"],
+        icon:{shape:"bar",p:{a:"#8a8f99",l:"#c9ced6"}}, desc:["A spindle from a spinning frame, long and heavy."] },
+      { id:"nozyce", name:"Weaver's shears", label:"Shears", acc:"the shears", g:"pl", tags:["ostre"], origins:["przedzalnia"],
+        icon:{shape:"blade",p:{h:"#c9ced6",a:"#2b2b2b"}}, desc:["Long shears for cutting cloth off the bolt."] },
+      { id:"przedza", name:"Spinner's cord", label:"Cord", acc:"the spinner's cord", g:"m", tags:["sznur"], origins:["przedzalnia"],
+        icon:{shape:"rope",p:{a:"#d8cfe3"}}, desc:["Strong twisted cotton cord."] },
+      { id:"barwnik", name:"Aniline dye", label:"Dye", acc:"the dye", g:"m", tags:["trucizna"], origins:["przedzalnia"],
+        icon:{shape:"box",p:{b:"#6b4a8a",w:"#eee8dc",h:"#2b2b2b"}}, desc:["A jar of purple powder with a poison warning."] },
+      { id:"tasma", name:"Film reel", label:"Film", acc:"the film reel", g:"f", tags:["ogien"], origins:["filmowka"],
+        icon:{shape:"reel",p:{a:"#3a3a3a",b:"#c9a646",h:"#5a5f6a",w:"#e8dcc0"}}, desc:["Old nitrate film. It burns like paper soaked in petrol."] },
+      { id:"noz_ryby", name:"Fish knife", label:"Knife", acc:"the fish knife", g:"m", tags:["ostre"], origins:["szopa_rybacka"],
+        icon:{shape:"blade",p:{h:"#c9d9e0",a:"#3e4a6b"}}, desc:["A narrow knife for gutting fish, sharp as a razor."] },
+      { id:"smola", name:"Tin of tar", label:"Tar", acc:"the tin of tar", g:"f", tags:["ogien"], origins:["szopa_rybacka"],
+        icon:{shape:"can",p:{a:"#1f1f22",b:"#2b2b2b",w:"#5a5f6a"}}, desc:["Tar for caulking boats."] },
+      { id:"hak", name:"Dock hook", label:"Hook", acc:"the dock hook", g:"m", tags:["ostre","wlam"], origins:["magazyn_port"],
+        icon:{shape:"bar",p:{a:"#5a5f6a",l:"#c9ced6"}}, desc:["A steel hook for dragging sacks and crates."] },
+      { id:"golebie_srodek", name:"Pigeon wormer", label:"Wormer", acc:"the pigeon wormer", g:"m", tags:["trucizna"], origins:["golebnik"],
+        icon:{shape:"vial",p:{a:"#3a3a3a",b:"#3f6b3a",w:"#e8dcc0"}}, desc:["A bottle of medicine for pigeons. Not a safe dose for a human."] },
+      { id:"lampa", name:"Miner's lamp", label:"Lamp", acc:"the miner's lamp", g:"f", tags:["tepe"], origins:["lampownia"],
+        icon:{shape:"lamp",p:{a:"#5a5f6a",h:"#2b2b2e",b:"#c9a646",w:"#f1d27a"}}, desc:["A heavy battery lamp, a good three kilos."] },
+      { id:"karbid", name:"Tin of carbide", label:"Carbide", acc:"the tin of carbide", g:"f", tags:["ogien"], origins:["lampownia"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#8a8f99",w:"#2b2b2b"}}, desc:["Carbide for old lamps. With water it gives off a flammable gas."] },
+      { id:"drazek", name:"Points lever", label:"Lever", acc:"the points lever", g:"m", tags:["tepe","wlam"], origins:["zajezdnia"],
+        icon:{shape:"bar",p:{a:"#c22a2a",l:"#2b2b2e"}}, desc:["A steel bar the tram driver uses to change the points."] },
+
+      /* --- wydanie 2.1.1 ---
+         pismo: szantaż (anonim pisany na maszynie albo sklejany z wycinków)
+         pieczec: fałszerstwo (pieczątki, tusz, kalka, żyletka do wyskrobywania)
+         sabotaz: sabotaż (obcęgi, piłka, kombinerki)
+         farba: wandalizm (farby, pędzle, wapno)
+         klatka: porwanie psa (klatka, worek, kosz) */
+      { id:"maszyna", name:"“{g:lucznik|Łucznik}” typewriter", label:"Typewriter", acc:"the typewriter", g:"f", tags:["pismo"], origins:["administracja","swietlica","sklep"],
+        icon:{shape:"typewriter",p:{a:"#3e4a6b",h:"#c9ced6",w:"#eee8dc",k:"#5a5f6a"}}, desc:["A portable {g:lucznik|Łucznik} in its case. The letter “ł” strikes crooked, a little above the line."] },
+      { id:"nozyk_papier", name:"Paper knife", label:"Paper knife", acc:"the paper knife", g:"m", tags:["pismo"], origins:["administracja","swietlica","kiosk"],
+        icon:{shape:"scissors",p:{a:"#c22a2a",h:"#c9ced6"}}, desc:["A retractable blade and a metal ruler, for cutting letters out of newspapers."] },
+      { id:"klej", name:"Office glue", label:"Glue", acc:"the office glue", g:"m", tags:["pismo"], origins:["kiosk","administracja","sklep","swietlica"],
+        icon:{shape:"bottle",p:{a:"#c9a646",h:"#e6e6e6",b:"#e8dcc0",w:"#7a5a2b"}}, desc:["A bottle of gum arabic with a sponge on the neck."] },
+      { id:"kalka", name:"Carbon paper", label:"Carbon paper", acc:"the carbon paper", g:"f", tags:["pismo","pieczec"], origins:["kiosk","administracja"],
+        icon:{shape:"sheet",p:{w:"#3e4a6b",k:"#1f1f22"}}, desc:["A pack of dark blue carbons. On the top sheet you can still make out the imprinted words."] },
+      { id:"pioro", name:"Fountain pen", label:"Pen", acc:"the fountain pen", g:"n", tags:["pismo"], origins:["apteka","fryzjer"],
+        icon:{shape:"blade",p:{h:"#c9a646",a:"#1f1f22"}}, desc:["A Chinese pen with a gold cap. Writes in navy ink."] },
+      { id:"gazety", name:"Bundle of old newspapers", label:"Newspapers", acc:"the bundle of old newspapers", g:"m", tags:["pismo"], origins:["kiosk","pralnia","piwnica"],
+        icon:{shape:"sheet",p:{w:"#e8dcc0",k:"#7a7468"}}, desc:["Newspapers tied with twine. Someone has cut letters out of several pages."] },
+      { id:"pieczatka", name:"Oblong rubber stamp", label:"Stamp", acc:"the rubber stamp", g:"f", tags:["pieczec"], origins:["administracja","apteka","sklep"],
+        icon:{shape:"stamp",p:{a:"#7a5232",h:"#2b2b2e",b:"#6b4a8a"}}, desc:["A wooden stamp with rubber type, purple with ink."] },
+      { id:"tusz", name:"Ink pad", label:"Ink pad", acc:"the ink pad", g:"f", tags:["pieczec"], origins:["administracja","kiosk","apteka"],
+        icon:{shape:"box",p:{b:"#2b2b2e",w:"#6b4a8a",h:"#3e4a6b"}}, desc:["A tin box of purple stamp ink."] },
+      { id:"zyletka", name:"“{g:polsilver|Polsilver}” razor blade", label:"Razor blade", acc:"the razor blade", g:"f", tags:["pieczec"], origins:["fryzjer","kiosk","warsztat"],
+        icon:{shape:"razor",p:{a:"#3e4a6b",h:"#c9ced6"}}, desc:["A blade from a cardboard sleeve, with a trace of purple ink on the edge."] },
+      { id:"kalka_tech", name:"Roll of tracing paper", label:"Roll", acc:"the roll of tracing paper", g:"m", tags:["pieczec"], origins:["warsztat","swietlica"],
+        icon:{shape:"sheet",p:{w:"#d8e2e8",k:"#8a8f99"}}, desc:["A roll of see-through tracing paper. You could copy any signature through it."] },
+      { id:"odplamiacz", name:"“Sama” stain remover", label:"Stain remover", acc:"the stain remover", g:"m", tags:["pieczec"], origins:["pralnia","fryzjer"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#5e8aa0",w:"#e8dcc0"}}, desc:["A bottle of stain remover. Lifts ink off paper almost without a trace."] },
+      { id:"nozyczki", name:"Office scissors", label:"Scissors", acc:"the scissors", g:"pl", tags:["pismo"], origins:["administracja","swietlica","fryzjer"],
+        icon:{shape:"scissors",p:{a:"#2b2b2e",h:"#c9ced6"}}, desc:["Long paper scissors, with scraps of newsprint stuck to the blades."] },
+      { id:"szczypce", name:"Pincers", label:"Pincers", acc:"the pincers", g:"pl", tags:["sabotaz"], origins:["warsztat","garaz","kotlownia"],
+        icon:{shape:"pliers",p:{a:"#3e4a6b",h:"#8a8f99"}}, desc:["Heavy pincers with blue handles. They'll bite through a nail or a cable."] },
+      { id:"obcegi", name:"Wire cutters", label:"Wire cutters", acc:"the wire cutters", g:"m", tags:["sabotaz"], origins:["garaz","kotlownia","piwnica"],
+        icon:{shape:"pliers",p:{a:"#c22a2a",h:"#5a5f6a"}}, desc:["Heavy cutters with red handles. They'll cut wire as thick as a finger."] },
+      { id:"pilka", name:"Hacksaw", label:"Hacksaw", acc:"the hacksaw", g:"f", tags:["sabotaz"], origins:["warsztat","garaz","piwnica"],
+        icon:{shape:"saw",p:{a:"#3e4a6b",h:"#c9ced6"}}, desc:["A frame with a thin blade, metal filings on the teeth."] },
+      { id:"kombinerki", name:"Valve wrench", label:"Wrench", acc:"the valve wrench", g:"m", tags:["sabotaz"], origins:["kotlownia","warsztat","administracja"],
+        icon:{shape:"pliers",p:{a:"#3f6b3a",h:"#8a8f99"}}, desc:["A wrench with a long handle wrapped in insulating tape, for valves and pipe bolts."] },
+      { id:"pilnik", name:"Engineer's file", label:"File", acc:"the file", g:"m", tags:["sabotaz"], origins:["dzialka","kotlownia"],
+        icon:{shape:"blade",p:{h:"#8a8f99",a:"#7a5232"}}, desc:["A coarse file with a wooden handle. It'll cut through a bolt in minutes."] },
+      { id:"farba_olejna", name:"Tin of oil paint", label:"Paint", acc:"the tin of oil paint", g:"f", tags:["farba"], origins:["piwnica","warsztat","garaz"],
+        icon:{shape:"can",p:{a:"#5a5f6a",b:"#c22a2a",w:"#eee8dc"}}, desc:["A tin of red oil paint for pipes, opened with a screwdriver."] },
+      { id:"spray", name:"Spray paint", label:"Spray", acc:"the spray paint", g:"f", tags:["farba"], origins:["garaz","warsztat"], years:[1990,1999],
+        icon:{shape:"bottle",p:{a:"#2b2b2b",h:"#c9ced6",b:"#3f6b3a",w:"#c9d9a8"}}, desc:["A Western can of black spray lacquer, for wheel rims."] },
+      { id:"pedzel", name:"Wide paintbrush", label:"Brush", acc:"the paintbrush", g:"m", tags:["farba"], origins:["warsztat","swietlica","piwnica"],
+        icon:{shape:"brush",p:{a:"#7a5232",h:"#8a8f99",b:"#2b2b2b"}}, desc:["A wide brush, stiff with dried paint."] },
+      { id:"plakatowe", name:"Jar of poster paint", label:"Poster paint", acc:"the jar of poster paint", g:"m", tags:["farba"], origins:["swietlica","kiosk"],
+        icon:{shape:"bucket",p:{a:"#8a8f99",b:"#3e4a6b",w:"#e8dcc0"}}, desc:["A litre jar of blue poster paint for painting banners."] },
+      { id:"wapno", name:"Bucket of whitewash", label:"Whitewash", acc:"the bucket of whitewash", g:"n", tags:["farba"], origins:["dzialka","piwnica","kotlownia"],
+        icon:{shape:"bucket",p:{a:"#5a5f6a",b:"#8a8f99",w:"#f1f1ea"}}, desc:["A bucket of white limewash for painting tree trunks and cellars."] },
+      { id:"klatka", name:"Rabbit hutch", label:"Hutch", acc:"the rabbit hutch", g:"f", tags:["klatka"], origins:["dzialka"],
+        icon:{shape:"cage",p:{a:"#8a8f99",h:"#7a5232"}}, desc:["A wooden hutch with wire mesh, big enough for a dachshund."] },
+      { id:"worek", name:"Jute sack", label:"Sack", acc:"the jute sack", g:"m", tags:["klatka"], origins:["piwnica","sklep","kotlownia","dzialka"],
+        icon:{shape:"sack",p:{a:"#7a5232",b:"#a5835a",w:"#c9b98f"}}, desc:["A thick potato sack, tied with string."] },
+      { id:"kosz", name:"Lidded wicker basket", label:"Basket", acc:"the wicker basket", g:"m", tags:["klatka"], origins:["pralnia","dzialka","golebnik"],
+        icon:{shape:"basket",p:{a:"#7a5232",b:"#c9a66b",h:"#8a6a3b"}}, desc:["A wicker laundry basket with a lid fastened by a leather strap."] },
+      /* ogien: drugi środek zapalający w kilku miejscach, żeby podpalenie wchodziło też do spraw z dwoma dowodami z jednego miejsca */
+      { id:"podpalka", name:"Firelighters", label:"Firelighters", acc:"the firelighters", g:"f", tags:["ogien"], origins:["kotlownia","piwnica"],
+        icon:{shape:"box",p:{b:"#7a5232",w:"#e8dcc0",h:"#c22a2a"}}, desc:["Firelighter cubes in waxed paper. They smell of paraffin."] },
+      { id:"spirytus", name:"Bottle of spirit", label:"Spirit", acc:"the bottle of spirit", g:"f", tags:["ogien"], origins:["sklep"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#d8e2e8",w:"#eee8dc"}}, desc:["A half-litre bottle of rectified spirit, kept under the counter “for making cordials”."] },
+      { id:"benzyna_ekstr", name:"Benzine", label:"Benzine", acc:"the benzine", g:"f", tags:["ogien"], origins:["pralnia","fryzjer"],
+        icon:{shape:"bottle",p:{a:"#3a3a3a",h:"#6b6b72",b:"#c9a646",w:"#eee8dc"}}, desc:["A bottle of cleaning benzine, labelled “Flammable”."] },
+      { id:"lampa_naftowa", name:"Paraffin lamp", label:"Lamp", acc:"the paraffin lamp", g:"f", tags:["ogien"], origins:["dzialka","piwnica"],
+        icon:{shape:"lamp",p:{a:"#5a5f6a",h:"#2b2b2e",b:"#c9a646",w:"#f1d27a"}}, desc:["An old paraffin lamp with a full tank, in case of a power cut."] },
+      { id:"transporter", name:"Transport crate", label:"Crate", acc:"the transport crate", g:"f", tags:["klatka"], origins:["sklep","garaz"],
+        icon:{shape:"cage",p:{a:"#a5835a",h:"#6b4a2e"}}, desc:["A slatted poultry crate with a plank for a lid."] }
+    ],
+
+    /* Losy przedmiotów: fakt o każdym dowodzie; reguła „fate” wskazuje los narzędzia */
+    fates: {
+      smietnik: { why:"this item was found in the morning in the bins in the courtyard", item:"Found in the morning in the bins in the courtyard.", rule:"Whatever the culprit used was found in the morning in the bins in the courtyard.", place:"by the bins in the courtyard" },
+      tory: { why:"this item was found in the bushes by the railway", item:"Found in the bushes by the railway.", rule:"Whatever the culprit used was lying in the bushes by the railway in the morning.", place:"by the railway" },
+      park: { why:"this item was found in the bushes in the park", item:"Found in the bushes in the park.", rule:"Whatever the culprit used was spotted in the bushes in the park in the morning.", place:"in the park" },
+      budowa: { why:"this item was found in the morning on the building site", item:"Found in the morning on the building site.", rule:"Whatever the culprit used was found by the builders on the site in the morning.", place:"on the building site" },
+      bazar: { why:"this item was found in the morning under one of the stalls {market_on}", item:"Found in the morning under one of the stalls {market_on}.", rule:"Whatever the culprit used was lying under a stall {market_on} in the morning.", place:"{market_on}" },
+      odniesione: { why:"this item was only put back in its place in the morning", item:"Only put back in its place in the morning. Nobody knows who brought it.", rule:"Whatever the culprit used was back in its place in the morning, as if nothing had happened." },
+      brak: { why:"this item has never been found", item:"Never found.", rule:"Whatever the culprit used has never been found." },
+      studzienka: { why:"this item was fished out of a drain in the morning", item:"Fished out of a drain in the morning.", rule:"Whatever the culprit used was fished out of a drain in the morning." }
+    },
+    /* Nawyki: gdzie kto bywa codziennie. Reguła „dump” łączy los narzędzia z nawykiem sprawcy. */
+    habits: {
+      smietnik: ["Takes the rubbish out for the whole staircase every evening.","Goes through the courtyard bins every day looking for bottles with a deposit.","Collects waste paper from the containers by the bins."],
+      tory:     [{t:"Takes a shortcut along the railway on the way to work.", ages:["young","mid"], k:["job"]},"Collects scrap metal by the railway every day.","Walks along the railway embankment in the evenings."],
+      park:     [{t:"Goes running in the park every morning.", ages:["young","mid"]},"Feeds the ducks in the park every afternoon.","Plays chess on a park bench in the evenings."],
+      budowa:   ["Takes a shortcut across the building site every day.",{t:"Works on the side as a night watchman at the building site nearby.", ages:["young","mid"]},"Collects offcuts of timber from the building site for kindling."],
+      bazar:    ["Does the shopping {market_on} every morning.","Is {market_on} every day, if only for a newspaper.","Has a friend who trades {market_on} and drops in on him every day."]
+    },
+    dumpRule: ["Whatever the culprit used was dumped somewhere the culprit goes every day.",
+               "The culprit got rid of whatever was used along a route walked every day.",
+               "Whatever the culprit used was thrown away somewhere the culprit knows like the back of a hand. The culprit is there every day."],
+
+    /* ------------------------------------------------------------------ */
+    /* CECHY (logika + jak się objawiają w tekście)                         */
+    /* ------------------------------------------------------------------ */
+    /* ---------- 2.2: reguły nietypowe (porównanie wzrostu, relacje, zeszyt dozorcy) ----------
+       Tekst reguły opisuje ślad albo zeznanie; wartość wynika jednoznacznie. {ref} = imię i nazwisko w mianowniku. */
+    /* ---------- 2.2: archetyp „Oś czasu” (engine/archetypes/timeline.js) ----------
+       Godziny zawsze co do minuty (bez „około”). {a} {b} = okno zdarzenia, {t} godzina, {in} miejsce w miejscowniku. */
+    timeline: {
+      /* 2.2.1/i18n: nazwa miejsca zbrodni (mianownik) i jego rodzaj pt (patrz presenceTpl) dla każdej sceny osi czasu,
+         w tej samej kolejności co crimes.<typ>.scenes (lookup po indeksie sceny, nie po tytule: działa w każdym języku).
+         Tytuł bywa nazwą ofiary („Papuga z …”), a węzeł ma być miejscem. */
+      places:{
+        zabojstwo:[
+          { name:"Watchmaker's workshop on {street}", pt:"work" },
+          { name:"Cobbler's on {street}", pt:"work" },
+          { name:"Exchange bureau on {street}", pt:"shop" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Video rental shop on {street}", pt:"shop" },
+          { name:"Dressmaker's workshop on {street}", pt:"work" },
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Photographer's darkroom on {street}", pt:"work" },
+          { name:"The loan shark's flat", pt:"cellar" },
+          { name:"Second-hand bookshop on {street}", pt:"shop" },
+          { name:"The mangle shop on {street}", pt:"shop" },
+          { name:"Back room of the “{bar}” bar", pt:"work" },
+          { name:"Cake shop on {street}", pt:"shop" },
+          { name:"The cooperative chairman's office", pt:"work" },
+          { name:"Taxi rank", pt:"street" },
+          { name:"Second-hand shop on {street}", pt:"shop" },
+          { name:"Parish sacristy", pt:"work" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Stall {market_on}", pt:"street" },
+          { name:"Allotment summerhouse", pt:"field" }
+        ],
+        kradziez:[
+          { name:"Stall {market_on}", pt:"street" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Tenement flat", pt:"cellar" },
+          { name:"Box office of the “{cinema}” cinema", pt:"shop" },
+          { name:"Exchange bureau on {street}", pt:"shop" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Cooperative cash office", pt:"work" },
+          { name:"Tenement staircase", pt:"stair" },
+          { name:"The stamp collector's study", pt:"work" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Back room of the {g:pewex|Pewex}", pt:"work" },
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Tenement flat", pt:"cellar" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Tenement flat", pt:"cellar" },
+          { name:"Clothes stall", pt:"street" },
+          { name:"Parish presbytery", pt:"cellar" },
+          { name:"The works accounts office", pt:"work" },
+          { name:"Pharmacy on {street}", pt:"shop" },
+          { name:"Goldsmith's workshop", pt:"work" }
+        ],
+        napad:[
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Exchange bureau on the estate", pt:"shop" },
+          { name:"Taxi rank", pt:"street" },
+          { name:"Stall {market_on}", pt:"street" },
+          { name:"Works gate", pt:"street" },
+          { name:"Gateway by the {g:pko|PKO} bank", pt:"street" },
+          { name:"{g:cpn|CPN} station on {street}", pt:"street" },
+          { name:"Entrance to the {g:pewex|Pewex}", pt:"street" },
+          { name:"Car park outside the bank", pt:"street" },
+          { name:"Goldsmith's workshop on {street}", pt:"work" },
+          { name:"Cinema box office", pt:"shop" },
+          { name:"Off-licence on {street}", pt:"shop" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Bus terminus", pt:"street" },
+          { name:"Stall by the cemetery", pt:"street" },
+          { name:"Post office on {street}", pt:"shop" },
+          { name:"Ice-cream kiosk on {street}", pt:"street" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Second-hand shop on {street}", pt:"shop" }
+        ],
+        podpalenie:[
+          { name:"Bicycle shed", pt:"yard" },
+          { name:"Vegetable stall", pt:"street" },
+          { name:"The chairman's summerhouse", pt:"field" },
+          { name:"Shelter on {street}", pt:"street" },
+          { name:"Clothes stall", pt:"street" },
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Pram store on {street}", pt:"yard" },
+          { name:"Courtyard on {street}", pt:"yard" },
+          { name:"Cellar storerooms", pt:"cellar" },
+          { name:"The mechanic's garage", pt:"yard" },
+          { name:"Toy stall", pt:"street" },
+          { name:"Bandstand in the park", pt:"street" },
+          { name:"Barn on the edge of the estate", pt:"yard" },
+          { name:"Ice-cream kiosk", pt:"street" },
+          { name:"The {g:dozorca|dozorca}'s shed", pt:"yard" },
+          { name:"Video rental shop", pt:"shop" },
+          { name:"Site hut", pt:"yard" },
+          { name:"The chairman's office", pt:"work" },
+          { name:"Milk bar on {street}", pt:"shop" },
+          { name:"Flower stall", pt:"street" }
+        ],
+        wandalizm:[
+          { name:"Cooperative noticeboard", pt:"street" },
+          { name:"Hairdresser's", pt:"shop" },
+          { name:"Estate school wall", pt:"street" },
+          { name:"Shop on {street}", pt:"shop" },
+          { name:"Statue in the park", pt:"street" },
+          { name:"Car park on {street}", pt:"street" },
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Park on {street}", pt:"street" },
+          { name:"Exchange bureau on {street}", pt:"shop" },
+          { name:"Bus stop on {street}", pt:"street" },
+          { name:"Noticeboard on {street}", pt:"street" },
+          { name:"Stage at the community centre", pt:"street" },
+          { name:"Allotment summerhouse", pt:"field" },
+          { name:"Tram terminus", pt:"street" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Video rental shop on {street}", pt:"shop" },
+          { name:"Clinic on {street}", pt:"shop" },
+          { name:"Stall {market_on}", pt:"street" },
+          { name:"School pitch", pt:"street" }
+        ],
+        porwanie_psa:[
+          { name:"Garden gate on {street}", pt:"street" },
+          { name:"Courtyard on {street}", pt:"yard" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Site hut", pt:"yard" },
+          { name:"The chairman's villa", pt:"cellar" },
+          { name:"Pharmacy on {street}", pt:"shop" },
+          { name:"Car repair workshop", pt:"work" },
+          { name:"Courtyard on {street}", pt:"yard" },
+          { name:"Tenement balcony", pt:"cellar" },
+          { name:"The {g:dozorca|dozorca}'s hut", pt:"yard" },
+          { name:"Allotment summerhouse", pt:"field" },
+          { name:"Stall {market_on}", pt:"street" },
+          { name:"Veterinary clinic", pt:"shop" },
+          { name:"Kiosk on {street}", pt:"shop" },
+          { name:"Warehouse gate", pt:"street" },
+          { name:"School gate", pt:"street" },
+          { name:"Villa fence", pt:"street" },
+          { name:"Taxi rank", pt:"street" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Presbytery gate", pt:"street" }
+        ],
+        sabotaz:[
+          { name:"Lift machine room on {street}", pt:"work" },
+          { name:"Boiler room on {street}", pt:"work" },
+          { name:"Tram points on {street}", pt:"street" },
+          { name:"Post office on {street}", pt:"shop" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Cooperative sewing room", pt:"work" },
+          { name:"Car park outside the cooperative", pt:"street" },
+          { name:"Allotment water pump", pt:"field" },
+          { name:"Milk bar", pt:"shop" },
+          { name:"Festival stage", pt:"street" },
+          { name:"Pump room in the block", pt:"work" },
+          { name:"Guarded car park", pt:"street" },
+          { name:"Taxi rank", pt:"street" },
+          { name:"Bakery on {street}", pt:"work" },
+          { name:"Roof of the block", pt:"cellar" },
+          { name:"Dairy yard", pt:"work" },
+          { name:"Funfair", pt:"street" },
+          { name:"Staircase on {street}", pt:"stair" },
+          { name:"Workers' cooperative", pt:"work" },
+          { name:"Post office on {street}", pt:"shop" }
+        ],
+        otrucie:[
+          { name:"Pigeon loft on {street}", pt:"cellar" },
+          { name:"Courtyard on {street}", pt:"yard" },
+          { name:"The engineer's flat", pt:"cellar" },
+          { name:"Courtyard on {street}", pt:"yard" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Car repair workshop", pt:"work" },
+          { name:"Allotment henhouse", pt:"field" },
+          { name:"Courtyard hutches", pt:"yard" },
+          { name:"Grocery shop", pt:"shop" },
+          { name:"School biology lab", pt:"work" },
+          { name:"Building site", pt:"yard" },
+          { name:"Flat on {street}", pt:"cellar" },
+          { name:"Park pond", pt:"street" },
+          { name:"Estate courtyard", pt:"yard" },
+          { name:"Clinic waiting room", pt:"shop" },
+          { name:"Tenement balcony", pt:"cellar" },
+          { name:"The chairman's villa", pt:"cellar" },
+          { name:"Cellar on {street}", pt:"cellar" },
+          { name:"Cages {market_on}", pt:"street" },
+          { name:"Courtyard on {street}", pt:"yard" }
+        ]
+      },
+      scene:{ id:"miejsce", name:"Scene of the crime", label:"Scene of the crime", gen:"the scene of the crime", in:"at the scene of the crime", from:"from the scene of the crime", icon:"house" },
+      reachRule:["The culprit spent at least {stay} minutes at the scene of the crime, between {a} and {b}. The times in the table are the shortest routes. Nobody walks it faster.",
+                 "The doctor and forensics agree: the culprit was at the scene for at least {stay} minutes, between {a} and {b}. The table gives the shortest walking times. Nobody gets there quicker.",
+                 "The neighbours heard a noise between {a} and {b}. The culprit spent at least {stay} minutes at the scene then. Nobody can walk it faster than the table says."],
+      tableNote:"All times in the files are exact to the minute. Walking times work both ways.",
+      hint:"Rule {n}: for each person, check the gap between sightings. Is there time to walk to the scene, stay at least {stay} minutes between {a} and {b}, and make it to the next sighting?",
+      obsTpl:[{t:"A neighbour saw [him|her] {in} at {t}.", at:["street","yard","field","shop","stair","cellar"]},"Admits [he|she] was {in} at {t}.",
+              {t:"The postman passed [him|her] {in} at {t}.", at:["street","yard","shop","field"]},
+              {t:"The {g:dozorca|dozorca} wrote in the notebook that at {t} [he|she] was {in}.", at:["yard","cellar","stair"]},{t:"At {t} [he|she] was talking to someone {in}, according to the neighbour at her window.", at:["street","yard"]},
+              {t:"The neighbour on the second floor says [he|she] was {in} at {t}. She'd just glanced at the clock above the {g:kredens|dresser}.", at:["yard"], anc:"clock"},
+              {t:"At {t} [he|she] was {in}. A boy on his way back from football practice remembers, because he'd just checked his watch.", at:["street","yard","shop","field"], anc:"watch"},
+              {t:"A pensioner on the ground floor saw [him|her] {in} at {t}, just as the {g:sygnal|time signal} came on the radio.", at:["street","yard"], anc:"radio"},
+              {t:"A woman pushing a pram passed [him|her] {in} at {t}, just as the church bells were ringing.", at:["street","yard"], anc:"bells"},
+              {t:"At {t} [he|she] was {in}. A mechanic pushing a {g:maluch|Maluch} up the hill saw [him|her].", at:["street","yard"]},
+              {t:"The kiosk vendor saw [him|her] {in} at {t} on the dot, because he was just closing the hatch.", at:["street","shop"], anc:"close", open:true},
+              {t:"The {g:dzielnicowy|dzielnicowy} noted in his book: {t}, {in}.", at:["street","yard","shop","field"]},
+              {t:"Someone from the crew saw [him|her] {in} at {t}, because they'd just looked at the clock above the door.", at:["work"], anc:"clock"},
+              {t:"The shift foreman noted: {t}, {in}.", at:["work"]},
+              {t:"A workmate remembers [he|she] was {in} at {t}, because the break was just starting.", at:["work"], anc:"break"},
+              {t:"A customer in the queue saw [him|her] {in} at {t}, because he'd just looked at his watch.", at:["shop"], anc:"watch", open:true},
+              {t:"The man on the next allotment saw [him|her] {in} at {t} on the dot, because someone was calling everyone in for dinner.", at:["field"], anc:"lunch"},
+              {t:"A tenant from upstairs came down for something and saw [him|her] {in} at {t}. He glanced at his watch.", at:["cellar"], anc:"watch"}],
+      evidence:[{ label:"Slip", name:"Timed slip", icon:"receipt", text:["A slip written by hand {in}, with the time {t} in the corner.","Signed on the slip: {ini}."] },
+                { label:"Book", name:"Visitors' book", icon:"notebook", at:["work","shop"], text:["A visitors' book kept by the porter {in}.","Entry: «{t} — {ini}, in»."] },
+                { label:"Log", name:"Payphone call log", icon:"card", at:["street","shop"], text:["A log of calls from the payphone {in}, kept by the woman on duty.","«{t} — local call, booked under: {ini}.»"] },
+                { label:"Report", name:"Watchman's report", icon:"card", at:["yard","street","field","cellar"], text:["The watchman walks the grounds every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] }],
+      intro:"New kind of case: the timeline. Nobody can be in two places at once. Work out who could have reached the scene at the time of the crime and got back to where they were seen later."
+    },
+    rules2: {
+      /* wzrost w cm w teczce, gdy w sprawie jest reguła porównania; {cm} = 172, {cmm} = 1,72 */
+      heightCm:["[His|Her] ID card gives [his|her] height as {cm} cm.","Measured against the door frame during questioning: {cm} cm.",
+                "According to the district clinic record, [he|she] is {cmm} m tall.","The tailor next door wrote the measurement in his book: height {cm} cm.",
+                {t:"The works doctor entered {cm} cm for height on [his|her] card.", k:["job"]},"[He|She] is {cmm} m tall.",
+                "The search report records [his|her] height: {cm} cm.","The clinic file says: height {cm} cm."],
+      /* miarą jest świadek spoza podejrzanych; {refm} = 1,68; dir = up (sprawca wyższy) / down (niższy) */
+      cmp:{ rule:{ up:["The witness, {ref}, is {refm} m tall and {stal} in the gateway right next to the culprit. The culprit was clearly taller than {ref_od}.",
+                       "{ref}, {ktory} is {refm} m tall, {widzial} the culprit up close, face to face. The culprit was taller than {ref_od}."],
+                   down:["The witness, {ref}, is {refm} m tall and {stal} in the gateway right next to the culprit. The culprit was clearly shorter than {ref_od}.",
+                         "{ref}, {ktory} is {refm} m tall, {widzial} the culprit up close, face to face. The culprit was shorter than {ref_od}."] },
+            hint:"compare the heights in the files with {ref}'s {refm} m." },
+      relation:{
+        workmate:{ rule:["{ref} {zeznal} that they know the culprit from work: they work at the same place.",
+                         "The culprit works at the same plant as {ref}. The gatekeeper on that shift recognised them."],
+                   fact:[{t:"{ref} works at the same plant as [him|her]. They pass each other at the gatehouse every day.", k:["job"]},
+                         {t:"[He|She] and {ref} work the same shift at the same plant.", k:["job"]}],
+                   what:"the same workplace" },
+        stairwell:{ rule:["{ref} {zeznal} that they pass the culprit on their own staircase every day: they live on the same staircase.",
+                          "The culprit lives on the same staircase as {ref}. The neighbour on the ground floor knew the culprit by their step on the stairs."],
+                    fact:["{ref} lives one floor up, on the same staircase as [him|her].","{ref} lives on the same staircase as [him|her], right across the landing."],
+                    what:"the same staircase" },
+        inlaw:{ rule:["{ref} {zeznal} that the culprit is someone from {ref_jego} family: a brother-in-law or a sister-in-law.",
+                      "The culprit and {ref} are in-laws, according to the family's statements."],
+                fact:["{ref} is [his|her] {szw}. They see each other at family name-day parties.","{ref} is [his|her] {szw}, on the spouse's side."],
+                what:"in-laws" },
+        hint:"check who in the files has some connection to {ref}."
+      },
+      absent:{ rule:["From {a} to {b} the {g:dozorca|dozorca} swept the courtyard and wrote down everyone who passed. Anyone in the notebook has it in their file. The culprit isn't in the notebook.",
+                     "From {a} to {b} the {g:dozorca|dozorca} sat by the {g:trzepak|carpet rail} and noted everyone who crossed the courtyard. Every entry is in the files. The culprit didn't cross the courtyard."],
+               fact:["The {g:dozorca|dozorca} wrote [him|her] down in the notebook: crossed the courtyard at {t}.","In the {g:dozorca|dozorca}'s notebook: {t}, crossing the courtyard.",
+                     "The {g:dozorca|dozorca} put [him|her] in the notebook at {t}, crossing the courtyard.","At {t} the {g:dozorca|dozorca} noted [him|her] in the courtyard."],
+               hint:"who has an entry from the {g:dozorca|dozorca}'s notebook in their file?" }
+    },
+    traits: {
+      hand: {
+        values:["left","right"],
+        facts:{
+          left:["Writes with [his|her] left hand.","Signed [his|her] statement with [his|her] left hand.","A {g:mankut|mańkut}, a lefty. That's what the neighbours call [him|her].","Wears [his|her] watch on the right wrist, being left-handed.",
+                "Took notes with [his|her] left hand during questioning, saying [he|she] can't write with the right.","At school they tied [his|her] left hand to the desk, and [he|she] still writes with it.",
+                "Eats, writes and slices bread with [his|her] left hand, like every lefty.","Holds the knife in [his|her] left hand at dinner and the fork in the right, like a lefty.",
+                "Has special left-handed scissors, bought in Germany.","Writes left-handed, and [his|her] signature slopes left and smudges.",
+                "Workmates have called [him|her] “{g:mankut|mańkut}” for years, because [he|she] does everything left-handed.","Signed the record of questioning left-handed, crooked, the ink smudged."],
+          right:["Signed [his|her] statement with [his|her] right hand.","Writes with [his|her] right hand, small and neat.","Can't even hold a spoon in [his|her] left hand. Does everything with the right.","Is right-handed, and wears [his|her] watch on the left wrist.",
+                 "Writes with [his|her] right hand, and has a pen callus on the middle finger.","Jotted something in a pocket diary with [his|her] right hand during questioning.",
+                 "There isn't a single lefty in the family. [He|She] does everything right-handed too.","Signs Christmas cards to the family with [his|her] right hand, neatly, the way they taught at school.",
+                 "Wrote [his|her] statement with [his|her] right hand, evenly and without crossings-out.","Always holds a hammer, a knife or a pen in [his|her] right hand. Can't do a thing with the left.",
+                 "Was a model of handwriting at school and still writes right-handed like a primer.",{t:"Wrote “right-handed” on the works questionnaire.", k:["job"]}]
+        },
+        rule:{ left:["The culprit's marks {where} were left by a left hand.","The culprit's fingerprints {where} lie the way a lefty's do."],
+               right:["The culprit's marks {where} were left by a right hand.","The culprit's fingerprints {where} lie the way they do for someone who does everything right-handed."] },
+        ruleMurder:{ left:["The angle of the wound leaves the doctor in no doubt: the blow came from the left hand.","The doctor is in no doubt: the blow was struck with the left hand."],
+                     right:["The angle of the wound leaves the doctor in no doubt: the blow came from the right hand.","The doctor is in no doubt: the blow was struck with the right hand."] },
+        ruleStrangle:{ left:["The marks on the victim's neck leave the doctor in no doubt: the left hand pulled harder.","The noose was tightened from the left side, the way a lefty does it."],
+                       right:["The marks on the victim's neck leave the doctor in no doubt: the right hand pulled harder.","The noose was tightened from the right side, the way a right-handed person does it."] },
+        hint:"Compare which hand the suspects use.",
+        why:{ left:"is left-handed", right:"is right-handed" },
+        whyFail:{ left:"is right-handed", right:"is left-handed" }
+      },
+      shoe: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Slip", name:"Cobbler's slip", icon:"receipt", text:["A slip from the cobbler's on {street2}: resoling and new heels.","Shoes in size {v}, ready for collection on Friday. On the slip: {ini}."] },
+                  { label:"Box", name:"Shoebox", icon:"receipt", text:["A shoebox from the department store, found in the cellar by the tenants' storerooms.","Size {v} on the side. Someone wrote on the lid in felt-tip: {ini}."] },
+                  { label:"Till receipt", name:"Shoe department receipt", icon:"receipt", text:["A receipt from the department store's shoe department: leather shoes, {kwota_shoes}.","Size {v}. Tried on in the shop and worn out of it. Signed on the back: {ini}."] },
+                  { label:"Inventory", name:"Search inventory", icon:"card", text:["An inventory of items from a search of the flat, signed by the {g:dzielnicowy|dzielnicowy}.","Item four: everyday winter boots, size {v}. Owner, only the initials legible: {ini}."] }],
+        values:{ m:[42,43,44,45], f:[37,38,39,40] },
+        facts:["Wears size {v} shoes.","[His|Her] wellies stand in the hall, size {v}.","Recently bought a pair of shoes at the market, size {v}.",
+               "[His|Her] shoes stand on the mat outside the door, size {v}.","The cobbler next door remembers resoling [his|her] shoes, size {v}.",
+               "[His|Her] shoe size was taken down during questioning: {v}.","Keeps two pairs of shoes in the cupboard, both size {v}.","The slippers [he|she] answered the door in are size {v}.",
+               "[His|Her] gumboots are drying in the cellar, size {v}.","[His|Her] {g:relaks|Relaks} winter boots are size {v}.","Came to questioning in clogs, size {v}.",
+               "The search report records: footwear, size {v}."],
+        rule:["Running off, the culprit left a size {v} shoeprint in the mud by the entrance.","A fresh print of the culprit's sole was left on the doormat, size {v}."],
+        hint:"Check the shoe sizes.",
+        why:"wears size {v} shoes",
+        whyFail:"wears size {v} shoes"
+      },
+      /* 2.2: przeczenie. Reguła mówi, czego NIE było (pies nie szczekał, sprawca nie szukał drogi); wartość wynika jednoznacznie.
+         Tylko jako reguła (nigdy jako zdanie-wabik) i nigdy razem z regułą motywu. */
+      known: {
+        values:["yes","no"], ruleValues:["yes","no"],
+        facts:{ yes:["The {g:dozorca|dozorca}'s dog wags its tail at the sight of [him|her]. It has known [him|her] since it was a pup.","Visits the victim's household every week and knows every corner there.",
+                     "Has been coming here for years as if it were home. Everyone knows [him|her].","Once helped the victim with some decorating, so knows where everything is.",
+                     "The victim's neighbours call [him|her] “one of ours”, because [he|she] has always been around.","Has [his|her] own chair at the victim's table, [he|she] is there so often.",
+                     "The {g:dozorca|dozorca} knows [him|her] by name and never asks who [he|she] is visiting.","Knows even the creaking stairs at the place where it happened."],
+                no:["Doesn't know the victims and has never been to that part of town.","The {g:dozorca|dozorca} from that block has never laid eyes on [him|her] before.",
+                    "Lives at the other end of town and never goes anywhere near there.","Had to be led to the scene reconstruction, not knowing the way.",
+                    "Has never exchanged a word with the victims and knows them at most from a photo in the paper.","The victims' neighbours all agree they have never seen [him|her] there.",
+                    "Was last in that part of town years ago, helping a cousin move house.","At the scene reconstruction the {g:dozorca|dozorca}'s dog barked at [him|her] as at any stranger."] },
+        rule:{ yes:["The {g:dozorca|dozorca}'s dog, which barks at every stranger, didn't bark once that evening. The culprit was no stranger here.",
+                    "The culprit didn't have to find the way or feel for the light switch. This wasn't their first time here."],
+               no:["The {g:dozorca|dozorca}'s dog barked the way it only barks at strangers. The culprit had never been here before.",
+                   "The culprit didn't know the way: a neighbour heard them asking on the stairs where the way out was. They had never been here before."] },
+        hint:"Who was at home at the scene, and who was a stranger there?",
+        why:{ yes:"was no stranger there", no:"was a stranger there" },
+        whyFail:{ yes:"was a stranger there", no:"is at home there" }
+      },
+      height: {
+        values:["tall","short"],
+        facts:{
+          tall:[{t:"Is over one metre ninety tall.", cm:{m:[191,250],f:[191,250]}},{t:"Ducks under every doorway.", cm:{m:[188,250],f:[178,250]}},"You can spot [him|her] above the crowd at the market from far away.",
+                "Stands in the back row of the class photo, a head taller than the rest.","Is so tall that [he|she] changes the bulbs on the staircase without a ladder.",
+                "[His|Her] trousers are always too short, because the shops have nothing in [his|her] size.",{t:"Has to stoop on the tram so as not to hit the ceiling.", cm:{m:[190,250],f:[182,250]}},
+                "At school assembly always stood at the head of the line, as the tallest in the class.",{t:"When [he|she] gets up from the table, [his|her] head almost touches the kitchen lamp.", cm:{m:[188,250],f:[178,250]}},
+                {t:"Had a bed made to measure, because the shop had nothing long enough.", cm:{m:[190,250],f:[184,250]}},"In every queue can see the counter over most people's heads.",
+                "The neighbours call [him|her] when the net curtains need taking down. At [his|her] height there's no need for a ladder."],
+          short:[{t:"Is just under one metre sixty.", cm:{m:[0,159],f:[0,159]}},"Needs a stool to reach the top shelf.","Can barely reach the handrail on the tram.",
+                 "Can't see the counter over other people's backs in a queue.","Always stood in the front row of the class photo, as the shortest.",
+                 {t:"Jokes that [he|she] is one metre fifty-five in a hat.", cm:{m:[0,0],f:[0,156]}},{t:"Is so short that [he|she] has to stand on tiptoe to see in the bathroom mirror.", cm:{m:[0,162],f:[0,154]}},
+                 {t:"Gets lost in the crowd at the market, barely reaching tall people's shoulders.", cm:{m:[0,162],f:[0,155]}},"Is short and has every pair of trousers taken up a good ten centimetres at the dressmaker's.",
+                 {t:"During questioning [his|her] feet barely touched the floor.", cm:{m:[0,162],f:[0,155]}},"[His|Her] ID card has {cm} cm in the height box.",
+                 "Can't reach the letterboxes in the top row without a stool."]
+        },
+        rule:{ tall:["The culprit left handprints on the door frame, over two metres off the floor.","A witness saw the culprit duck in the doorway so as not to hit their head."],
+               short:["A witness saw the culprit from a window: the figure barely showed above a parked {g:maluch|Maluch}.","The culprit had to stand on a crate to reach the bolt, which a tall person reaches with ease."] },
+        hint:"Whose height doesn't fit?",
+        why:{ tall:"is tall", short:"is short" },
+        whyFail:{ tall:"is short", short:"is tall" }
+      },
+      smoker: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Note", name:"Kiosk slip", icon:"receipt", text:["The kiosk lady puts regulars' cigarettes on tick until payday.","On this week's slip: «{ini} — {packs} {cig}, smokes like a chimney»."] },
+                  { label:"Exercise book", name:"Shop lady's notebook", icon:"notebook", text:["The grocery assistant writes regulars' purchases on tick in a notebook under the counter.","Among this week's entries: «{ini}: {goods} and {packs} {cig} for themselves, will pay Friday»."] },
+                  { label:"Bill", name:"Bar bill", icon:"receipt", text:["A bill from the “{bar}” bar: beer, matches and {packs} {cig}.","The waitress remembered the cigarette being lit straight away at the bar, and wrote on the back: {ini}."] },
+                  { label:"Order", name:"Kiosk standing-order book", icon:"notebook", text:["The standing-order book from the {g:ruch|Ruch} kiosk on {street2}.","«{ini} — {packs} {cig} a day, put aside before seven. Smokes like a chimney.»"] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Smokes {g:sporty|Sporty}, a pack a day.","[His|Her] fingers are yellow from cigarettes.","Lit two cigarettes back to back during questioning.",
+                     {t:"Smokes smuggled Marlboros, bought one at a time.", years:[1990,1999]},"A half-smoked pack of {g:sporty|Klubowe} sticks out of [his|her] pocket. [He|She] smokes from it all day.",
+                     "Smokes by the open window, and the ashtray on the sill is always full.","Smokes in the kitchen, in the hallway, on the stairs, anywhere [he|she] can.","Asked for a break during questioning to have a smoke.",
+                     "Lights one cigarette off the last.","Lights the first cigarette in the morning while still in bed.","When money runs short before payday, buys cigarettes singly at the kiosk.",
+                     "Smokes on the balcony in the evenings, in slippers."],
+                no:[{t:"Hasn't smoked in twenty years.", ages:["mid","old"]},"Doesn't smoke and can't stand cigarette smoke.","Has never smoked.",
+                    "Gave up smoking when a neighbour had a heart attack.","Asked for the window to be opened during questioning: doesn't smoke and the smoke was a bother.",
+                    {t:"Only buys cigarettes for [his|her] father. Doesn't smoke [himself|herself].", ages:["young","mid"]},"Doesn't smoke, and there isn't a single ashtray in the flat.",
+                    "Turned down a cigarette during questioning, being a non-smoker.",{t:"The doctor banned smoking after [his|her] heart attack, and [he|she] hasn't touched a cigarette since.", ages:["mid","old"]},
+                    "Passes on any cigarettes [he|she] is offered to a brother-in-law, not smoking [himself|herself].","Has never lit a cigarette: smoke makes [him|her] feel sick.",
+                    "Doesn't smoke and has no matches in the kitchen either: cooks on an electric stove."] },
+        rule:{ yes:["The culprit left a fresh cigarette butt at the scene.","Smoke from the culprit's cigarette still hung in the air."] },
+        hint:"Who doesn't smoke?",
+        why:{ yes:"smokes" },
+        whyFail:{ yes:"doesn't smoke" }
+      },
+      car: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Fine", name:"Parking fine", icon:"ticket", text:["A fine for leaving a car on the pavement on {street2}, issued a week ago.","The driver accepted a {kwota_fine} fine and signed: {ini}."] },
+                  { label:"Bill", name:"Garage bill", icon:"receipt", text:["A bill from the car repair shop on {street2}: new exhaust, {kwota_repair}.","Made out to the car's owner, {ini}. Car collected the day before the incident."] },
+                  { label:"Car park", name:"Guarded car park ticket", icon:"ticket", text:["A ticket from the guarded car park at {dworzec}, for one day: {kwota_parking}.","The attendant wrote down the make of the car and the driver's name. Only the initials are legible: {ini}."] },
+                  { label:"Policy", name:"{g:pzu|PZU} car insurance policy", icon:"card", text:["A compulsory car insurance policy from {g:pzu|PZU}, paid up to the end of the year.","Premium {kwota_oc}. Vehicle owner: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Drives a coffee-coloured {g:polonez|Polonez}.","Has a {g:maluch|Maluch} parked outside the block.",{t:"Drives a {g:zuk|Żuk} van with a company name on the side.", ages:["young","mid"], k:["job"]},
+                     {t:"Drives a Golf brought over from Germany.", years:[1990,1999], ages:["young","mid"]},
+                     {t:"Bought a Tychy-built {g:cinquecento|Cinquecento} on hire purchase.", years:[1993,1999]},
+                     {t:"Drives a brand-new {g:tico|Daewoo Tico}.", years:[1997,1999]},"Washes [his|her] car outside the block every Sunday.",
+                     "Keeps the car keys on a key ring with the city's coat of arms.","Keeps an eye on [his|her] car from the balcony, parked under the window.",
+                     "Carries a spare jerrycan and a tow rope in the boot.","Always parks [his|her] {g:syrenka|Syrenka} in the same spot in the courtyard.","Tinkers with [his|her] car outside the block every Saturday."],
+                no:[{t:"Has neither a car nor a driving licence.", k:["nodrive"]},"Has no car and takes the tram everywhere.",{t:"Sold the car last year and never bought another.", ages:["mid","old"]},
+                    "Has no car and goes shopping by bus with a tartan trolley.",{t:"Never learned to drive and is afraid of cars.", k:["nodrive"]},
+                    {t:"Complained at the cooperative meeting that cars block the courtyard, having none [himself|herself].", k:["adult"]},
+                    "Cycles to the allotment, never having owned a car.","Has no car, never having been able to afford one.",{t:"Has no car: sold [his|her] car {g:talon|talon} to a brother-in-law, not being able to drive anyway.", ages:["mid","old"], k:["adult","nodrive"]},
+                    "Has no car and on Sundays walks everywhere.",{t:"Lost [his|her] driving licence three years ago and sold the car straight after.", ages:["mid","old"]},"Has no car: the only vehicle [he|she] owns is a bicycle."] },
+        rule:{ yes:["A witness saw the culprit get into their own car right after the incident and drive off.","Tyre tracks in the courtyard lead to where the culprit left their car."] },
+        hint:"Who has no means of driving off?",
+        why:{ yes:"has a car" },
+        whyFail:{ yes:"has no car" }
+      },
+      glasses: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Prescription", name:"Optician's prescription", icon:"receipt", text:["A prescription from the clinic on {street2}: lenses, minus four.","Made out to {ini}. Glasses collected from the optician last week."] },
+                  { label:"Slip", name:"Optician's slip", icon:"receipt", text:["A slip from the optician's: glasses arm repaired, {kwota_optic}.","Ready for collection on Monday. Ordered by: {ini}."] },
+                  { label:"Referral", name:"Eye clinic referral", icon:"card", text:["A referral from the district clinic to the eye clinic, stamped by the doctor.","Note added: «has worn glasses for years, lens check». Patient: {ini}."] },
+                  { label:"Lenses", name:"Lens order", icon:"receipt", text:["An order from the optician's on {street2}: new lenses for everyday glasses, {kwota_lenses}.","Glasses collected by the owner. Signed: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Can't read a newspaper without glasses.","Wears thick horn-rimmed glasses.","Wears glasses with thin wire frames.",
+                     "Keeps [his|her] glasses on a cord round [his|her] neck.","Kept wiping [his|her] glasses with a hanky during questioning.",
+                     "[His|Her] lenses are as thick as bottle bottoms.","Without glasses can't recognise a neighbour across the street.","Bought [his|her] everyday glasses at the optician's on {street2}.",
+                     "Wears glasses and puts them away at night in a case with an embroidered monogram.","Never takes [his|her] glasses off. Kept pushing them up [his|her] nose while reading the statement.","Wears [his|her] glasses all day, morning to night.",
+                     "[His|Her] glasses are held together with sticking plaster at the arms."],
+                no:["Has eyes like a hawk and doesn't wear glasses.","Has never needed glasses.","Doesn't wear glasses and reads the paper with ease, even the smallest print.",
+                    "Doesn't wear glasses and can read the timetable from across the street.","Doesn't wear glasses and hasn't seen an optician in years: no need.","Doesn't wear glasses and can spot the postman from the window at the far end of the street.",
+                    "Doesn't wear glasses: read the statement during questioning unaided, small print included.",{t:"Doesn't wear glasses and laughs that they're for old people.", ages:["young","mid"]},
+                    "Without glasses, can read a tram's number from the balcony before it rounds the corner.","Doesn't wear glasses, and there are none in any family photo.",
+                    "Doesn't wear glasses and threads a needle at the first attempt.","Doesn't wear glasses, and the optician said [his|her] eyesight is perfect."] },
+        rule:{ yes:["In the struggle the culprit broke a lens. A shard was left on the floor.","The culprit dropped a glasses case at the scene."] },
+        hint:"Who doesn't wear glasses?",
+        why:{ yes:"wears glasses" },
+        whyFail:{ yes:"doesn't wear glasses" }
+      },
+      dog: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Booklet", name:"Dog vaccination booklet", icon:"notebook", text:["A dog vaccination booklet with the veterinary clinic's stamp.","Dog: {dogbreed}, answers to {dogname}. Owner: {ini}. Last vaccination last month."] },
+                  { label:"Slip", name:"Vet's slip", icon:"receipt", text:["A slip from the veterinary clinic on {street2}: worming for a dog called {dogname}.","The fee, {kwota_vet}, was paid by the owner. On the slip: {ini}."] },
+                  { label:"Dog tax", name:"Dog licence receipt", icon:"receipt", text:["A receipt from the district office: this year's dog licence fee, {kwota_dogtax}.","Dog: {dogbreed}, answers to {dogname}. Paid by: {ini}."] },
+                  { label:"Certificate", name:"Dog show certificate", icon:"photo", text:["A certificate from a dog show in the sports hall, with the kennel club's seal.","Commendation for a dog called {dogname}. Owner: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Has a mongrel [he|she] walks three times a day.","[His|Her] coat is covered in hair from [his|her] Alsatian.","Walks [his|her] dachshund round the courtyard in the evenings.",
+                     "[His|Her] Alsatian barks at every postman.","[His|Her] dog's bowl stands in the hallway.","The dog sleeps at the foot of [his|her] bed.",
+                     "Came to questioning with [his|her] dog on a lead.","Carries treats for [his|her] spaniel in [his|her] pocket.","[His|Her] spaniel waits for [him|her] outside the shop on {street2}.",
+                     "The mat outside [his|her] door is covered in hair, because the dog lies there all day.","Takes [his|her] dog to the same patch of grass every evening.","The neighbours complain that [his|her] dog barks at night."],
+                no:[{t:"Has no dog, being allergic to dog hair.", k:["dogfear"]},{t:"Has been afraid of dogs since childhood and has never had one.", k:["dogfear"]},"Has no dog: the housing cooperative doesn't allow it.",
+                    "The only pets at home are fish in an aquarium.","Has no dog, having neither the time nor the money for one.",{t:"Has no dog and crosses the street at the sight of anyone else's.", k:["dogfear"]},
+                    "The only pet in the flat is a canary in a cage.","Has no dog, only a cat that can't stand dogs.","Had a dog as a child and doesn't want another.",
+                    "Keeps no dog, saying a dog in a tower block is torture for the animal.","Has no dog: not a single hair on [his|her] clothes, and the carpet is clean.",{t:"Keeps no dog, and when a neighbour came round with his, asked him to leave it on the stairs.", k:["dogfear"]}] },
+        rule:{ yes:["The culprit left dog hair at the scene, though nobody keeps a dog there.","Paw prints were left on the doorstep, next to the culprit's footprints."] },
+        hint:"Who has no dog?",
+        why:{ yes:"has a dog" },
+        whyFail:{ yes:"has no dog" }
+      },
+      jacket: {
+        /* dowód rzeczowy z tą cechą: {ini} = inicjały właściciela, {v} = wartość */
+        evidence:[{ label:"Slip", name:"Dry cleaner's slip", icon:"receipt", text:["A slip from the dry cleaner's on {street2}: {g:ortalion|ortalion} jacket for cleaning.","Ready in a week. On the slip: {ini}."] },
+                  { label:"Notepad", name:"Dressmaker's order pad", icon:"receipt", text:["A sheet from the neighbourhood dressmaker's order pad: new zip in an {g:ortalion|ortalion} jacket, {kwota_sewing}.","Paid in advance. Ordered by: {ini}."] },
+                  { label:"Tag", name:"Jacket price tag", icon:"receipt", text:["A cardboard tag from an {g:ortalion|ortalion} jacket, priced {kwota_jacket}, thrown in the bin on the stairs.","On the back the trader noted who bought it and walked away from the stall wearing it: {ini}."] },
+                  { label:"Token", name:"Cloakroom ticket", icon:"ticket", text:["A cloakroom ticket from the community centre: one {g:ortalion|ortalion} jacket received, navy, with a hood.","The cloakroom attendant wrote the owner's initials on the ticket: {ini}."] }],
+        values:["yes","no"], ruleValues:["yes"],
+        facts:{ yes:["Wears a rustling {g:ortalion|ortalion} jacket.",{t:"Came to questioning in a nylon tracksuit.", ages:["young","mid"]},"Wears an {g:ortalion|ortalion} jacket from the market every day, three colours of it.",
+                     "[His|Her] {g:ortalion|ortalion} jacket rustles with every move.","[His|Her] {g:ortalion|ortalion} windcheater hangs on the hook in the hall.","Never takes off the {g:ortalion|ortalion} jacket, not even at home.",
+                     {t:"Bought [his|her] everyday {g:ortalion|ortalion} jacket from a trader just back from Turkey.", years:[1990,1999]},"There's a cigarette burn on the sleeve of [his|her] {g:ortalion|ortalion} jacket.",{t:"Wears {g:ortalion|ortalion} to work because it keeps the rain out.", k:["job"]},
+                     "Ties [his|her] {g:ortalion|ortalion} jacket round [his|her] waist when it's warm.","In the photo from the name-day party, [he|she] is wearing [his|her] everyday {g:ortalion|ortalion} jacket.","Has worn the same {g:ortalion|ortalion} jacket for three winters and has no plans to change."],
+                no:[{t:"Owns no {g:ortalion|ortalion}. Wears [his|her] father's woollen coat.", ages:["young","mid"]},"There's no {g:ortalion|ortalion} in the wardrobe: wears a sheepskin coat, though it's too warm for it now.","Owns only a winter coat and a thick jumper.",
+                    "Can't stand {g:ortalion|ortalion}: says it rustles like a carrier bag.","Never wears {g:ortalion|ortalion}: always in a suit jacket, even to the shop.","Has one jacket, corduroy, with patches on the elbows.",
+                    "Owns no jacket at all and goes about in a jumper [his|her] sister knitted.","Has only a denim jacket, worn through at the elbows.","Only coats hang in the wardrobe, not a single jacket.",
+                    "Owns only the trench coat [he|she] wore to questioning.","Says {g:ortalion|ortalion} is for market wide boys, and has never put one on.","Has one jacket, a leather one handed down from an older brother."] },
+        rule:{ yes:["The culprit caught a sleeve on a nail by the door. A shred of {g:ortalion|ortalion} was left on it.","A witness heard the culprit's jacket rustle like {g:ortalion|ortalion} in the dark."] },
+        hint:"Who doesn't wear {g:ortalion|ortalion}?",
+        why:{ yes:"wears {g:ortalion|ortalion}" },
+        whyFail:{ yes:"doesn't wear {g:ortalion|ortalion}" }
+      },
+      motive: {
+        /* zdania o motywie są w typie zbrodni: crimes.*.suspicion (tak) i crimes.*.noMotive (nie) */
+        values:["yes","no"], ruleValues:["yes"], fromCrime:true,
+        hint:"Who had no reason at all?",
+        why:{ yes:"had a motive" },
+        whyFail:{ yes:"had no motive" }
+      }
+    },
+
+    /* ------------------------------------------------------------------ */
+    /* ALIBI                                                                */
+    /* ------------------------------------------------------------------ */
+    alibiConfirmed: [
+      { text:"was playing cards at the “{bar}” bar", k:["adult"], debunk:"Walked past the “{bar}” bar that evening. It was closed, and the windows were dark.", witness:"the barman and three regulars confirm it",
+        doc:{ label:"Score sheet", name:"Bar score sheet", icon:"card", text:["The barman at the “{bar}” bar keeps the scores of the card games on a sheet pinned to the counter.","That evening, from {from} to {to}, at one table, every hand records: {ini}."] } },
+      { text:"was at evening Mass {church_at}", debunk:"Says there was no Mass {church_at} that evening, because the parish priest had a funeral out of town.", witness:"the parish priest and the sexton saw [him|her]",
+        doc:{ label:"Exercise book", name:"Sexton's notebook", icon:"notebook", text:["The sexton {church_at} notes who read the lesson and who took the collection.","Under that day's date, Mass from {from} to {to}. Taking the collection: {ini}."] } },
+      { text:"was watching the {team} match at a brother-in-law's", debunk:"Heard on the radio that the {team} match that day was postponed because the pitch flooded.", witness:"the brother-in-law and his wife confirm it" },
+      { text:"was working the second shift {zaklad_at}", roles:["worker"], debunk:"Heard in a queue that the second shift {zaklad_at} had the day off because production stopped.", witness:"the foreman and the attendance sheet confirm it",
+        doc:{ label:"Card", name:"Clock card", icon:"card", text:["A clock card from the gatehouse {zaklad_at}.","Punched in at {from} and out at {to}. The name is smudged, only the initials legible: {ini}."] } },
+      { text:"was at a housing cooperative meeting", k:["adult"], debunk:"Says the cooperative meeting was called off at the last minute because the chairman didn't turn up.", witness:"[his|her] signature is in the minutes of the meeting",
+        doc:{ label:"List", name:"Meeting attendance list", icon:"card", text:["The attendance list from the housing cooperative meeting, with the chairman's stamp.","The meeting ran from {from} to {to}. {ini}'s signature is there at the door and at the vote at the end."] } },
+      { text:"was queuing at the ticket office at {dworzec}", debunk:"Was at {dworzec} that evening. The ticket office was closed because the cashier was ill.", witness:"the cashier, who remembered [him|her], confirms it" },
+      { text:"was at a name-day party at the neighbour's across the landing", witness:"the woman celebrating and ten guests confirm it",
+        debunk:"Knows the name-day party across the landing was postponed because the woman celebrating went into hospital.",
+        doc:{ label:"Photos", name:"Name-day party photos", icon:"photo", text:["Prints from the name-day party across the landing, taken on a {g:zenit|Zenit} all evening.","On the back the woman celebrating noted the times, from {from} to {to}, and who is sitting at the table. In every photo: {ini}."] } },
+      { text:"was in the casualty waiting room with a neighbour", witness:"the receptionist and an entry in the admissions book confirm it",
+        debunk:"Says the neighbour sat on the bench outside the block all that evening and never went near casualty.",
+        doc:{ label:"Entry", name:"Copy of the admissions book entry", icon:"notebook", text:["A copy of an entry from the casualty admissions book, with the registration stamp.","Neighbour admitted at {from}, discharged at {to}. Accompanied throughout, in the waiting room: {ini}."] } },
+      { text:"was at the last showing at the “{cinema}” cinema", debunk:"Heard from the usherette that the last showing at the “{cinema}” cinema was cancelled because the film snapped.", witness:"the usherette remembers [him|her], and the ticket is in [his|her] pocket",
+        doc:{ label:"Ticket", name:"Cinema ticket", icon:"ticket", text:["A ticket for the last showing at the “{cinema}” cinema, of “{film}”, torn by the usherette.","Showing from {from} to {to}. The usherette notes regulars' seats in a notebook: row seven, {ini}."] } },
+      /* Alibi z pracy: tylko dla ról z `roles` (druga zmiana w zakładzie = robotnik z miasta).
+         debunk trafia do teczki innej osoby, gdy alibi jest fałszywe; doc = dokument, gdy potwierdza je dowód. */
+      { roles:["pielegniarka"], text:"was on duty in casualty at {szpital}", witness:"the ward sister and the report book confirm it",
+        debunk:"Was at {szpital} that evening visiting a sick aunt. A completely different shift was on duty in casualty.",
+        doc:{ label:"Report", name:"Casualty report book", icon:"notebook", text:["The nurses' report book from casualty at {szpital}.","On duty from {from} to {to}, every entry in the same handwriting. Signed: {ini}."] } },
+      { roles:["kioskarz"], text:"was closing up the kiosk and settling the takings with the {g:ruch|Ruch} collector", witness:"the collector and the payment receipt confirm it",
+        debunk:"Says the kiosk on {street2} was shut from midday that day. There was a “Stocktaking” sign in the window.",
+        doc:{ label:"Receipt", name:"Takings receipt", icon:"receipt", text:["A receipt for the kiosk takings, with the {g:ruch|Ruch} stamp.","Settled from {from} to {to}. Paid in by: {ini}."] } },
+      { roles:["motorniczy"], text:"was driving a tram on the evening run", witness:"the dispatcher and the duty sheet confirm it",
+        debunk:"Heard from a friend at the depot that the trams stood still that evening because an overhead wire snapped.",
+        doc:{ label:"Card", name:"Tram driver's duty sheet", icon:"card", text:["A duty sheet from the depot, with the dispatcher's stamp.","Run from {from} to {to}, car number 412. Driver: {ini}."] } },
+      { roles:["taksowkarz"], text:"was driving fares from the rank at {dworzec}", witness:"the dispatcher and the log of fares confirm it",
+        debunk:"Was waiting at the rank at {dworzec} that evening. Not a single taxi pulled in all evening.",
+        doc:{ label:"Slips", name:"Taximeter slips", icon:"receipt", text:["Taximeter slips held together with a rubber band.","Fares from {from} to {to}, one after another. Signed on the back by the driver: {ini}."] } },
+      { roles:["listonosz"], text:"was delivering telegrams for the night post office", witness:"the postmistress and the delivery book confirm it",
+        debunk:"Says the night post office was closed that day because the stove broke and the pipes froze.",
+        doc:{ label:"Book", name:"Telegram delivery book", icon:"notebook", text:["The telegram delivery book from the night post office.","From {from} to {to}, recipients' signatures one after another. Delivered by: {ini}."] } },
+      { roles:["ochroniarz"], text:"was guarding a wholesale warehouse on the night shift", witness:"the head of security and the patrol book confirm it",
+        debunk:"Knows the warehouse was sealed that evening because the tax office came to inspect.",
+        doc:{ label:"Patrols", name:"Warehouse patrol book", icon:"notebook", text:["The warehouse patrol book, an entry every half hour.","From {from} to {to}, every round signed with the same initials: {ini}."] } },
+      { roles:["organista"], text:"was playing the organ at evening Mass {church_at}", witness:"half the parish saw [him|her]",
+        debunk:"Says there was no Mass {church_at} that evening, because the parish priest had a funeral out of town.",
+        doc:{ label:"Exercise book", name:"Sexton's notebook", icon:"notebook", text:["The sexton {church_at} notes who played and who read at Mass.","Under that day's date, Mass from {from} to {to}: at the organ, {ini}."] } },
+      { roles:["fryzjer"], text:"was doing a perm for the last customer at the salon, until late", witness:"the customer and the appointment book confirm it",
+        debunk:"Says the hairdresser's was dark that evening, because the power was cut on the whole street.",
+        doc:{ label:"Appointments", name:"Hairdresser's appointment book", icon:"notebook", text:["The appointment book from the hairdresser's, prices pencilled in.","The last perm from {from} to {to}. Noted beside it, who did it: {ini}."] } },
+      { roles:["student"], text:"was at an evening seminar at the university", witness:"the assistant lecturer and the attendance list confirm it",
+        debunk:"Heard from a classmate that the evening seminar was cancelled because the lecturer was ill.",
+        doc:{ label:"List", name:"Seminar attendance list", icon:"card", text:["The attendance list from the evening seminar, signed by the assistant lecturer.","Seminar from {from} to {to}. Among the signatures: {ini}."] } },
+      { roles:["handlarz","prywaciarz","praski"], text:"was packing up a stall {market_on} and counting stock", witness:"the neighbouring stallholders confirm it",
+        debunk:"Says the market {market_on} was shut down that day by the health inspectors, and the stalls stood empty." },
+      { roles:["akwizytor"], text:"was running a cookware demonstration at the community centre", witness:"the centre's manageress and thirty ladies from the estate confirm it",
+        debunk:"Knows the cookware demonstration at the community centre was cancelled because nobody came." },
+      { roles:["wideo"], text:"was handing out tapes at the video shop until closing", witness:"the regulars and the rentals book confirm it",
+        debunk:"Says the video shop was closed that evening. There was a “Stocktaking” sign on the door.",
+        doc:{ label:"Rentals", name:"Video rentals book", icon:"notebook", text:["The rentals book from the video shop.","From {from} to {to}, one rental after another. Every one signed by the same assistant: {ini}."] } },
+      { roles:["krawcowa"], text:"was sewing a wedding dress at a customer's, with fittings", witness:"the customer and her daughter confirm it",
+        debunk:"Knows the customer who was supposedly having a dress made has been at a sanatorium for a week." },
+      { roles:["dozorca","administrator"], text:"was keeping an eye on the workmen fixing the tenement's water riser", witness:"the plumbers from the estate office confirm it",
+        debunk:"Says there was no riser repair that day. The water was running normally." },
+      { roles:["portowiec"], text:"was unloading a ship on the night shift at the port", witness:"the foreman and the attendance sheet confirm it",
+        debunk:"Heard at the port that the ship the shift was waiting for only came in at dawn.",
+        doc:{ label:"Card", name:"Port clock card", icon:"card", text:["A clock card from the port gate.","Punched in at {from} and out at {to}. Legible initials: {ini}."] } },
+      { roles:["muzyk"], text:"was playing for the dancing at a wedding in the fire station hall", witness:"the groom and the whole band confirm it",
+        debunk:"Heard that the wedding in the fire station hall was called off at the last minute because the bride changed her mind.",
+        doc:{ label:"Photos", name:"Wedding photos", icon:"photo", text:["Photos from the wedding in the fire station hall, taken by the photographer from the studio on {street2}.","On the back, the times from {from} to {to}. In every photo, at the instrument: {ini}."] } },
+      { roles:["dorozkarz"], text:"was driving tourists round the Market Square in a horse cab", witness:"the other cabmen at the rank confirm it",
+        debunk:"Heard from the groom that no cab went out to the Market Square that evening, because the horses had the night off after the frost." },
+      { roles:["rybak"], text:"was mending nets on the beach with the other fishermen", witness:"the Brzeźno fishermen confirm it",
+        debunk:"Heard in Brzeźno that the fishermen didn't go down to the beach at all that day, because a storm blew in." },
+      { roles:["aptekarz"], text:"was on the night shift at the duty pharmacy at the far end of {district_gen}", witness:"the pharmacy manageress and the prescription book confirm it",
+        debunk:"Says the duty pharmacy was closed that evening, with the address of another one on the door.",
+        doc:{ label:"Prescriptions", name:"Duty pharmacy prescription book", icon:"notebook", text:["The book of dispensed prescriptions from the duty pharmacy.","From {from} to {to}, prescriptions one after another. Every one initialled the same: {ini}."] } },
+      { roles:["sklepowa"], text:"was counting stock at the {g:spolem|Społem} warehouse stocktake", witness:"the manageress and the stocktake report confirm it",
+        debunk:"Knows the stocktake at the {g:spolem|Społem} warehouse was put off till Monday because the committee didn't show up.",
+        doc:{ label:"Stocktake", name:"Stocktake report", icon:"card", text:["The stocktake report from the {g:spolem|Społem} warehouse, signed by the committee.","Counting from {from} to {to}. Among the committee members: {ini}."] } },
+      { roles:["palacz"], text:"was stoking the boilers at the public baths on the second shift", witness:"the baths manager and the boiler-room log confirm it",
+        debunk:"Says the public baths were closed that day because a pipe burst by the boiler.",
+        doc:{ label:"Register", name:"Baths boiler-room log", icon:"notebook", text:["The stoker's log from the boiler room at the public baths.","Entries every hour, from {from} to {to}: temperature, pressure and the same signature, {ini}."] } },
+      { roles:["piekarz"], text:"was starting the night shift at the bakery oven", witness:"the master baker and two journeymen confirm it",
+        debunk:"Heard that the power was cut at the bakery that evening and the night shift was cancelled.",
+        doc:{ label:"Rota", name:"Bakery shift rota", icon:"card", text:["The bakery shift rota, signed on arrival and departure.","Shift from {from} to {to}. Signed at both times: {ini}."] } },
+      { roles:["golebiarz"], text:"was at a meeting of the racing pigeon club", witness:"the club chairman and twenty fanciers confirm it",
+        debunk:"Knows the pigeon fanciers' meeting was moved to Saturday because the chairman went to a race.",
+        doc:{ label:"Fanciers", name:"Pigeon club attendance list", icon:"card", text:["The attendance list from the racing pigeon club meeting.","Meeting from {from} to {to}. Among the signatures: {ini}."] } },
+      { roles:["mechanik"], text:"was fixing a customer's {g:polonez|Polonez} at the garage on {street2}", witness:"the car's owner and his brother-in-law confirm it",
+        debunk:"Says the garage on {street2} was closed because the owner went to Germany for parts." },
+      { roles:["stolarz"], text:"was assembling a {g:mebloscianka|wall unit} at a customer's on the other side of town", witness:"the customer and his wife confirm it",
+        debunk:"Knows the customer who was supposedly getting a wall unit put together has been on holiday in Bulgaria for a week." },
+      { roles:["hydraulik"], text:"was fixing a burst riser in a block on the next estate", witness:"the building manager and the tenants on the third floor confirm it",
+        debunk:"Says there was no burst pipe on the next estate. [He|She] lives there [himself|herself] and the water was running normally." },
+      { roles:["maglarka"], text:"was mangling bed linen for the workers' hostel", witness:"the hostel manageress and the collection slip confirm it",
+        debunk:"Knows the workers' hostel has been closed for a month for renovation, and nobody sends linen from there.",
+        doc:{ label:"Collection", name:"Linen collection slip", icon:"receipt", text:["A linen collection slip from the workers' hostel, forty sets.","Mangling from {from} to {to}. Done by: {ini}."] } },
+      { roles:["dzialkowiec"], text:"was at a meeting of the allotment committee", witness:"the allotment chairman and the minutes confirm it",
+        debunk:"Says the allotment committee meeting was called off because the chairman has been in hospital for a week.",
+        doc:{ label:"Allotments", name:"Allotment committee minutes", icon:"card", text:["The typed minutes of the allotment committee meeting.","Meeting from {from} to {to}. Present, among others: {ini}."] } },
+      { roles:["emeryt"], text:"was playing bridge at the senior citizens' club", witness:"three people at the table and the club manageress confirm it",
+        debunk:"Knows the senior citizens' club is closed this week while the hall is painted.",
+        doc:{ label:"Bridge", name:"Bridge score from the senior club", icon:"card", text:["A sheet of rubber scores from the senior citizens' club.","Game from {from} to {to}. One of the players noted at every rubber: {ini}."] } },
+      { roles:["lokator"], text:"was babysitting the neighbours' children from the third floor", witness:"the neighbours confirm it, from when they got back from a wedding",
+        debunk:"Knows the neighbours on the third floor didn't go out at all that evening. You could hear their television." },
+      { roles:["cinkciarz"], text:"was changing Deutschmarks for tourists outside the Orbis hotel", witness:"the hotel porter and two taxi drivers confirm it",
+        debunk:"Says there was a {g:mo|Militia} patrol car outside the Orbis hotel that evening, and not one money changer showed up." },
+      { roles:["bylycinkciarz"], text:"was counting the takings at a friend's exchange bureau", witness:"the friend and his cashier confirm it",
+        debunk:"Knows the friend's exchange bureau shut down a week ago because it stopped paying." },
+      { roles:["targi"], text:"was manning a stand at the Trade Fair until the halls closed", witness:"the hall manager and the exhibitors confirm it",
+        debunk:"Knows the Fair halls were closed early that day because someone phoned in a bomb threat.",
+        doc:{ label:"Pass", name:"Trade Fair pass", icon:"ticket", text:["A staff pass for the Poznań Trade Fair grounds, stamped by the gatehouse.","In at {from}, out at {to}. On the pass, a number and the initials: {ini}."] } },
+      { roles:["obwarzanki"], text:"was selling obwarzanki from a cart by the Cloth Hall until late", witness:"the other cart sellers confirm it",
+        debunk:"Was on the Market Square that evening. There wasn't a single obwarzanek cart by the Cloth Hall, because it was pouring with rain." },
+
+      /* --- wydanie 2.1.1: alibi ogólne --- */
+      { text:"was at parish choir practice {church_at}", witness:"the organist and twenty choir members confirm it",
+        debunk:"Knows choir practice {church_at} was cancelled because the organist caught flu.",
+        doc:{ label:"Choir", name:"Choir attendance list", icon:"card", text:["The attendance list from parish choir practice {church_at}.","Practice from {from} to {to}. Voices ticked off at every hymn, among the altos and basses: {ini}."] } },
+      { text:"was at a dance night at the estate social club", witness:"the DJ and half the estate confirm it",
+        debunk:"Says the dance night at the estate social club was called off because someone stole the speakers.",
+        doc:{ label:"Admission", name:"Estate social club ticket", icon:"ticket", text:["A ticket for the dance night at the estate social club, stamped at the door.","Stamped at {from}, and again at the cloakroom at {to}. Initials on the back: {ini}."] } },
+      { text:"was playing bingo at the community centre", witness:"the caller and the ladies at the next tables confirm it",
+        debunk:"Knows the bingo at the community centre was cancelled because the prizes weren't delivered.", years:[1991,1999] },
+      { text:"was at the angling club meeting", witness:"the club chairman and the minutes confirm it",
+        debunk:"Says the angling club meeting didn't happen because the heating in the community hall broke down." },
+      { text:"was queuing for furniture at the furniture store, with a number written on [his|her] hand", k:["adult"], witness:"the {g:komitet|queue committee} and the queue list confirm it", years:[1989,1990],
+        debunk:"Was outside the furniture store that evening. The {g:komitet|queue committee} had wound up the list before noon.",
+        doc:{ label:"List", name:"Queue list", icon:"card", text:["The {g:komitet|queue committee}'s list from outside the furniture store.","Roll call every hour, from {from} to {to}. By number 87, the same signature every time: {ini}."] } },
+      { text:"was drinking beer with mates at the beer kiosk on {street2}", k:["adult"], witness:"the woman at the kiosk and three regulars confirm it",
+        debunk:"Says the beer kiosk on {street2} was shut that day because the barrel never arrived." },
+      { text:"was waiting for a haircut at the hairdresser's on {street2}", witness:"the hairdresser and two customers confirm it",
+        debunk:"Knows the hairdresser's on {street2} was closed that day because the hairdresser was ill." },
+      { text:"was at a concert in the sports hall", witness:"the bouncer and friends from the next row confirm it",
+        debunk:"Heard on the radio that the concert in the sports hall was cancelled because the band never arrived.",
+        doc:{ label:"Ticket", name:"Concert ticket", icon:"ticket", text:["A ticket for a concert in the sports hall, printed «{band}», the stub torn off.","Concert from {from} to {to}. Someone wrote their initials on the back in felt-tip: {ini}."] } },
+      { text:"was waiting at the post office for a booked long-distance call", witness:"the switchboard operator and the call book confirm it", years:[1989,1994],
+        debunk:"Heard from the operator that the exchange put no long-distance calls through that evening because of a fault.",
+        doc:{ label:"Call", name:"Long-distance call receipt", icon:"receipt", text:["A post office receipt for a booked long-distance call.","Waited from {from} to {to}, call lasted six minutes. Booked by: {ini}."] } },
+      { text:"was helping a brother-in-law move house", witness:"the brother-in-law and the {g:zuk|Żuk} driver confirm it",
+        debunk:"Says the brother-in-law put the move off a week because he couldn't get a {g:zuk|Żuk}." },
+      { text:"was at the neighbours' watching the evening film on TV", witness:"the neighbours on the fourth floor confirm it",
+        debunk:"Knows the neighbours on the fourth floor have had no working telly for a week, since a valve blew." },
+
+      /* --- wydanie 2.1.1: alibi zawodowe nowych ról --- */
+      { roles:["kaowiec"], text:"was running a children's choir rehearsal at the community centre", witness:"the parents of the children in the choir confirm it",
+        debunk:"Says the choir rehearsal at the community centre didn't happen because a pipe burst and flooded the hall.",
+        doc:{ label:"Register", name:"Community centre activity register", icon:"notebook", text:["The cooperative community centre's activity register, with a list of children.","Session from {from} to {to}. Signed beside the topic by the leader: {ini}."] } },
+      { roles:["ksiegowa"], text:"was closing the quarterly accounts at the cooperative office after hours", witness:"the cooperative chairman and the porter confirm it",
+        debunk:"Knows the cooperative office was dark that evening, because the accounts were moved to the end of the month.",
+        doc:{ label:"Exits", name:"Cooperative porter's book", icon:"notebook", text:["The porter's book from the cooperative building, after-hours ins and outs.","Entry: in {from}, out {to}, «accounts, balance sheet». Signed: {ini}."] } },
+      { roles:["maszynistka"], text:"was typing up the minutes of the general meeting", witness:"the office manager and the cleaner confirm it",
+        debunk:"Says the cooperative's general meeting was postponed, so there was nothing to type." },
+      { roles:["inkasent"], text:"was reading gas meters on the next estate", witness:"the tenants [he|she] visited confirm it",
+        debunk:"Knows from tenants on the next estate that the gas board {g:inkasent|meter man} hasn't been round for a month.",
+        doc:{ label:"Readings", name:"Gas board readings book", icon:"notebook", text:["The gas meter readings book, with tenants' signatures.","Readings from {from} to {to}, flat after flat. Meter reader: {ini}."] } },
+      { roles:["zegarmistrz"], text:"was repairing the clock on the church tower {church_at}", witness:"the sexton and the parish priest confirm it",
+        debunk:"Says the tower clock {church_at} has stood still for a week and nobody has touched it." },
+      { roles:["szewc"], text:"was resoling shoes on an urgent job, with the customer waiting in the shop", witness:"the customer who was waiting for the shoes confirms it",
+        debunk:"Knows the cobbler's was closed that evening. There was a “Back tomorrow” sign on the door." },
+      { roles:["kucharka"], text:"was cooking for a wake in the works canteen", witness:"the family of the deceased and the waitress confirm it",
+        debunk:"Says the wake was moved to a restaurant, and the canteen stood empty.",
+        doc:{ label:"Order", name:"Wake catering order", icon:"receipt", text:["A catering order for a wake in the works canteen, with the manager's stamp.","Service from {from} to {to}. Cooking and serving, kitchen shift: {ini}."] } },
+      { roles:["nauczyciel"], text:"was holding a parents' evening at the school", witness:"the pupils' parents and the head teacher confirm it",
+        debunk:"Knows the parents' evenings at the school were postponed because the head called a staff meeting.",
+        doc:{ label:"Register", name:"Class register", icon:"notebook", text:["The class register, with an entry for the parents' meeting.","Meeting from {from} to {to}. Signed by the form teacher: {ini}."] } },
+      { roles:["lekarz"], text:"was doing home visits for the district clinic", witness:"the patients and the ambulance driver confirm it",
+        debunk:"Says the clinic sent nobody on home visits that day because the ambulance was being repaired.",
+        doc:{ label:"Appointments", name:"Home visits book", icon:"notebook", text:["The home visits book from the district clinic.","Visits from {from} to {to}, address by address. Doctor: {ini}."] } },
+      { roles:["weterynarz"], text:"was operating on a dog at the veterinary clinic", witness:"the dog's owner and the technician confirm it",
+        debunk:"Knows the veterinary clinic was closed that day because there was no electricity.",
+        doc:{ label:"Vet clinic", name:"Vet clinic procedures book", icon:"notebook", text:["The procedures book from the veterinary clinic.","Procedure from {from} to {to}: Alsatian, broken paw. Performed by: {ini}."] } },
+      { roles:["kierowca"], text:"was driving the night bus", witness:"the dispatcher and the duty sheet confirm it",
+        debunk:"Says the night bus never left the depot that day because they ran out of diesel.",
+        doc:{ label:"Card", name:"Bus duty sheet", icon:"card", text:["An {g:mpk|MPK} bus duty sheet, with the dispatcher's stamp.","Run from {from} to {to}. Driver: {ini}."] } },
+      { roles:["kombatant"], text:"was at a meeting of the veterans' association", witness:"the association chairman and the chronicle confirm it",
+        debunk:"Knows the veterans' meeting was cancelled because the chairman is in hospital.",
+        doc:{ label:"Chronicle", name:"Veterans' association chronicle", icon:"notebook", text:["The veterans' association chronicle, with photos pasted in.","Meeting from {from} to {to}. List of those present, among them: {ini}."] } },
+      { roles:["konduktor"], text:"was working as a ticket inspector on a stopping train", witness:"the guard and the report confirm it",
+        debunk:"Says that stopping train was cancelled because a tree came down on the line in the gale.",
+        doc:{ label:"Report", name:"Ticket inspector's report", icon:"card", text:["A ticket inspector's report from a stopping train, signed by the guard.","On duty from {from} to {to}. Inspector: {ini}."] } },
+      { roles:["bibliotekarka"], text:"was hosting a poetry evening at the library", witness:"the poet and the audience confirm it",
+        debunk:"Knows the poetry evening at the library was cancelled because the poet didn't turn up." },
+      { roles:["sprzataczka"], text:"was cleaning the offices at the district council", witness:"the porter and the supervisor confirm it",
+        debunk:"Says the district council building was closed that evening and nobody was cleaning there.",
+        doc:{ label:"Keys", name:"Council porter's key book", icon:"keybook", text:["The key book from the district council porter's lodge.","Office keys issued at {from}, returned at {to}. Signed: {ini}."] } },
+      { roles:["elektryk"], text:"was rewiring a shop at the other end of the district", witness:"the shop manageress and the assistants confirm it",
+        debunk:"Knows that shop was rewired back in the summer." },
+      { roles:["malarz"], text:"was painting a customer's flat on the other side of town", witness:"the customer and her husband confirm it",
+        debunk:"Says the customer whose flat was supposedly being painted has been at a sanatorium for a week." },
+      { roles:["kominiarz"], text:"was sweeping chimneys in the tenements on {street2}", witness:"the building manager and the tenants confirm it",
+        debunk:"Knows the chimney sweeps haven't been up on the roofs at all this week, because of the wind.",
+        doc:{ label:"Job order", name:"Chimney sweep's job sheet", icon:"receipt", text:["A job sheet from the chimney sweeps, signed by the tenants.","Sweeping from {from} to {to}, tenement by tenement. Done by: {ini}."] } },
+      { roles:["kwiaciarka"], text:"was tying wreaths for tomorrow's funeral", witness:"the family of the deceased and the woman from the next stall confirm it",
+        debunk:"Says the flower stall by the cemetery was shut from the afternoon." },
+      { roles:["pewex"], text:"was counting vouchers and dollars at the end of the shift at the {g:pewex|Pewex}", witness:"the manageress and the cash report confirm it",
+        debunk:"Knows the {g:pewex|Pewex} closed early that day for stocktaking.",
+        doc:{ label:"Report", name:"{g:pewex|Pewex} cash report", icon:"receipt", text:["A cash report from the {g:pewex|Pewex}, signed by the shift.","Settled from {from} to {to}. Till counted by: {ini}."] } },
+      { roles:["komis"], text:"was taking in stock at the second-hand shop after hours", witness:"two customers from Germany confirm it",
+        debunk:"Says the electronics shop was closed because the owner was summoned to the tax office." },
+      { roles:["strazak"], text:"was on a 24-hour shift at the fire station", witness:"the shift commander and the duty book confirm it",
+        debunk:"Knows the firefighter's watch had the day off, because the other section took the shift.",
+        doc:{ label:"Duty", name:"Fire station duty book", icon:"notebook", text:["The duty book from the fire station.","Entry: on station from {from} to {to}, no call-outs. On duty: {ini}."] } },
+      { roles:["smieciarz"], text:"was on the evening bin lorry round", witness:"the driver and the {g:mpo|MPO} dispatcher confirm it",
+        debunk:"Says the evening bin round was cancelled because the compactor broke." },
+      { roles:["licealista"], text:"was at the school band rehearsal in the gym", witness:"the music teacher and the bandmates confirm it",
+        debunk:"Knows the school band rehearsal was cancelled because the caretaker didn't unlock the hall." },
+      { roles:["bezrobotny"], text:"was on a retraining course at the training centre", witness:"the tutor and the attendance list confirm it",
+        debunk:"Says the retraining course was cancelled because the job centre didn't pay for the room.",
+        doc:{ label:"Course", name:"Course attendance list", icon:"card", text:["The attendance list from the retraining course, stamped by the job centre.","Classes from {from} to {to}. Among the signatures: {ini}."] } },
+      { roles:["szklarz"], text:"was glazing the shop window on {street2}", witness:"the shop manager and the assistant confirm it",
+        debunk:"Knows the shop window on {street2} has been boarded up with plywood for a week, and nobody has worked on it." },
+      { roles:["gospodyni"], text:"was at the rosary service {church_at}", witness:"the priest and the rosary circle confirm it",
+        debunk:"Says there was no rosary service {church_at} that day, because the church was being painted." },
+      { roles:["drukarz"], text:"was typesetting the local paper's morning edition on the night shift at the print works", witness:"the shift manager and two compositors confirm it",
+        debunk:"Knows the night shift at the print works stood idle because they ran out of paper.",
+        doc:{ label:"Card", name:"Print works clock card", icon:"card", text:["A clock card from the print works.","In at {from}, out at {to}. Only the initials legible: {ini}."] } },
+      { roles:["fotograf"], text:"was taking photos at a wedding in a restaurant", witness:"the bride and groom and the guests confirm it",
+        debunk:"Says the wedding at the restaurant was moved to Saturday.",
+        doc:{ label:"Photos", name:"Wedding contact sheet", icon:"photo", text:["A wedding contact sheet, developed at the photo studio.","On the back, the times of each roll, from {from} to {to}, and the studio stamp with initials: {ini}."] } },
+      { roles:["kasjer"], text:"was counting cash in the vault after the bank branch closed", witness:"the branch manager and the security guard confirm it",
+        debunk:"Knows the bank branch closed early that day because of an alarm.",
+        doc:{ label:"Vault", name:"Vault entry book", icon:"notebook", text:["The vault entry book from the bank branch.","In at {from}, out at {to}, with the manager present. Cashier's signature: {ini}."] } },
+      { roles:["ogrodnik"], text:"was pruning trees in the park under floodlights, for the city parks department", witness:"the foreman and the cherry-picker driver confirm it",
+        debunk:"Says the parks crew didn't go out that day because the cherry picker was being repaired." },
+      { roles:["cpn"], text:"was on shift at the till of the {g:cpn|CPN} station", witness:"the station manager and the shift report confirm it",
+        debunk:"Knows the {g:cpn|CPN} station closed early that day because it ran out of petrol.",
+        doc:{ label:"Report", name:"{g:cpn|CPN} station shift report", icon:"receipt", text:["The shift report from the {g:cpn|CPN} station, with the pump readings.","Shift from {from} to {to}. Till taken over and handed in by: {ini}."] } },
+      { roles:["portier"], text:"was on the night shift at the hotel porter's desk", witness:"the receptionist and the guest register confirm it",
+        debunk:"Says someone else was on the night shift at the porter's desk that day, because they swapped shifts.",
+        doc:{ label:"Shifts", name:"Porter's duty book", icon:"notebook", text:["The duty book from the hotel porter's desk.","On duty from {from} to {to}. Signed at the handover of the shift: {ini}."] } },
+
+      /* --- wydanie 2.1.1: alibi zawodowe ról z paczek miast --- */
+      { roles:["jarmark"], text:"was packing up stock on the terraces of the Tenth-Anniversary Stadium", witness:"the traders at the neighbouring camp beds confirm it",
+        debunk:"Says the police raided the Tenth-Anniversary Stadium that day and the traders never even set up." },
+      { roles:["windziarz"], text:"was taking tourists up in the lift to the Palace of Culture's viewing terrace", witness:"the terrace supervisor and the ticket lady confirm it",
+        debunk:"Knows the lifts in the Palace of Culture were out that evening for an inspection." },
+      { roles:["wioslarz"], text:"was training with a crew at the rowing club", witness:"the coach and the whole crew confirm it",
+        debunk:"Heard from the coach that training at the boathouse was cancelled that day because of high water.",
+        doc:{ label:"Training", name:"Crew training log", icon:"notebook", text:["The rowing crew's training log, kept by the coach.","Training from {from} to {to}, kilometres and times. At the second oar: {ini}."] } },
+      { roles:["kelner_wawa"], text:"was serving at a banquet at the Hotel Europejski", witness:"the banqueting manager and the guests confirm it",
+        debunk:"Says the banquet at the Hotel Europejski was cancelled because the delegation never flew in." },
+      { roles:["piwowar"], text:"was minding a brew on the second shift at the brewery", witness:"the master brewer and the brewhouse log confirm it",
+        debunk:"Knows the brewery's second shift stood idle because the malt wasn't delivered.",
+        doc:{ label:"Brewhouse", name:"Brewhouse log", icon:"notebook", text:["The brewhouse log from the brewery, with mash temperatures.","Entries from {from} to {to}, every half hour. Signed at each one: {ini}."] } },
+      { roles:["cukiernik"], text:"was baking croissants on a special order for the bakers' guild", witness:"the guild elder and the journeyman confirm it",
+        debunk:"Says the guild's croissant order was put back because there was no poppy seed." },
+      { roles:["przewodnik"], text:"was showing a German tour group round the historic sights", witness:"the tour leader and the coach driver confirm it",
+        debunk:"Knows the coach with the German tour got stuck at the border and only arrived the next day.",
+        doc:{ label:"Job order", name:"Travel agency booking", icon:"receipt", text:["A booking from the travel agency for a guided tour.","Tour from {from} to {to}. Guide: {ini}."] } },
+      { roles:["malarz_rynek"], text:"was painting the Market Square by night, commissioned by an American tourist", witness:"the tourist who was waiting for the painting confirms it",
+        debunk:"Says no painter sat under the Florian Gate that evening, because it was pouring." },
+      { roles:["operator"], text:"was shooting night scenes for a student film", witness:"the student director and the crew confirm it",
+        debunk:"Knows the night shoot for the student film was cancelled because they couldn't get film stock.",
+        doc:{ label:"Report", name:"Camera report", icon:"card", text:["A camera report from the student film set, with the shot numbers.","Shooting from {from} to {to}, twelve shots. Camera operator: {ini}."] } },
+      { roles:["portier_fab"], text:"was on shift in the spinning mill porter's lodge", witness:"the shift manager and the entry book confirm it",
+        debunk:"Says a relief porter was in the spinning mill lodge that day, because the regular one was on leave.",
+        doc:{ label:"Entries", name:"Spinning mill entry book", icon:"notebook", text:["The book of ins and outs from the spinning mill porter's lodge.","Shift from {from} to {to}. Signed at the handover: {ini}."] } },
+      { roles:["podmiejski"], text:"was driving the suburban tram to Zgierz", witness:"the dispatcher and the duty sheet confirm it",
+        debunk:"Knows the suburban tram to Zgierz wasn't running because a tree was lying across the tracks." },
+      { roles:["grand"], text:"was waiting at a reception in the Grand Hotel", witness:"the head waiter and the guests confirm it",
+        debunk:"Says the reception at the Grand Hotel was moved to Saturday." },
+      { roles:["szwaczka"], text:"was sewing an export order on overtime", witness:"the forewoman and the overtime list confirm it",
+        debunk:"Knows the overtime in the sewing room was cancelled because the order from the West fell through.",
+        doc:{ label:"Overtime", name:"Sewing room overtime list", icon:"card", text:["The overtime list from the sewing room, signed by the forewoman.","Overtime from {from} to {to}. Among the signatures: {ini}."] } },
+      { roles:["bursztyn"], text:"was polishing amber to order in the workshop on Mariacka Street", witness:"the customer and the journeyman confirm it",
+        debunk:"Says the amber workshop on Mariacka Street was closed from the morning." },
+      { roles:["marynarz"], text:"was on watch aboard a ship in port", witness:"the officer of the watch and the ship's log confirm it",
+        debunk:"Knows the ship where the watch supposedly took place left port the day before.",
+        doc:{ label:"Watch", name:"Extract from the ship's log", icon:"notebook", text:["An extract from the ship's log, with the shipowner's stamp.","Watch from {from} to {to}. On watch: {ini}."] } },
+      { roles:["ratownik"], text:"was lifeguarding at the Brzeźno beach until dusk", witness:"the other lifeguard and the beach manager confirm it",
+        debunk:"Says the Brzeźno beach was closed that day because of blue-green algae, and the lifeguards were sent home." },
+      { roles:["sztygar"], text:"was running a shift underground at the “Wieczorek” pit", witness:"the overman and the report book confirm it",
+        debunk:"Knows the underground shift at “Wieczorek” stood idle because a roadway flooded.",
+        doc:{ label:"Report", name:"Deputies' report book", icon:"notebook", text:["The deputies' report book from the “Wieczorek” colliery.","Shift from {from} to {to}. Report signed by: {ini}."] } },
+      { roles:["hutnik"], text:"was at the furnace on the second shift at the Baildon steelworks", witness:"the foreman and the attendance list confirm it",
+        debunk:"Says the second shift at the Baildon steelworks had the day off because the furnace was down for repairs." },
+      { roles:["skarbek"], text:"was counting stock after a delivery at the Skarbek department store", witness:"the department manageress and the storeman confirm it",
+        debunk:"Knows the delivery to Skarbek never came, because the driver was stuck at the border." },
+      { roles:["orkiestra"], text:"was playing at the miners' band rehearsal before {g:barborka|Barbórka}", witness:"the bandmaster and the whole band confirm it",
+        debunk:"Says the band rehearsal was cancelled because the bandmaster was taken to hospital.",
+        doc:{ label:"Rehearsal", name:"Band attendance list", icon:"card", text:["The attendance list from the miners' band rehearsal.","Rehearsal from {from} to {to}. On the tuba: {ini}."] } },
+      { roles:["zoo"], text:"was sitting up late with a sick elephant at the zoo", witness:"the vet and the zoo director confirm it",
+        debunk:"Knows the elephant at the zoo recovered a week ago and nobody has been staying the night with it.",
+        doc:{ label:"Night duty", name:"Zoo duty book", icon:"notebook", text:["The night duty book from the zoo.","Duty at the elephant house from {from} to {to}. Keeper: {ini}."] } },
+      { roles:["kaletnik"], text:"was stitching briefcases for an urgent order in the workshop", witness:"the customer who was waiting for the briefcases confirms it",
+        debunk:"Says the leather workshop was dark, because the power was off in Nadodrze." },
+      { roles:["antykwariusz"], text:"was valuing a late professor's book collection", witness:"the professor's widow and her son confirm it",
+        debunk:"Knows the professor's widow has been staying with her daughter in Germany for a week." }
+    ],
+    alibiClaim: [
+      "was asleep from {from}","was at home watching television all evening","went for a walk {walk}",
+      "stayed in and read the papers","took a walk {district_po} to get some air",
+      "was in the cellar looking for jars of preserves","was listening to {g:trojka|Trójka} in the kitchen",
+      {t:"was watching “Dynasty” at home", years:[1990,1992]},
+      {t:"was watching “Wheel of Fortune” in [his|her] room", years:[1993,1998]},
+      {t:"was watching “Klan” in the kitchen", years:[1998,1999]},
+      {t:"was watching a rented video at home", years:[1990,1999]}
+    ],
+
+    /* Ramy dla niepotwierdzonego alibi; {x} = treść z alibiClaim */
+    claimFrame: [
+      "Says [he|she] {x}. Nobody can confirm it.","Says [he|she] {x}, but there are no witnesses.","States that [he|she] {x}. No witnesses.",
+      "Insists [he|she] {x}. Nobody saw [him|her] at the time.","According to [him|her], [he|she] {x}. The neighbours remember nothing of the sort.",
+      "Assures us [he|she] {x}. There's nobody to confirm it.",{t:"Says [he|she] {x}, and adds that [he|she] lives alone, so there won't be any witnesses.", k:["adult"]},
+      "Claims [he|she] {x}. The {g:dozorca|dozorca} didn't see [him|her] come or go.","Swears [he|she] {x}. There's nothing to back up [his|her] word.",
+      "Asked about the evening, says [he|she] {x}. Nobody heard or saw a thing.","Shrugs: [he|she] {x}. Who could confirm it, [he|she] has no idea.",
+      "According to [his|her] statement, [he|she] {x}. There's no phone at home, so nobody rang."
+    ],
+    /* Klucze: rola, która ma klucz z urzędu, i ktoś z zapasowym */
+    keyTpl: ["Has a key to {gen}.","Carries a key to {gen}.","A key to {gen} hangs on a nail in [his|her] hallway.",{t:"Was given a key to {gen} along with the job.", k:["job"]}],
+    spareKeyTpl: ["Has a spare key to {gen}, from the owner.","The owner left [him|her] a spare key to {gen}.",
+                  "Has had a copy of the key to {gen} for years.","Borrowed a key to {gen} and forgot to give it back."],
+
+    /* ------------------------------------------------------------------ */
+    /* DOWODY RZECZOWE (etap 1)                                             */
+    /* Dowód zabiera z teczki jeden fakt. Właściciela wskazuje znak:        */
+    /* {ini} = inicjały, {flat} = numer mieszkania (jest w teczce każdego). */
+    /* ------------------------------------------------------------------ */
+    evidence: {
+      /* obecność w miejscu o godzinie: {t}, {in} */
+      presence: [
+        { label:"Exercise book", name:"The {g:dozorca|dozorca}'s notebook", icon:"notebook", at:["yard","cellar","stair"], text:["The {g:dozorca|dozorca} writes down in a squared exercise book who hangs about the courtyard and when.","Entry from that evening: «{t} — {ini}, {in}»."] },
+        { label:"Notebook", name:"Notepad of the neighbour on the ground floor", icon:"notebook", at:["yard","street","stair"], text:["The ground-floor neighbour notes down, “just in case”, who walks past her windows.","Under that day's date, in small handwriting: «{t}. {ini} {in}.»"] },
+        { label:"Report", name:"Night watchman's report", icon:"card", at:["yard","cellar","field","street"], text:["The estate night watchman goes round the courtyards every evening and writes a report for the management.","The report says: «{t}. Met {ini} {in}. Nothing to report.»"] },
+        { label:"Notepad", name:"Note from the duty room", icon:"receipt", at:["yard","street","field","cellar","stair","shop"], text:["A page from a notepad, found in the duty room next to the phone. The man on duty notes who he passed on his round.","In biro, crooked: «{t} — {ini}, {in}»."] },
+        { label:"List", name:"Works attendance list", icon:"card", at:["work"], text:["An attendance list kept at the works gatehouse, with the time beside each signature.","Entry: «{t} — {ini}, {in}»"] },
+        { label:"Book", name:"Porter's entry book", icon:"notebook", at:["work","shop"], text:["The porter keeps an entry book and writes the time next to each name.","Entry: «{t} — {ini}, {in}»."] }
+      ],
+      /* klucz: {gen}, {flat}; tylko miejsca z keyBookLocs */
+      keys: [
+        { label:"Book", name:"Key issue book", icon:"keybook", text:["The {g:dozorca|dozorca} only hands out keys against an entry in the book.","Entry from a month ago: key to {gen} issued permanently to the tenant of flat {flat}. Still not returned."] },
+        { label:"Board", name:"Key board in the duty room", icon:"keybook", text:["In the duty room hangs a board of hooks labelled with flat numbers.","The hook for the key to {gen} is empty. Underneath, in pencil: «with flat {flat}»."] },
+        { label:"Docket", name:"Locksmith's receipt", icon:"receipt", text:["A receipt from the locksmith's on {street2}: a copy of the key to {gen}.","Paid {kwota_keycopy}, collection confirmed. Ordered by: the tenant of flat {flat}."] }
+      ]
+    },
+    keyBookLocs: ["piwnica", "pralnia", "kotlownia", "garaz", "warsztat"],
+    /* losowe szczegóły na dowodach rzeczowych: {dogname} {dogbreed} {film} {band} {cig} {packs} {goods};
+       {kwota} = drobna kwota wg roku (do 1994 stare złote), {money} = większa */
+    details: {
+      dogs: ["Burek","Azor","Reksio","Szarik","Kajtek","Pirat","Fafik","Łatek","Saba","Dina","Misia","Tofik","Bary","Kora"],
+      breeds: ["mongrel","dachshund","Alsatian","spaniel","poodle","fox terrier","setter","spotted mongrel"],
+      films: ["Seksmisja","Miś","Vabank",
+        {t:"Rambo III", years:[1989,1990]}, {t:"Die Hard", years:[1989,1991]}, {t:"Przesłuchanie", years:[1990,1991]},
+        {t:"Home Alone", years:[1991,1993]}, {t:"Terminator 2", years:[1991,1993]}, {t:"Psy", years:[1992,1994]},
+        {t:"Jurassic Park", years:[1993,1995]}, {t:"Schindler's List", years:[1994,1995]}, {t:"Pulp Fiction", years:[1995,1996]},
+        {t:"Młode wilki", years:[1995,1997]}, {t:"Kiler", years:[1997,1999]}, {t:"Titanic", years:[1998,1999]},
+        {t:"Pan Tadeusz", years:[1999,1999]}, {t:"Ogniem i mieczem", years:[1999,1999]}],
+      bands: ["Kult","Lady Pank","Perfect","Maanam","T.Love","Budka Suflera","Dżem","Bajm","Voo Voo",
+        {t:"Republika", years:[1990,1999]}, {t:"Kazik", years:[1991,1999]}, {t:"Wilki", years:[1992,1999]},
+        {t:"Elektryczne Gitary", years:[1992,1999]}, {t:"Hey", years:[1993,1999]}, {t:"Myslovitz", years:[1995,1999]}],
+      cigs: ["{g:sporty|Sporty}","Klubowe","Popularne","Caro","Radomskie","Mocne", {t:"Marlboro", years:[1990,1999]}, {t:"Wests", years:[1993,1999]}],
+      packs: ["a pack of","two packs of","three packs of","four packs of"],
+      goods: ["bread and half a block of butter","a kilo of sugar","half a kilo of plain sausage","Ulung tea","two bottles of milk","a jar of gherkins",
+        "a tin of luncheon meat","a packet of biscuits", {t:"Jacobs coffee", years:[1991,1999]}]
+    },
+    /* dopisek na dokumencie alibi, który jest z innego dnia (dokument obala alibi) */
+    docOtherDay: ["Date in the corner: the day before the incident.", "A date stamp from a week before.", "A date added in biro at the bottom: two days before the incident.",
+                  "A date on the back, but from the previous month."],
+    /* zdanie w aktach miejsca, gdy jeden z kluczy jest tylko na dowodzie */
+    keyBookNote: { others: "One more key was issued against the flat number only, with no name.", only: "The key was issued against the flat number only, with no name." },
+    /* numer mieszkania w teczce (gdy w sprawie jest dowód z numerem) */
+    flatTpl: [
+      "Lives in a tenement on {street}, in flat {flat}.",{t:"Has lived in flat {flat} on {street} for years.", k:["adult"]},
+      "A brass number {flat} hangs on [his|her] front door.",{t:"[His|Her] identity card gives [his|her] address as flat {flat}, {street}.", k:["adult"]},
+      "Listed under number {flat} on the tenants' board in the stairwell.",{t:"Pays the rent on flat {flat}, though often late.", k:["adult","debt"]},
+      "Lives at number {flat}, on the top floor, no lift."
+    ],
+    /* teczka osoby, której alibi potwierdza dopiero dowód; {x} = treść alibi */
+    alibiPaperTpl: [
+      "From {from} to {to} [he|she] {x}. Names no witnesses; says it's all on paper.","Claims that from {from} to {to} [he|she] {x}. Tells us to check the paperwork.",
+      "States that from {from} to {to} [he|she] {x}. Says somebody must have written it down.","From {from} to {to} [he|she] supposedly {x}. For witnesses, says to look in the paperwork.",
+      "According to [him|her], from {from} to {to} [he|she] {x}. “There's a chit somewhere,” [he|she] says."
+    ],
+
+    /* Kto widział kogoś w danym miejscu */
+    /* 2.2.1: `at` = rodzaje miejsc (pt), w których świadek mógł być: street (ulica, targ), yard (podwórko, garaż), field (działki),
+       shop (lokal z klientami), stair (klatka), cellar (piwnica, strych, mieszkanie), work (zaplecze, warsztat, hala) */
+    presenceTpl: [
+      {t:"A neighbour saw [him|her] {in} at {t}.", at:["street","yard","field","shop","stair","cellar"]},
+      "Admits [he|she] was {in} at {t}.",
+      {t:"Around {t} [he|she] was {in}. Children playing bottle-cap races saw [him|her].", at:["street","yard"]},
+      {t:"The postman passed [him|her] {in} at {t}.", at:["street","yard","shop","field"]},
+      {t:"The {g:dozorca|dozorca} wrote in the notebook that at {t} [he|she] was {in}.", at:["yard","cellar","stair"]},
+      {t:"At {t} [he|she] was talking to someone {in}, according to the neighbour at her window.", at:["street","yard"]},
+      {t:"The kiosk man across the road saw [him|her] {in} around {t}.", at:["street","shop"]},
+      {t:"The neighbour from the second floor says that at {t} [he|she] was {in}, because she happened to be beating a rug.", at:["yard"]},
+      {t:"At {t} [he|she] was {in}. A boy coming back from football practice remembers it.", at:["street","yard","shop","field"]},
+      {t:"The {g:dzielnicowy|dzielnicowy} noted that around {t} [he|she] was {in}.", at:["street","yard","shop","field"]},
+      {t:"The pensioner on the ground floor saw [him|her] {in} at {t}, while looking out to see if the postman was coming.", at:["street","yard"]},
+      {t:"Around {t} [he|she] was {in}, according to the {g:dozorca|dozorca}'s wife, who was sweeping the courtyard.", at:["yard","cellar"]},
+      {t:"A woman with a pram passed [him|her] {in} at {t}.", at:["street","yard"]},
+      "Says that around {t} [he|she] was {in}, but only for a moment.",
+      {t:"At {t} [he|she] was {in}. A mechanic pushing a {g:maluch|Maluch} up the hill saw [him|her].", at:["street","yard"]},
+      {t:"Someone from the crew saw [him|her] {in} at {t}.", at:["work"]},
+      {t:"A colleague from the works remembers that around {t} [he|she] was {in}.", at:["work"]},
+      {t:"The shift boss noted that at {t} [he|she] was {in}.", at:["work"]},
+      {t:"The shift manager admits that at {t} he saw [him|her] {in}.", at:["work"]},
+      {t:"A customer standing in the queue saw [him|her] {in} at {t}.", at:["shop"]},
+      {t:"Someone in the queue remembers that around {t} [he|she] was {in}.", at:["shop"]},
+      {t:"The staff remember that at {t} [he|she] was {in}.", at:["shop"]},
+      {t:"A tenant from upstairs was just coming down for something and saw [him|her] {in} at {t}.", at:["cellar"]},
+      {t:"The neighbour on the ground floor says that at {t} he heard [him|her] {in}.", at:["cellar"]},
+      {t:"The neighbour from the next allotment saw [him|her] {in} at {t}.", at:["field"]},
+      {t:"An allotment holder from the next path remembers that at {t} [he|she] was {in}.", at:["field"]}
+    ],
+
+    /* Realia epoki: smaczki z zakresem lat */
+    eraFlavor: [
+      {t:"Keeps {g:pewex|Pewex} vouchers in a drawer, though they're getting harder to spend.", years:[1989,1990]},
+      {t:"Takes goods to West Berlin to trade.", years:[1989,1989], k:["adult"]},
+      {t:"Counts prices in millions and keeps getting it wrong at the till.", years:[1990,1994]},
+      {t:"Can't get used to the new złoty after the redenomination.", years:[1995,1996]},
+      {t:"Listens to {g:discopolo|disco polo} on tapes bought at the market.", years:[1993,1998]},
+      {t:"Shows off a mobile phone the size of a brick.", years:[1996,1999]},
+      {t:"Wears a pager on [his|her] belt and keeps glancing at it.", years:[1995,1999]},
+      {t:"Has a satellite dish on the balcony and watches German channels.", years:[1990,1999]},
+      {t:"Bought a VCR on hire purchase and records films off Polsat.", years:[1993,1999], k:["debt"]},
+      {t:"Is planning to go to Germany for {g:saksy|seasonal work}.", years:[1989,1999]},
+      {t:"Fills in the {g:totek|Totek} numbers every Wednesday and Saturday.", years:[1989,1999]},
+      {t:"Has an Atari computer at home and plays it into the night.", years:[1989,1994]},
+      {t:"Has a {g:pegasus|Pegasus} console at home and plays “Contra” with the neighbours' son.", years:[1993,1999]},
+      {t:"Carries ration coupons for sugar and meat in [his|her] wallet, though there's no meat in the shops anyway.", years:[1989,1989], months:[1,7]},
+      {t:"Keeps the children's shoe coupons in a drawer, saved for winter.", years:[1989,1989], months:[1,7], k:["adult"]},
+      {t:"Signed up on a {g:komitet|queue committee} for a washing machine and goes to the list check every week.", years:[1989,1990], k:["adult"]},
+      {t:"Remembers crossing out the whole national list at the June election.", years:[1989,1989], months:[7,12], k:["adult"]},
+      {t:"Remembers crossing out the whole national list at the June election of eighty-nine.", years:[1990,1990], k:["adult"]},
+      {t:"Keeps track of what a dollar costs from the {g:cinkciarz|cinkciarz} and what it costs at the exchange bureau now.", years:[1989,1990]},
+      {t:"Bought bananas without queuing for the first time in [his|her] life and still can't get over it.", years:[1990,1991]},
+      {t:"Has subscribed to “{g:wyborcza|Gazeta Wyborcza}” since the very first issue.", years:[1989,1989], months:[6,12]},
+      {t:"Has subscribed to “{g:wyborcza|Gazeta Wyborcza}” since the very first issue.", years:[1990,1999]},
+      {t:"Watches “Teleranek” on Sunday mornings with the neighbours' children.", years:[1989,1992]},
+      {t:"Swapped the {g:mebloscianka|wall unit} for a new one from Ikea.", years:[1991,1999], k:["adult"]},
+      {t:"Buys a new pull-out of “Przegląd Sportowy” for every national team match.", years:[1989,1999]},
+      {t:"Wears a digital watch with a calculator and shows it off at every opportunity.", years:[1989,1994]},
+      {t:"Keeps a box of VHS tapes with copied films in the hallway.", years:[1990,1999]},
+      {t:"Finally got a phone line at home after ten years of waiting.", years:[1993,1999], ages:["mid","old"]},
+      {t:"Still has last Christmas's tree on the balcony, never got round to taking it out.", years:[1989,1999]},
+      {t:"Still keeps a {g:ksiazeczka|housing savings book} in the wardrobe, though the flat never came.", years:[1989,1995], k:["adult"]},
+      {t:"Goes to the car market every Saturday and never buys anything.", years:[1991,1999]},
+      {t:"Bought the first CD player in the building.", years:[1993,1999]},
+      {t:"Has a calendar with the Virgin Mary and a Modern Talking poster on the wall.", years:[1989,1993]},
+      {t:"Sends in a coupon to “Wheel of Fortune” once a month, hoping to win a {g:polonez|Polonez}.", years:[1992,1998]},
+      {t:"Started playing Lotto once {g:totek|Totek} changed its name.", years:[1997,1999]},
+      {t:"Keeps powdered orangeade in the fridge for the neighbours' children.", years:[1989,1993]},
+      {t:"Goes to the video rental shop every Friday, always for a horror film.", years:[1990,1999]},
+      {t:"A calendar advertising a private wholesaler hangs on the kitchen wall.", years:[1992,1999]},
+      {t:"Got a box of Wedel chocolates from [his|her] brother-in-law for [his|her] name day and keeps it in the {g:kredens|kredens} for a special occasion.", years:[1989,1999]},
+      {t:"Listens to “Sygnały dnia” on the radio in the morning, and “Lato z radiem” in summer.", years:[1989,1999]}
+    ],
+
+    /* Komentarze komisarza na koniec sprawy */
+    quips: [
+      "Good work. Nothing happens round here without a witness.",
+      "The coffee's boiled and the case is solved. A good day.",
+      "{district_na_cap}, they'll have something to gossip about again.",
+      "I'll put it in the report as model detective work.",
+      "The paperwork's worse than the investigation, but the culprit is ours.",
+      "Nobody likes being wrong. This time there was no chance to be.",
+      "For the record: case closed. For the coffee: one more rusk.",
+      "My predecessor sat over this for three weeks. Here one afternoon was enough.",
+      "The culprit can explain it all in the cells. We can go home.",
+      "Better not tell the press it was this simple.",
+      "If everyone read the files like that, the station would be empty.",
+      "The phone in the office is silent, and that's the best sign.",
+      "Nobody's ever been convicted for lack of evidence, but there was no lack of it here.",
+      "Case closed. Now just three copies in quadruplicate.",
+      "The report goes to my superiors. They'll be pleased, though they won't show it.",
+      {t:"I thought we wouldn't close this one until after Easter.", months:[3,4]},
+      {t:"I thought we wouldn't close this one until after Christmas.", months:[11,12]}
+    ],
+
+    /* ------------------------------------------------------------------ */
+    /* TYPY ZBRODNI I SCENY                                                 */
+    /* Sceny: vg = płeć ofiary, {victim} = generowane imię i nazwisko.     */
+    /* ------------------------------------------------------------------ */
+    crimes: {
+      zabojstwo: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Letter", name:"Unstamped letter", icon:"letter", text:["A letter in an envelope with no stamp, found in the victim's drawer.","«Give back what you owe me or you'll be sorry. I'm not joking.» Signed: {ini}."] },
+                 { label:"Note", name:"Note from under the door", icon:"letter", ages:["mid","old"], text:["A sheet of squared paper, slipped under the victim's door a few days before the death.","«I know who informed on me in eighty-one. We'll settle this.» Signed: {ini}."] },
+                 { label:"Postcard", vt:["priv"], name:"Threatening postcard", icon:"letter", k:["adult"], text:["A postcard from Kołobrzeg, no stamp, put in the victim's letterbox.","On the back: «Auntie's flat is mine by rights. Move out while you still can.» Signed: {ini}."] }],
+        name:"Murder", subtags:["tepe","ostre","sznur"], toolLabel:"Murder weapon",
+        cause:{ tepe:"Killed by a blow from a heavy object.", ostre:"Killed by a wound from a sharp instrument.", sznur:"Strangled with something long and flexible; a narrow mark was left on the neck." },
+        itemsSentence:"That evening, objects that could have been used to do it went missing from the area.",
+        alibiEvent:"Death occurred",
+        windowRule:["The culprit personally took the murder weapon from where it lay, at exactly the time it went missing. Nobody handed it over.", "The murder weapon didn't change hands. The culprit was where it went missing, at exactly the time it went missing.", "The murder weapon was taken by the same person who then used it. That person was on the spot when it went missing."],
+        keyRule:["Where the murder weapon went missing, there are no signs of a break-in. The culprit opened the door with a key.", "The murder weapon was taken from behind a locked door, and the lock is untouched. The culprit opened it with a key; nobody let them in.", "The door where the murder weapon went missing was opened by the culprit with a key, not a lock pick."],
+        motives:[{t:"owed the victim {money} and was afraid it would come out", k:["debt"]},
+                 {t:"had never forgiven the victim for informing on [him|her] years ago", ages:["mid","old"]},
+                 {t:"wanted to take over the victim's flat, and the victim had no intention of moving out", vt:["firm"]},
+                 "found out the victim was going to turn [him|her] in to {police_dat} for black-market dealing",
+                 {t:"believed the victim had ruined [his|her] life by reporting [him|her] to [his|her] workplace", k:["job"]},
+                 {t:"was afraid the victim would give away [his|her] smuggling across the border", k:["adult"]}],
+        suspicion:["Had a row with the victim on the stairs a week ago.",{t:"Owed the victim {money}.", k:["debt"]},"Threatened the victim in front of witnesses.","A neighbour heard [him|her] arguing with the victim about money.","Hasn't spoken to the victim for years, since a quarrel over an inheritance.","The victim publicly accused [him|her] of theft.",{t:"The victim threatened to report [him|her] to the tax office.", k:["adult"]},
+                   {t:"The victim knew more about [his|her] business in Germany than was healthy.", k:["adult"]},"A week ago [he|she] left the victim's flat slamming the door.",{t:"The victim wouldn't give back the money [he|she] had lent.", k:["debt"]},
+                   "The victim was blackmailing [him|her]; half the building knows about it.","In front of witnesses, told the victim they'd live to regret it."],
+        noMotive:["Knew the victim only by sight and had no dealings with them.", "Only ever said “good morning” to the victim; nothing else connected them.", "Had no business at all with the victim.", "The victim used to lend [him|her] sugar, and they never quarrelled.", "No money, inheritance or neighbourly dispute connected [him|her] with the victim.", "The neighbours confirm [he|she] got on well with the victim and they never quarrelled.",
+                  "Played chess with the victim every Sunday, and there was never a dispute between them.","Only met the victim a week ago, by the {g:trzepak|trzepak}, and nothing connected them.","The victim helped [him|her] move house, and they've liked each other ever since.",
+                  "Barely knew the victim and had never been to their home.","The victim owed [him|her] nothing, and [he|she] owed the victim nothing either.","Gained nothing from the victim's death, and lost a good neighbour."],
+        motiveRule:["It wasn't an accident or a robbery. Someone wanted this particular person dead.", "Nothing went missing, nothing was searched. The culprit was only after the victim.",
+                    "The culprit knew the victim and had a score to settle. They came here with intent."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "The doctor established the time: between {a} and {b}. Nobody can confirm where the culprit was during that half hour.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the culprit."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The watchmaker of {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the workshop", where:"in the workshop",
+            intro:"Watchmaker {victim} is found dead in his workshop on {street}." },
+          { title:"The cobbler of {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the cobbler's", where:"in the cobbler's",
+            intro:"Cobbler {victim} is found dead in his shop on {street}." },
+          { title:"The exchange bureau on {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the exchange bureau", where:"in the exchange bureau",
+            intro:"{victim}, owner of the exchange bureau on {street}, is found dead behind the counter." },
+          { title:"The widow of {street}", vt:["priv"], vg:"f", vage:"old", to:"to the third floor", where:"in the flat",
+            intro:"Retired teacher {victim} is found dead in her flat on {street}." },
+          { title:"The video shop on {street}", time:["18:00","20:30"], vt:["firm"], vg:"m", to:"to the video shop", where:"in the video shop", years:[1990,1999],
+            intro:"{victim}, owner of the video rental shop on {street}, is found dead between the shelves." },
+          { title:"The dressmaker of {street}", vt:["firm"], vg:"f", to:"to the dressmaker's workshop", where:"in the workshop",
+            intro:"Dressmaker {victim} is found dead in her workshop on {street}." },
+          /* wydanie 2.1.1 */
+          { title:"The kiosk man of {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the kiosk", where:"at the kiosk", exclude:["kiosk"],
+            intro:"Kiosk man {victim} is found dead in his kiosk on {street}." },
+          { title:"The photographer of {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the photo studio", where:"in the darkroom",
+            intro:"Photographer {victim} is found dead in the darkroom of his studio on {street}." },
+          { title:"The loan shark of {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"to the loan shark's flat", where:"in the flat",
+            intro:"{victim}, who lent money at interest to half of {district_gen}, is found dead in his flat on {street}." },
+          { title:"The bookshop on {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", vage:"old", to:"to the second-hand bookshop", where:"between the shelves",
+            intro:"Bookseller {victim} is found dead between the shelves of his second-hand bookshop on {street}." },
+          { title:"The mangle lady", time:["17:00","19:30"], vt:["firm"], vg:"f", vage:"old", to:"to the mangle shop", where:"in the mangle shop", exclude:["pralnia"],
+            intro:"{victim}, who has run the mangle shop on {street} for thirty years, is found dead by the mangle." },
+          { title:"The bouncer from the “{bar}”", time:["20:00","23:00"], vt:["priv"], vg:"m", to:"to the “{bar}” bar", where:"in the back room of the bar",
+            intro:"{victim}, the bouncer at the “{bar}” bar on {street}, is found dead in the back room." },
+          { title:"The cake shop on {street}", time:["16:30","19:00"], vt:["firm"], vg:"f", to:"to the cake shop", where:"in the cake shop",
+            intro:"{victim}, owner of the cake shop on {street}, is found dead in the bakery behind the counter." },
+          { title:"The cooperative chairman", time:["16:30","19:00"], vt:["inst"], vg:"m", to:"to the cooperative office", where:"in the office", exclude:["administracja"],
+            intro:"Housing cooperative chairman {victim} is found dead in his office on {street}." },
+          { title:"The taxi driver from the rank", vt:["priv"], vg:"m", to:"to the taxi rank", where:"in the taxi",
+            intro:"Taxi driver {victim} is found dead in his car at the rank by {dworzec}." },
+          { title:"The second-hand shop on {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the second-hand shop", where:"in the second-hand shop", years:[1990,1999],
+            intro:"{victim}, owner of the second-hand electronics shop on {street}, is found dead in the back room." },
+          { title:"The parish organist", time:["17:30","20:00"], vt:["inst"], vg:"m", to:"to the sacristy", where:"in the sacristy",
+            intro:"Organist {victim} is found dead in the sacristy {church_at}." },
+          { title:"The tenant from {street}", vt:["priv"], vg:"f", vage:"mid", to:"to the staircase", where:"on the staircase",
+            intro:"Tenant {victim} is found dead on the staircase of the tenement on {street}." },
+          { title:"The trader {market_from}", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"by the stall",
+            intro:"{victim}, a trader {market_from}, is found dead behind his stall." },
+          { title:"The allotments of {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"to the allotments", where:"by the summerhouse", exclude:["dzialka"],
+            intro:"Allotment holder {victim} is found dead by his summerhouse on the edge of {district_gen}." }
+        ]
+      },
+      kradziez: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Demand", name:"Demand for payment", icon:"letter", k:["debt"], text:["A demand from the bailiff, with the district court stamp.","The repayment date passed a week ago, amount {money}. Debtor: {ini}."] },
+                 { label:"Notebook", name:"Card player's notebook", icon:"notebook", k:["debt"], text:["A card player's notebook from the “{bar}” bar, with a tally of losses.","On the last page: «{ini} owes {money}, due Saturday»."] },
+                 { label:"Note", name:"List of debts", icon:"letter", k:["debt"], text:["A page torn from a diary, found on the staircase.","A list of loans: from the {g:dozorca|dozorca}, from the neighbours on the third floor, from the brother-in-law. Total {money}. Signed: {ini}."] },
+                 { label:"Message", name:"Note torn from an exercise book", icon:"letter", text:["A note torn from a squared exercise book, dropped in the victims' gateway.","«I've got to scrape together {money} by Saturday. I know where they keep the money and I know when they go out.» Signed: {ini}."] }],
+        name:"Burglary", subtags:["wlam"], toolLabel:"Burglary tool",
+        cause:{ wlam:"The door was forced with something hard, pushed into the gap by the lock." },
+        itemsSentence:"That evening, things that could have been used for it went missing from the area.",
+        alibiEvent:"The break-in happened",
+        windowRule:["The burglar personally took the tool from where it lay, at exactly the time it went missing. Nobody handed it over.", "The burglary tool didn't change hands. The burglar was where it went missing, at exactly the time it went missing.", "The burglar fetched the tool personally, and was on the spot it went missing from when it went missing."],
+        keyRule:["Where the burglary tool went missing, there are no signs of a break-in. The burglar opened the door with a key.", "The tool was taken from a locked room, and the lock is intact. The burglar opened it with a key; nobody let them in.", "The burglar didn't need to break in for the tool. They opened the door it was behind with their own key."],
+        motives:[{t:"needed money to pay off a debt to a loan shark", k:["debt"]},"lost {money} at cards",
+                 "wanted to go to Germany for {g:saksy|seasonal work} and was short of the fare",{t:"had been behind with the rent for months", k:["debt","adult"]},
+                 {t:"wanted to open [his|her] own stall {market_on} and was short of money", k:["adult"]},{t:"had promised the children a holiday in Bulgaria and couldn't afford it", k:["adult"]}],
+        suspicion:[{t:"Has lately been going round the neighbours borrowing money.", k:["debt"]}, {t:"Was seen peering into the victims' window.", vt:["priv"]}, {t:"Owes money all over the district.", k:["debt"]}, "Recently lost more at cards than [he|she] had.", {t:"The bailiff came round last month.", k:["debt"]}, {t:"Asked the neighbours when the victims go off to their allotment.", vt:["priv"]},
+                   "Hasn't had a penny for months and has been asking friends about any work going.","Badly needs money and has even sold [his|her] winter coat {market_on}.",{t:"They know [him|her] by name at the pawnshop on {street2}.", k:["debt"]},
+                   {t:"Has been avoiding the neighbours [he|she] owes money to for a week.", k:["debt"]},{t:"Has had no job and no money since getting out of prison for theft.", k:["job","adult"]},{t:"Has long had an eye on the victims' savings and kept asking where they keep them.", vt:["priv"]},
+                   {t:"Asked when, and who, takes the takings to the bank.", vt:["firm","inst"]},
+                   {t:"Knew the routine in the back room and knew when only one person was left there.", vt:["firm","inst"]},
+                   {t:"Hung around the back room at the time the takings are counted.", vt:["firm","inst"]}],
+        noMotive:[{t:"Has a steady job and doesn't complain about money.", k:["job"]}, "Recently inherited a flat and doesn't need money.", {t:"Has no debts and pays cash for everything.", k:["debt"]}, "Has plenty of money and envies nobody anything.", {t:"It was [he|she] who lent the victims money, not the other way round.", k:["debt"]}, {t:"Puts money in a savings book every month and owes nobody anything.", k:["debt"]},
+                  "Returned a wallet [he|she] found to the neighbours a week ago, and isn't short of money.",{t:"Earns in Deutschmarks and has nothing to complain about.", k:["job"]},"Recently won on {g:totek|Totek} and doesn't need anyone else's money.",
+                  "Has been friends with the victims for years and isn't short of money.","Keeps [his|her] money at {g:pko|PKO} and doesn't live beyond [his|her] means.","Family send [him|her] parcels and dollars from America, so [he|she] lacks for nothing."],
+        motiveRule:["It wasn't a chance theft. The thief had a reason to go for this particular money.", "Someone acted with calculation here: drowning in debt, or with an eye on this haul for a long time.",
+                    "The thief knew where to look. They needed money and knew the victims' habits."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "The neighbours heard a door bang between {a} and {b}. The culprit has no alibi for that time.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the culprit."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The takings {market_from}", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"by the stall",
+            intro:"A whole week's takings have vanished from one of the stalls {market_on}." },
+          { title:"The VCR from {street}", vt:["priv"], vg:"m", to:"to the victims' door", where:"by the door", years:[1989,1999],
+            intro:"A brand-new VCR, bought with the whole family's savings, has vanished from a flat on {street}." },
+          { title:"The tea tin", vt:["priv"], vg:"f", vage:"old", to:"to the pensioner's flat", where:"by the door",
+            intro:"A pensioner from {street} has lost the savings she kept hidden in an old tea tin." },
+          { title:"The “{cinema}” cinema box office", time:["20:00","22:30"], vt:["inst"], vg:"m", to:"to the cinema", where:"by the box office",
+            intro:"The whole weekend's takings have vanished from the box office of the “{cinema}” cinema." },
+          { title:"The exchange bureau on {street}", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the exchange bureau", where:"by the safe",
+            intro:"A whole week's dollars and Deutschmarks have vanished from the exchange bureau on {street}." },
+          /* wydanie 2.1.1 */
+          { title:"The fur coat from {street}", vt:["priv"], vg:"f", to:"to the victim's door", where:"by the wardrobe",
+            intro:"{victim} from {street} reports that a fox-fur coat, put away for the winter, has vanished from the wardrobe." },
+          { title:"The cooperative cash box", time:["16:30","19:00"], vt:["inst"], vg:"f", to:"to the cooperative office", where:"by the cash box", exclude:["administracja"],
+            intro:"The rent collected from the tenants has vanished from the cash box at the cooperative office on {street}. Cashier {victim} noticed it in the morning." },
+          { title:"The bike under the stairs", vt:["priv"], vg:"m", to:"to the staircase", where:"under the stairs",
+            intro:"{victim}, a ground-floor tenant on {street}, reports that his new {g:wigry|Wigry} bicycle has vanished from under the stairs." },
+          { title:"The stamp album", vt:["priv"], vg:"m", vage:"old", to:"to the stamp collector's flat", where:"by the desk",
+            intro:"Retired railwayman {victim} from {street} reports that a stamp album collected over forty years has vanished from his desk." },
+          { title:"The wedding rings from {street}", vt:["priv"], vg:"f", to:"to the victim's flat", where:"by the dressing table",
+            intro:"{victim} from {street} reports that a box with her late parents' gold wedding rings has vanished from the dressing table." },
+          { title:"The back room of the {g:pewex|Pewex}", time:["17:30","20:00"], vt:["inst"], vg:"f", to:"to the {g:pewex|Pewex}", where:"in the back room", years:[1989,1990],
+            intro:"A crate of Western cigarettes and whisky has vanished from the back room of the {g:pewex|Pewex} on {street}. Manageress {victim} reports it to {police_dat}." },
+          { title:"The kiosk takings on {street}", time:["17:00","19:30"], vt:["firm"], vg:"f", to:"to the kiosk", where:"by the hatch", exclude:["kiosk"],
+            intro:"Kiosk woman {victim} reports that the whole day's takings have vanished from the kiosk on {street}." },
+          { title:"The gold watch in the {g:kredens|kredens}", vt:["priv"], vg:"f", to:"to the victims' flat", where:"by the {g:kredens|kredens}",
+            intro:"{victim} from {street} reports that a gold watch, set aside for a grandson's First Communion, has vanished from the {g:kredens|kredens}." },
+          { title:"The radio cassette player from {street}", vt:["priv"], vg:"m", to:"to the victim's door", where:"by the {g:mebloscianka|wall unit}", years:[1990,1999],
+            intro:"{victim} from {street} reports that a Japanese radio cassette player, bought with Deutschmarks, has vanished from the {g:mebloscianka|wall unit}." },
+          { title:"Dollars in “The Deluge”", vt:["priv"], vg:"m", vage:"old", to:"to the pensioner's flat", where:"by the bookcase",
+            intro:"Pensioner {victim} from {street} kept his dollars inside “The Deluge” on the bookcase. Now the book is empty." },
+          { title:"Jeans from the {g:szczeka|szczęka}", time:["17:00","18:30"], vt:["firm"], vg:"m", to:"{market_to}", where:"by the {g:szczeka|szczęka}", years:[1990,1999],
+            intro:"{victim}, who trades {market_on}, reports that a whole month's worth of jeans and jackets has vanished from his {g:szczeka|szczęka}." },
+          { title:"The roof fund box", time:["17:30","20:00"], vt:["inst"], vg:"m", to:"to the church", where:"by the collection box",
+            intro:"Sexton {victim} reports that the money collected for the roof repairs has vanished from the collection box {church_at}." },
+          { title:"The pay packet", vt:["priv"], vg:"f", to:"to the victim's flat", where:"by the drawer",
+            intro:"{victim} from {street} reports that her husband's whole pay packet has vanished from an envelope in the drawer." },
+          { title:"The pharmacy takings on {street}", time:["17:00","19:30"], vt:["firm"], vg:"f", to:"to the pharmacy", where:"by the till", exclude:["apteka"],
+            intro:"Pharmacist {victim} reports that the whole day's takings have vanished from the till of the pharmacy on {street}." },
+          { title:"The goldsmith's gold", time:["17:00","19:30"], vt:["firm"], vg:"m", to:"to the goldsmith's workshop", where:"by the safe",
+            intro:"Goldsmith {victim} from {street} reports that gold left for melting down has vanished from his workshop." }
+        ]
+      },
+      otrucie: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Complaint", vt:["dog","outbird","farm"], name:"Complaint to the management", icon:"letter", k:["adult"], text:["A complaint lodged with the estate management, with a received stamp.","«The animals in the courtyard keep the whole staircase awake. If the management does nothing, I'll deal with it myself.» Signed: {ini}."] },
+                 { label:"Notice", vt:["dog","cat","bird"], name:"Notice from the staircase", icon:"letter", text:["A sheet torn off the noticeboard in the stairwell.","«Whoever keeps animals in this block can move out with them. Otherwise they'll be sorry.» Signed: {ini}."] },
+                 { label:"Minutes", vt:["dog","cat","bird","outbird","farm"], name:"Minutes of the tenants' meeting", icon:"card", k:["adult"], text:["Minutes of the tenants' meeting, typed up.","Item three: motion to remove animals from the building. Motion defeated. Proposed by: {ini}."] },
+                 { label:"Anonymous note", name:"Anonymous note under the door", icon:"letter", text:["A note slipped under the owner's door a few days before the incident.","«Remember what you did to me. You'll be sorry yet.» Signed: {ini}."] }],
+        name:"Animal poisoning", subtags:["trucizna"], toolLabel:"Poison",
+        traitRule:{ glasses:{ yes:["The culprit dropped a glasses case at the scene.","An arm from the culprit's glasses lay at the scene, snapped off at the hinge."] }, dog:{ yes:["Dog hair was left at the scene that doesn't come from any animal here. The culprit brought it.","By the bowl there were paw prints of a strange dog, and next to them the culprit's footprints."] } },
+        cause:{ trucizna:"The vet has no doubt it was poison." },
+        itemsSentence:"That evening, substances that could have been used for it went missing from the area.",
+        alibiEvent:"The poison was given",
+        windowRule:["The culprit personally took the poison from where it lay, at exactly the time it went missing. Nobody handed it over.", "The poison didn't change hands. The culprit was where it went missing, at exactly the time it went missing.", "The poison was taken by the same person who gave it. That person was on the spot when it went missing."],
+        keyRule:["Where the poison went missing, there are no signs of a break-in. The culprit opened the door with a key.", "The poison was taken from a locked room, and the lock is intact. The culprit opened it with a key; nobody let them in.", "The door where the poison went missing was opened by the culprit with a key, not a lock pick."],
+        motives:[{t:"couldn't stand the noise at five in the morning", vt:["dog","outbird","farm"]},{t:"had been arguing with the owner about the courtyard for months", vt:["dog","cat","outbird","farm"]},
+                 {t:"believed the animals were to blame for [his|her] tomatoes rotting", vt:["cat","dog","farm"]},"wanted revenge for a complaint to the management",
+                 "had loathed the owner for years and wanted to take away what the owner loved",{t:"believed the animals spread disease all over the staircase", vt:["dog","cat"]},
+                 /* 2.2: więcej motywów do epilogu */
+                 {t:"couldn't forgive the dog for biting [his|her] grandson in the courtyard", vt:["dog"]},{t:"was fed up with barking under the window all night long", vt:["dog"]},
+                 "wanted to get even with the owner for reporting [him|her] to the management",{t:"was furious that cats dug up [his|her] vegetable beds at the allotment every night", vt:["cat"]},
+                 {t:"reckoned that without the animal the owner would finally sell the allotment", vt:["plot"], k:["adult"]},{t:"had blamed the animals since winter for a ruined pram in the pram store", vt:["dog","cat"]}],
+        suspicion:[{t:"Wrote complaints to the management about the noise.", vt:["dog","outbird","farm"]}, "Threatened to “sort it out”.", {t:"Had a row with the animals' owner in the courtyard.", vt:["dog","cat","outbird","farm"]}, {t:"At the tenants' meeting, demanded that the animals be removed from the courtyard.", vt:["dog","cat","outbird","farm"], k:["adult"]}, {t:"Complained to the {g:dozorca|dozorca} that the animals keep [him|her] awake.", vt:["dog","outbird","farm"]}, {t:"Throws water out of the window when the animals come near the block.", vt:["dog","cat","outbird"]},
+                   "Said on the stairs that “those animals ought to be poisoned”.",{t:"The {g:dozorca|dozorca} saw [him|her] sprinkling something into a bowl in the courtyard a week ago.", vt:["dog","cat"]},{t:"The animals dug up [his|her] beds at the allotment, and [he|she] swore revenge.", vt:["cat","dog","farm"]},
+                   {t:"Wrote a letter to the local paper about the “plague of animals in the tenements”.", vt:["dog","cat","outbird"]},{t:"Once took a neighbour to court over a dog that bit [him|her].", vt:["dog"], k:["adult"]},{t:"The animals' owner laughed at [him|her] at the tenants' meeting.", vt:["dog","cat","bird","outbird","farm"], k:["adult"]},
+                   "Had a row with the animals' owner over a trifle, in front of witnesses.",
+                   "Hasn't shaken the owner's hand since that row.",
+                   "Said over coffee: “That man will be sorry yet.”",
+                   "Kept asking when the owner leaves home and whether anyone stays in.",
+                   "Had an old score to settle with the animals' owner over a loan.",
+                   "A neighbour saw [him|her] hanging around the owner's door in the evening."],
+        noMotive:["Feeds the birds on the windowsill and loves animals.", {t:"The courtyard animals never bothered [him|her], and [he|she] never complained about them.", vt:["dog","cat","outbird","farm"]}, {t:"Knows the courtyard animals by name and brings them scraps.", vt:["dog","cat","outbird","farm"]}, {t:"The noise from the courtyard doesn't bother [him|her]; sleeps like a log and has never complained about anything.", vt:["dog","outbird","farm"]}, "Was in the same class at school as the animals' owner, and they're still friends.", "Never had any dispute or trouble with the animals' owner.",
+                  {t:"Has two cats from the shelter at home, and feeds the ones in the courtyard.", vt:["dog","cat","outbird","farm"]},{t:"Every week, took the leftovers from dinner out for the courtyard animals.", vt:["dog","cat","outbird","farm"]},"Once took a dog that had been hit by a car to the vet at [his|her] own expense.",
+                  "Has looked after animals all [his|her] life and says they're better than people.","Never had a dispute with the neighbours over animals.","Looks after the neighbour's canary when she goes away."],
+        motiveRule:["The poison wasn't given by accident. Someone had been fed up with these animals for a long time.", "Someone wanted to get rid of the animals and made no secret of it to the neighbours.",
+                    "The culprit bore a grudge against the animals or their owner. It wasn't a mistake."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "The vet says the poison was given between {a} and {b}. Nobody can confirm where the culprit was at that time.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the culprit."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The pigeons of {street}", vt:["outbird"], vg:"m", to:"up onto the roof, to the pigeon loft", where:"in the pigeon loft",
+            intro:"Someone has poisoned the racing pigeons in the loft on the roof of the tenement on {street}." },
+          { title:"The dachshund of {street}", vt:["dog"], vg:"f", to:"to the courtyard", where:"by the bowl",
+            intro:"Someone has given poison to a neighbour's dachshund on {street}. Luckily the dog survived." },
+          { title:"The engineer's aquarium", vt:["fish"], vg:"m", to:"to the engineer's flat", where:"by the aquarium",
+            intro:"An engineer from {street} has found all the fish in his aquarium dead." },
+          { title:"The cat of {street}", vt:["cat"], vg:"f", to:"to the courtyard", where:"by the bowl",
+            intro:"Someone has poisoned the cat that half the tenement on {street} used to feed. The cat survived thanks to the vet." },
+          /* wydanie 2.1.1 */
+          { title:"The canary of {street}", vt:["bird"], vg:"f", vage:"old", to:"to the neighbour's flat", where:"by the canary's cage",
+            intro:"{victim} from {street} has found her canary dead in its cage." },
+          { title:"The workshop Alsatian", vt:["dog"], vg:"m", to:"to the workshop", where:"by the kennel",
+            intro:"Mechanic {victim} found the Alsatian that guards his workshop on {street} barely alive in the morning." },
+          { title:"The allotment hens", vt:["farm","plot"], vg:"f", vage:"old", to:"to the allotments", where:"by the henhouse", exclude:["dzialka"],
+            intro:"Allotment holder {victim} has found half the hens in her henhouse on the edge of {district_gen} dead." },
+          { title:"The courtyard rabbits", vt:["farm"], vg:"m", to:"to the courtyard", where:"by the hutches",
+            intro:"{victim} from {street} kept rabbits in the courtyard. In the morning they were all lying motionless in their hutches." },
+          { title:"The grocery cat", time:["17:00","19:30"], vt:["cat"], vg:"f", to:"to the shop", where:"by the bowl", exclude:["sklep"],
+            intro:"Shop assistant {victim} found the shop cat barely alive behind the counter of the grocery on {street}." },
+          { title:"The school aquarium", time:["16:30","19:00"], vt:["fish"], vg:"f", to:"to the school", where:"by the aquarium",
+            intro:"Biology teacher {victim} has found all the fish in the school aquarium on {street} dead." },
+          { title:"The building site dog", vt:["dog"], vg:"m", to:"to the building site", where:"by the kennel",
+            intro:"Site watchman {victim} found his dog barely alive by its kennel on the building site on {street}." },
+          { title:"The budgie of {street}", vt:["bird"], vg:"f", to:"to the neighbour's flat", where:"by the cage", years:[1991,1999],
+            intro:"{victim} from {street} has found her budgerigar dead at the bottom of its cage." },
+          { title:"The ducks in the park", vt:["outbird"], vg:"m", to:"to the park", where:"by the pond",
+            intro:"City parks gardener {victim} has found dead ducks by the pond in the park on {street}." },
+          { title:"The mongrel {district_na}", vt:["dog"], vg:"f", to:"to the courtyard", where:"by the kennel",
+            intro:"Someone has poisoned the mongrel that {victim} from {street} took in off the street. The dog survived thanks to the vet." },
+          { title:"The clinic aquarium", time:["17:30","19:30"], vt:["fish"], vg:"f", to:"to the clinic", where:"in the waiting room",
+            intro:"Nurse {victim} found the fish in the aquarium in the waiting room of the clinic on {street} dead in the morning." },
+          { title:"The tame jackdaw", vt:["outbird"], vg:"m", vage:"old", to:"to the balcony", where:"on the balcony",
+            intro:"Pensioner {victim} from {street} had been feeding a tame jackdaw for years. Yesterday he found it dead on his balcony." },
+          { title:"The chairman's Alsatian", vt:["dog"], vg:"m", to:"to the chairman's house", where:"by the garden gate",
+            intro:"Cooperative chairman {victim} found his Alsatian barely alive by the gate of his house on {street}. The dog survived." },
+          { title:"The cellar cat of {street}", vt:["cat"], vg:"f", to:"to the cellar", where:"in the cellar", exclude:["piwnica"],
+            intro:"{victim} from {street} used to feed the cat that caught mice in the cellars. Someone gave it poison." },
+          { title:"The geese {market_from}", vt:["farm"], vg:"f", to:"{market_to}", where:"by the cages",
+            intro:"Trader {victim}, who sells poultry {market_on}, found her geese dead in their cages in the morning." },
+          { title:"The guide dog", vt:["dog"], vg:"m", vage:"old", to:"to the blind man's flat", where:"by the bowl",
+            intro:"{victim}, a blind man from {street}, found his guide dog barely alive by its bowl on the landing." }
+        ]
+      },
+      podpalenie: {
+        /* dowody rzeczowe z motywem (cecha motive = yes); {ini} = inicjały autora */
+        letters:[{ label:"Letter", vt:["firm"], name:"Letter to the owner", icon:"letter", k:["fired"], text:["A letter found in the owner's letterbox, a week before the fire.","«You threw me out like a dog. You'll see what's left of your business.» Signed: {ini}."] },
+                 { label:"Application", vt:["firm","adm"], name:"Application to the district council", icon:"card", k:["adult"], text:["An application to the district council for the allocation of the same site.","Refused, with a note: “site occupied”. Applicant: {ini}."] },
+                 { label:"Note", name:"Note on the door", icon:"letter", text:["A note taped to the owner's door.","«This place is an eyesore for the whole street. Not for much longer.» Signed: {ini}."] }],
+        name:"Arson", subtags:["ogien"], toolLabel:"Accelerant",
+        cause:{ ogien:"The firemen say someone helped the fire get going." },
+        itemsSentence:"That evening, objects that could have been used to do it went missing from the area.",
+        alibiEvent:"The fire was started",
+        windowRule:["The arsonist personally took the accelerant from where it lay, at exactly the time it went missing. Nobody handed it over.", "The accelerant didn't change hands. The arsonist was where it went missing, at exactly the time it went missing.", "The arsonist fetched what was used to start the fire, and was on the spot it went missing from when it went missing."],
+        keyRule:["Where the accelerant went missing, there are no signs of a break-in. The arsonist opened the door with a key.", "The accelerant was taken from a locked room, and the lock is intact. The arsonist opened it with a key; nobody let them in.", "The door where the accelerant went missing was opened by the arsonist with a key, not a lock pick."],
+        motives:[{t:"was the owner's partner and was counting on the insurance payout", vt:["firm"], k:["adult"]},{t:"had long been at odds with the owner", vt:["firm","priv","adm"]},
+                 {t:"wanted to take over the site for [his|her] own business", vt:["firm"]},{t:"was getting back at the victim for being sacked", vt:["firm","inst","adm"], k:["fired"]},
+                 {t:"reckoned that after the fire the cooperative would give [him|her] the site", vt:["firm","adm"]},{t:"had envied the owner's good earnings for months", vt:["firm"]},
+                   {t:"wanted to spite the officials after they refused to sort [his|her] case out", vt:["inst"]},
+                   {t:"believed the place spoiled the neighbourhood and nobody was keeping an eye on it", vt:["inst"]},
+                   {t:"wanted revenge on the neighbours for an old quarrel over a fence", vt:["priv"]}],
+        suspicion:[{t:"Argued with the owner about a spot in the courtyard.", vt:["priv","adm","firm"]}, "Has long borne the owner a grudge and was hanging about there after dark.", "Said loudly that “the whole lot ought to burn”.", {t:"The owner sacked [him|her] a month ago.", vt:["firm","inst"], k:["fired"]}, {t:"Wanted to put up [his|her] own stall on that spot.", vt:["firm"]}, "Has long complained that the place is an eyesore.",
+                   {t:"The owner refused to extend [his|her] lease.", vt:["firm","adm"], k:["adult"]},{t:"Shouted at the meeting that “that shack will be gone yet”.", vt:["firm"]},{t:"The owner cheated [him|her] out of money, and [he|she] swore to pay him back.", vt:["firm","priv","adm"]},
+                   {t:"The owner called [him|her] names in front of the neighbours.", vt:["firm","priv","adm"]},{t:"Has lost customers since the owner opened up next door.", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"Has been going to the council for months to get the place shut down.", vt:["firm","adm","inst"]},
+                   {t:"Said in front of witnesses that the officials “will pay for this yet”.", vt:["inst"]},
+                   {t:"Has been lodging complaints with the council about the place for months.", vt:["inst"]},
+                   {t:"The management refused [him|her] the permission [he|she] had been asking for for a year.", vt:["inst"]},
+                   {t:"Quarrelled with the neighbours over a fence and a boundary strip.", vt:["priv"]},
+                   {t:"Has been arguing with the neighbours over the allotment boundary for years.", vt:["priv"]},
+                   {t:"Keeps saying the neighbours have always had more than their share of luck.", vt:["priv"]}],
+        noMotive:[{t:"Has been on good terms with the owner for years.", vt:["firm","priv","adm"]}, {t:"Lost [his|her] own bicycle in the fire, and is on good terms with the owner.", vt:["bike"]}, "Helped put out the fire; [he|she] and the owner have been friends for years.", {t:"Had no quarrel with the owner.", vt:["firm","priv","adm"]}, "Nothing connected [him|her] with the place or the owner.", {t:"The owner is [his|her] godfather.", vt:["firm","priv","adm"]},
+                  {t:"Went fishing with the owner every Sunday.", vt:["firm","priv","adm"]},"Gained nothing from the fire, and never quarrelled with the owner.",{t:"The owner is [his|her] best neighbour; they play cards together every Saturday.", vt:["priv","adm"]},
+                  "Would have gained nothing from this fire and has no score to settle with the owner.","Owes the owner nothing but gratitude for help in hard times.","Lives in peace with the neighbours and doesn't go looking for quarrels."],
+        motiveRule:["The fire was set by someone who had a score to settle with the owner.", "It wasn't a careless spark. Someone wanted revenge, or to profit from this fire.",
+                    "The fire paid off for somebody, or gave them satisfaction. The culprit had a reason."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "The firemen established that the fire was started between {a} and {b}. The culprit has no alibi for that time.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the culprit."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The bicycle shed", vt:["adm","priv","bike"], vg:"m", to:"to the courtyard on {street}", where:"by the shed",
+            intro:"A wooden bicycle shed in the courtyard on {street} has burnt down." },
+          { title:"The vegetable stall", vt:["firm"], vg:"m", to:"{market_to}", where:"by the stall",
+            intro:"A vegetable stall {market_on} burnt down in the night." },
+          { title:"The chairman's summerhouse", vt:["priv"], vg:"m", to:"to the allotments", where:"by the summerhouse", exclude:["dzialka"],
+            intro:"The summerhouse of the allotment society chairman has burnt down." },
+          { title:"The bus shelter on {street}", vt:["inst"], vg:"m", to:"to the tram stop", where:"by the shelter", exclude:["kiosk"],
+            intro:"Someone has set fire to the tram stop shelter on {street}." },
+          { title:"The clothes {g:szczeka|szczęka}", vt:["firm"], vg:"f", to:"{market_to}", where:"by the {g:szczeka|szczęka}", years:[1990,1999],
+            intro:"A tin {g:szczeka|szczęka} full of clothes {market_on} burnt down in the night." },
+          /* wydanie 2.1.1 */
+          { title:"The kiosk on {street}", vt:["firm"], vg:"f", to:"to the kiosk", where:"by the kiosk", exclude:["kiosk"],
+            intro:"The {g:ruch|Ruch} kiosk on {street} burnt down in the night. Kiosk woman {victim} lost all her stock." },
+          { title:"The pram store on {street}", vt:["adm"], vg:"m", to:"to the courtyard on {street}", where:"by the pram store",
+            intro:"The pram store on the ground floor of the tenement on {street} has burnt out. The {g:dozorca|dozorca}, {victim}, called the fire brigade." },
+          { title:"The {g:polonez|Polonez} in the courtyard", vt:["priv"], vg:"m", to:"to the courtyard", where:"by the car",
+            intro:"In the courtyard on {street}, the {g:polonez|Polonez} that {victim} drove back from Germany the day before has burnt out." },
+          { title:"The coal store", vt:["priv","adm"], vg:"f", to:"to the cellar", where:"in the cellar", exclude:["piwnica"],
+            intro:"A coal store in the cellar of the tenement on {street} caught fire. Tenant {victim} lost all her fuel for the winter." },
+          { title:"The mechanic's garage", vt:["firm"], vg:"m", to:"to the garage", where:"by the garage", exclude:["garaz"],
+            intro:"The garage on {street} where {victim} repaired the neighbours' cars after hours has burnt down." },
+          { title:"The toy stall", vt:["firm"], vg:"m", to:"{market_to}", where:"by the stall",
+            intro:"{victim}, who sells toys {market_on}, found a heap of ash instead of a stall in the morning." },
+          { title:"The bandstand in the park", vt:["inst"], vg:"m", to:"to the park", where:"by the bandstand",
+            intro:"The wooden bandstand in the park on {street} has burnt down. Community centre manager {victim} was preparing a fête there." },
+          { title:"The barn on the edge of {district_gen}", vt:["priv"], vg:"m", vage:"old", to:"to the edge of {district_gen}", where:"by the barn",
+            intro:"{victim}, the last farmer on the edge of {district_gen}, lost a barn full of hay in the night." },
+          { title:"The ice-cream kiosk", vt:["firm"], vg:"f", to:"to the corner of {street}", where:"by the kiosk", years:[1990,1999],
+            intro:"The soft-serve ice-cream kiosk on {street}, which {victim} opened in the spring, burnt down in the night." },
+          { title:"The {g:dozorca|dozorca}'s shed", vt:["adm"], vg:"m", to:"to the courtyard", where:"by the shed",
+            intro:"The shed on {street} where the {g:dozorca|dozorca}, {victim}, kept tools and the tenants' sledges has burnt down." },
+          { title:"The video shop on fire", vt:["firm"], vg:"m", to:"to the video shop", where:"by the video shop", years:[1990,1999],
+            intro:"A fire broke out in the night at the video rental shop on {street}. The owner, {victim}, lost several hundred films." },
+          { title:"The site hut", vt:["inst"], vg:"m", to:"to the building site", where:"by the hut",
+            intro:"On the building site on {street}, the hut where site manager {victim} kept the paperwork has burnt down." },
+          { title:"The chairman's door", vt:["priv"], vg:"m", to:"to the chairman's door", where:"by the door",
+            intro:"Someone set fire to the door of a flat on {street}. The tenant is {victim}, the cooperative chairman. The neighbours put the fire out." },
+          { title:"The milk bar on {street}", vt:["inst"], vg:"f", to:"to the milk bar", where:"in the back of the bar",
+            intro:"The back of the milk bar on {street} has burnt out. Manageress {victim} says everything was switched off in the evening." },
+          { title:"The flower stall", vt:["firm"], vg:"f", to:"to the cemetery", where:"by the stall",
+            intro:"The flower stall by the cemetery near {street} has burnt down. Florist {victim} had wreaths in it for tomorrow's funeral." }
+        ]
+      },
+
+      /* ================================================================== */
+      /* Wydanie 2.1.1: nowe typy zbrodni (etap 11, bez zaginięcia)          */
+      /* ================================================================== */
+      szantaz: {
+        /* dowody z motywem: długi, wiedza o tajemnicy, uraza */
+        letters:[{ label:"Promissory note", name:"Loan shark's promissory note", icon:"receipt", k:["debt"], text:["A promissory note for {money}, issued by the loan shark from {street2}.","It fell due on Monday. Debtor: {ini}."] },
+                 { label:"Note", name:"Note to the victims", icon:"letter", text:["A note slipped under the victims' door a month ago, still signed back then.","«I know where you got the money for all this. Shall we talk?» Signed: {ini}."] },
+                 { label:"Termination", name:"Notice of dismissal", icon:"card", k:["fired"], text:["A notice of dismissal signed by the victim, with the works stamp.","«On grounds of loss of trust.» Concerning the employee: {ini}."] }],
+        name:"Blackmail", subtags:["pismo"], toolLabel:"What the anonymous letter was made with",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["The only handwritten words {where} were written by a left hand: letters slanting left, smudged by the moving palm.","The envelope with the anonymous letter was sealed and addressed by a left hand: the writing slants left, the ink smudged."],right:["The only handwritten words {where} were written by a right hand: even letters, slanting right, no smudges.","The envelope with the anonymous letter was sealed and addressed by a right hand: even writing, slanting right, no smudges."]},
+          shoe:["By the door where the letter was left, the culprit's shoe print remained in the mud, size {v}.","By the letterboxes on the stairs, where the culprit left the letter, there is a fresh print of their sole, size {v}."],
+          height:{tall:["The letter was tucked behind the moulding above the door, over two metres off the floor. The victims had to stand on a chair to get it down.","The {g:dozorca|dozorca} saw the culprit with the letter on the stairs: they ducked under the lamp so as not to hit their head."],short:["The {g:dozorca|dozorca} saw the culprit reach in vain for a letterbox in the top row and finally slip the letter under the door.","A witness saw the culprit drop off the letter: they stood on tiptoe and only just reached the slot of the letterbox."]},
+          smoker:{yes:["There's a hole burnt by the culprit's cigarette {where}, and grey ash.","A fresh cigarette end of the culprit's lies by the door where the letter was left."]},
+          car:{yes:["A neighbour saw the culprit drive up in their own car, leave the letter and drive off.","Where the letter was left, there are fresh tyre marks. The culprit came and went in their own car."]},
+          glasses:{yes:["A tiny screw from the arm of the culprit's glasses got stuck between the pages of the letter.","By the door where the letter was left lay the culprit's glasses case."]},
+          dog:{yes:["A dog hair got stuck in the glue {where}. The victims have no dog.","A muddy dog's paw print was left {where}. The culprit made the letter with a dog at their feet."]},
+          jacket:{yes:["A navy blue {g:ortalion|ortalion} fibre from the culprit's sleeve got stuck in the glue {where}.","In the dark on the stairs, the {g:dozorca|dozorca} heard the rustle of the culprit's {g:ortalion|ortalion} jacket."]}
+        },
+        cause:{ pismo:"The letter was put together so that the handwriting couldn't be recognised." },
+        itemsSentence:"That evening, objects that could be used to make such a letter went missing from the area.",
+        alibiEvent:"The anonymous letter was left",
+        windowRule:["Nobody lent the blackmailer what was used to make the letter. They took it themselves from where it lay, at the time it went missing.", "What the letter was made with didn't change hands. The blackmailer was where it went missing, at exactly the time it went missing.", "The blackmailer took what was used to make the letter themselves, and was on the spot when it went missing."],
+        keyRule:["Where the letter-making materials went missing, there are no signs of a break-in. The blackmailer opened the door with a key.", "What the letter was made with was taken from behind a locked door, and the lock is intact. The blackmailer opened it with a key; nobody let them in.", "The blackmailer didn't need to break in for what was used to make the letter. They opened the door with their own key."],
+        motives:["knew the victims' secret and wanted to make money from it","lost {money} at cards and was looking for some quick money",
+                 "envied the victims their Western car and new flat",{t:"wanted revenge for being sacked", k:["fired"]},
+                 "found out about the victims' shady dealings and decided to get something out of it",{t:"had been behind with the rent for months and was afraid of eviction", k:["debt","adult"]}],
+        suspicion:["Has lately been asking the neighbours about the victims' affairs.",{t:"Owes a loan shark money, and the repayment date falls this week.", k:["debt"]},{t:"Once worked with the victims and left in anger.", k:["job"]},
+                   "They say it was [he|she] who spread the rumour about the victims.","Over coffee at a neighbour's, said: “I know what's on everyone's conscience.”",{t:"Quarrelled with the victims over money for renovation work.", k:["adult"]},
+                   "For a week has been paying for everything in brand-new notes, though not long ago [he|she] couldn't afford bread.","Once blackmailed a neighbour before; the matter ended in a settlement.",{t:"Knows the victims' past from the days when they worked together at the works.", k:["job"]},
+                   "Boasted about buying a colour television soon, though [he|she] has nothing to buy it with.","Said in front of witnesses: “They'll pay me for this yet.”",{t:"The victims refused [him|her] a loan a month ago.", k:["debt"]}],
+        noMotive:["Knew the victims only by sight and knows nothing about them.",{t:"Has no debts and earns well.", k:["job"]},{t:"Has no debts, and knows nothing about the victims that could be used to frighten them.", k:["debt"]},
+                  {t:"Helped the victims with renovation work and they stayed friends.", k:["adult"]},"Other people's business doesn't interest [him|her], and [he|she] isn't short of money.","Had no dealings with the victims.",
+                  "Saves in a savings book and doesn't need anyone else's money.","Played bridge with the victims every week, and they never quarrelled.","Barely knows the victims, having moved in a month ago.",
+                  "The victims are [his|her] godparents.","Has no score to settle with the victims and no reason to frighten them.","The victims helped [him|her] in hard times, and [he|she] owes them nothing but gratitude."],
+        motiveRule:["The blackmailer knew something about the victims that no outsider knew. They had an interest in this.", "Someone acted out of greed or revenge here, and has known the victims for a long time.", "It wasn't a silly prank. The blackmailer had a reason to strike at these particular people."],
+        alibiRule:["{ev} between {a} and {b}. The blackmailer has no confirmed alibi for that time.", "The {g:dozorca|dozorca} heard footsteps on the stairs between {a} and {b}. That's when the letter was left. Anyone with a confirmed alibi is not the blackmailer.", "It all happened between {a} and {b}. The blackmailer has no alibi for that time."],
+        epilogueEnd:"and made the anonymous letter, which [he|she] left {to}.",
+        scenes:[
+          { title:"A letter for the pharmacist", vg:"f", to:"under the pharmacy door", where:"on the envelope",
+            intro:"Pharmacist {victim} from {street} has received an anonymous letter: either she pays {money}, or the whole district will hear about the medicines sold under the counter." },
+          { title:"A letter for the shop manager", vg:"m", to:"in the manager's letterbox", where:"on the letter",
+            intro:"The manager of the shop on {street}, {victim}, found a letter in his letterbox: {money}, or a report about goods sold from under the counter." },
+          { title:"A letter for the cooperative chairman", vg:"m", to:"under the chairman's door", where:"on the letter",
+            intro:"Cooperative chairman {victim} has received an anonymous letter demanding {money_gen}. The writer says they know who got a flat on {street} by jumping the queue." },
+          { title:"The teacher's photos", vg:"f", to:"to the staff room", where:"on the envelope",
+            intro:"Teacher {victim} found an envelope in the class register with photos from a date and a demand for {money_gen}." },
+          { title:"Blackmail {district_na}", vg:"m", to:"at the exchange bureau", where:"on the letter",
+            intro:"{victim}, owner of the exchange bureau on {street}, has received a letter: {money}, or the tax office hears about the second set of books." },
+          { title:"A letter for the dentist", vg:"f", to:"at the dentist's surgery", where:"on the letter",
+            intro:"Dentist {victim} from {street} has received an anonymous letter: {money}, or her patients find out what she charges in dollars for." },
+          { title:"Envelope under the wiper", vg:"m", to:"under the windscreen wiper of the {g:polonez|Polonez}", where:"on the envelope",
+            intro:"{victim} found an envelope under the windscreen wiper of his {g:polonez|Polonez} on {street}, demanding {money_gen}. The writer knows about the smuggling across the border." },
+          { title:"The dressmaker's secret", vg:"f", to:"under the dressmaker's workshop door", where:"on the letter",
+            intro:"Dressmaker {victim} from {street} has received an anonymous letter. Someone knows she sews off the books after hours, and wants {money_gen} to keep quiet." },
+          { title:"A letter for the headmaster", vg:"m", to:"in the school office", where:"on the letter", years:[1990,1999],
+            intro:"The headmaster of the school on {street}, {victim}, has received a letter demanding {money_gen}. The writer threatens to reveal his Party past." },
+          { title:"A note in a stall {market_from}", time:["17:00","18:30"], vg:"m", to:"{market_to}", where:"on the note",
+            intro:"{victim}, a trader {market_from}, found a note in his stall: {money}, or {police_dat} will get a tip-off about where his goods come from." },
+          { title:"The pensioner's second family", vg:"m", vage:"old", to:"under the pensioner's door", where:"on the envelope",
+            intro:"Retired railwayman {victim} from {street} has received an anonymous letter: {money}, or his children find out about his second family." },
+          { title:"Dollars in a hairspray tin", vg:"f", to:"to the hairdresser's", where:"on the letter", exclude:["fryzjer"],
+            intro:"Hairdresser {victim} found a letter at her salon on {street} demanding {money_gen}. The writer knows about the dollars kept in an old hairspray tin." },
+          { title:"A letter for the {g:pewex|Pewex} manageress", vg:"f", to:"under the {g:pewex|Pewex} door", where:"on the envelope", years:[1989,1990],
+            intro:"The manageress of the {g:pewex|Pewex} on {street}, {victim}, has received an anonymous letter: {money}, or the inspectors hear about the vouchers sold on the side." },
+          { title:"The holiday photos", vg:"m", to:"in the letterbox", where:"on the envelope",
+            intro:"{victim} from {street} found photos from a holiday in Bulgaria in his letterbox, with a note demanding {money_gen}." },
+          { title:"Sick notes for bribes", vg:"m", to:"to the surgery at the clinic", where:"on the letter",
+            intro:"Doctor {victim} from the clinic on {street} has received an anonymous letter. The writer knows about sick notes written out for bribes and wants {money_gen}." },
+          { title:"Extortion on {street}", vg:"m", to:"under the shop door", where:"on the letter", years:[1990,1999],
+            intro:"{victim}, owner of a private shop on {street}, has received an anonymous letter: {money}, or there'll be an “accident” in the back room." },
+          { title:"Letters to Canada", vg:"f", to:"under the neighbour's door", where:"on the envelope",
+            intro:"{victim} from {street} has received an anonymous letter. Someone threatens that her husband will find out about her letters to Canada unless they get {money_gen}." },
+          { title:"Rooms on the side", vg:"m", to:"to the workers' hostel porter's lodge", where:"on the letter",
+            intro:"The manager of the workers' hostel on {street}, {victim}, has received a letter demanding {money_gen}. The writer knows about rooms let out on the side." },
+          { title:"The cooperative cash shortfall", vg:"f", to:"to the cooperative office", where:"on the letter", exclude:["administracja"],
+            intro:"Cooperative bookkeeper {victim} found an anonymous letter on her desk: {money}, or the chairman hears about the shortfall in the cash box." },
+          { title:"The unstamped postcard", vg:"m", to:"in the letterbox", where:"on the postcard",
+            intro:"Mechanic {victim} from {street} has received an unstamped postcard: {money}, or {police_dat} gets a list of the cars he's been doctoring." }
+        ]
+      },
+
+      falszerstwo: {
+        letters:[{ label:"Reminder", name:"Bank reminder", icon:"letter", k:["debt"], text:["A reminder from the bank about overdue instalments, with the branch stamp.","{money} outstanding, final warning. Debtor: {ini}."] },
+                 { label:"Refusal", name:"Allocation refusal", icon:"card", k:["adult"], text:["A letter from the district council refusing an allocation.","«The application has been rejected.» Applicant: {ini}. In the margin, in pencil: “we'll see about that”."] },
+                 { label:"Docket", name:"Pawnshop ticket", icon:"receipt", k:["debt"], text:["A pawnshop ticket from {street2}, for a pawned wedding ring.","Amount {money}, redemption date passed. Pawned by: {ini}."] },
+                 { label:"Price list", name:"Notebook with a price list", icon:"notebook", text:["A notebook found in a gateway, with a price list in pencil.","«Sick note {kwota_bribe}, pass costs more. Customers only through friends.» On the cover: {ini}."] }],
+        name:"Forgery", subtags:["pieczec"], toolLabel:"What the document was forged with",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["The culprit's fingerprint was left in the ink {where}. The expert says: a finger of the left hand, the one that worked the stamp.","The forged signature {where} was made by a left hand: the strokes go against the grain, the ink smudged by the moving palm."],right:["The culprit's fingerprint was left in the ink {where}. The expert says: a finger of the right hand, the one that worked the stamp.","The forged signature {where} was made by a right hand: even strokes, slanting right, no smudges."]},
+          shoe:["The forged paper must have fallen at the culprit's feet: the print of their sole is on the back, size {v}.","Whoever brought in the forged paper left a muddy shoe print by the counter window, size {v}."],
+          height:{tall:["A witness remembers whoever brought in the forged paper: they had to stoop to look through the window.","A witness remembers whoever brought in the forged paper: their head nearly reached the lamp over the window."],short:["A witness remembers whoever brought in the forged paper: their chin barely reached the counter.","A witness remembers whoever brought in the forged paper: they had to stand on tiptoe to reach the window."]},
+          smoker:{yes:["There's a hole burnt by a cigarette {where}, and grey ash. The culprit smoked while working.","Whoever brought in the forged paper put out a cigarette by the window. The end was still warm."]},
+          car:{yes:["A witness saw whoever brought in the forged paper get into their own car afterwards and drive off.","Outside the building where the forged paper was brought, there are tyre marks. The culprit came here in their own car."]},
+          glasses:{yes:["An arm from the culprit's glasses, snapped off at the hinge, got stuck between the forged papers.","The culprit's glasses case was left by the window where the forged paper was handed in."]},
+          dog:{yes:["Under the stamp {where}, a dog hair from the culprit's sleeve has set in the ink.","A muddy dog's paw print was left {where}. The culprit forged the paper with a dog at their feet."]},
+          jacket:{yes:["A navy blue {g:ortalion|ortalion} fibre from the culprit's sleeve got stuck in the ink {where}.","A witness heard whoever brought in the forged paper rustle in an {g:ortalion|ortalion} jacket with every move."]}
+        },
+        cause:{ pieczec:"The stamp and signature were forged so carefully that at first glance nobody noticed anything." },
+        itemsSentence:"That evening, objects that could have been used to forge it went missing from the area.",
+        alibiEvent:"The forged paper was used",
+        windowRule:["Nobody lent the forger what was used to forge the document. They took it themselves from where it lay, at the time it went missing.", "What the document was forged with didn't change hands. The forger was where it went missing, at exactly the time it went missing.", "The forger took what they needed themselves, and was on the spot when it went missing."],
+        keyRule:["Where the forging materials went missing, there are no signs of a break-in. The forger opened the door with a key.", "What the document was forged with was taken from behind a locked door, and the lock is intact. The forger opened it with a key; nobody let them in.", "The forger didn't need to break in. They opened the door where the materials were kept with their own key."],
+        motives:["needed money and reckoned nobody would check the stamp","wanted more than [he|she] was entitled to",
+                 {t:"had been behind with the instalments for months and was looking for a way out", k:["debt","adult"]},"wanted to go abroad and was short of money",
+                 "was sure nobody would compare the signatures","lost {money} at cards and had to pay it back fast"],
+        suspicion:["Has beautiful handwriting and boasted [he|she] could forge any signature.",{t:"Has lately been spending more than [his|her] wages allow.", k:["job"]},"Was once caught altering the dates on an ID card.",
+                   {t:"Has debts on tick in three shops.", k:["debt"]},"Asked at the management office what the manager's stamp looks like and where it's kept.","Asked the office cleaner where the blank forms are kept.",
+                   {t:"Has been fighting for a year for an allocation [he|she] was refused.", k:["adult"]},"Earns on the side {market_on} and needs more and more money.","Boasted at a name-day party that “paper will take anything”.",
+                   "Lives beyond [his|her] means: new shoes, coat and watch, with no money to pay for them.",{t:"The manager once caught [him|her] writing out false receipts, but the matter was hushed up.", k:["job"]},{t:"Got a demand from the bailiff for {money}.", k:["debt"]}],
+        noMotive:[{t:"Has a good wage and doesn't complain.", k:["job"]},{t:"Has never been late with an instalment in [his|her] life and doesn't need anyone else's money.", k:["adult"]},"It was [he|she] who reported that something didn't add up in the documents.",
+                  {t:"Got the allocation and all the papers long ago, honestly, and needs nothing more.", k:["adult"]},{t:"Has no debts, and no business at the council that would need fixing on the side.", k:["debt"]},"Keeps [his|her] money at {g:pko|PKO} and counts every penny.",
+                  "Has no dealings or quarrels with the victims.","Wouldn't get anything out of someone else's stamp, having already got everything [he|she] wanted.","Has everything [he|she] needs and has nothing to fix on the side.",
+                  {t:"Recently got a pay rise and isn't complaining about money.", k:["job"]},"Family send [him|her] dollars from Chicago, so [he|she] has no need to fiddle anything.","Nothing connects [him|her] with the victims, and [he|she] has plenty of money."],
+        motiveRule:["The forger was counting on a profit. They needed money, or an allocation they weren't entitled to.", "It wasn't an official's mistake. Someone had a reason to forge this particular paper.", "The forger was making money from someone else's stamp and knew perfectly well why."],
+        alibiRule:["{ev} between {a} and {b}. The forger has no confirmed alibi for that time.", "The forged paper reached the counter between {a} and {b}. Anyone with a confirmed alibi is not the forger.", "It all happened between {a} and {b}. The forger has no alibi for that time."],
+        epilogueEnd:"and took the forged paper straight {to}.",
+        scenes:[
+          { title:"Forged meat coupons", time:["17:00","19:30"], vg:"f", to:"to the butcher's", where:"on the coupons", years:[1989,1989], months:[1,7],
+            intro:"The shop assistant at the butcher's on {street}, {victim}, found meat ration coupons with a forged council stamp among the takings." },
+          { title:"Sugar coupons from {street}", time:["17:00","19:30"], vg:"f", to:"to the grocery", where:"on the coupons", years:[1989,1989], months:[1,7],
+            intro:"The manageress of the grocery on {street}, {victim}, found a wad of sugar coupons with a fake stamp in the till." },
+          { title:"{g:pewex|Pewex} vouchers", time:["17:30","20:00"], vg:"m", to:"to the {g:pewex|Pewex}", where:"on the vouchers", years:[1989,1990],
+            intro:"The cashier at the {g:pewex|Pewex} on {street}, {victim}, took a handful of vouchers. Only in the evening did he notice they were forged." },
+          { title:"The driving school on {street}", vg:"m", to:"to the driving test centre", where:"on the form",
+            intro:"Examiner {victim} from the driving test centre found a certificate from the driving school on {street} with a forged stamp among a learner's papers." },
+          { title:"The sick note", vg:"m", to:"to the works personnel office", where:"on the sick note",
+            intro:"The personnel officer {zaklad_at}, {victim}, received a sick note stamped by a clinic that never issued it." },
+          { title:"The money order from the post office on {street}", time:["17:30","19:00"], vg:"f", to:"to the post office", where:"on the money order",
+            intro:"Post office clerk {victim} paid out a money order with a forged signature. The money belonged to a pensioner from {street}." },
+          { title:"The school-leaving certificate", vg:"m", to:"to the school office", where:"on the certificate",
+            intro:"The headmaster of the grammar school on {street}, {victim}, received a request to confirm a {g:matura|matura} certificate the school never issued." },
+          { title:"Prescriptions from {street}", time:["17:00","19:30"], vg:"f", to:"to the pharmacy", where:"on the prescriptions", exclude:["apteka"],
+            intro:"Pharmacist {victim} from {street} filled three prescriptions for strong medicines. The doctor whose stamp is on them never wrote them." },
+          { title:"The {g:mebloscianka|wall unit} allocation", vg:"m", to:"to the furniture store", where:"on the allocation", years:[1989,1990],
+            intro:"The manager of the furniture store on {street}, {victim}, handed over a {g:mebloscianka|wall unit} against an allocation with a forged works stamp." },
+          { title:"The disability pass", vg:"m", to:"to the ticket office", where:"on the pass",
+            intro:"{g:mpk|MPK} cashier {victim} confiscated a disability pensioner's pass with an altered date on {street}. Someone has been riding free on it for months." },
+          { title:"The cheque from the bank on {street}", vg:"f", to:"to the bank", where:"on the cheque", years:[1991,1999],
+            intro:"The cashier at the bank on {street}, {victim}, paid out {money} on a cheque with a customer's forged signature." },
+          { title:"The Golf's registration document", vg:"m", to:"to the vehicle licensing office", where:"on the registration document", years:[1990,1999],
+            intro:"Licensing office clerk {victim} discovered that a Golf from Germany parked on {street} has a registration document with a forged stamp." },
+          { title:"The payroll", vg:"f", to:"to the works cash office", where:"on the payroll",
+            intro:"Works cashier {victim} paid wages according to a list on which someone had added two dead names and forged the manager's signature." },
+          { title:"The monthly passes", vg:"m", to:"to the depot", where:"on the passes",
+            intro:"Ticket inspector {victim} caught a dozen monthly passes with the same forged stamp on a tram on {street}." },
+          { title:"The waste paper receipts", vg:"m", to:"to the collection point", where:"on the receipts",
+            intro:"The manager of the waste paper collection point on {street}, {victim}, discovered receipts with a forged stamp. Someone was taking money for waste paper nobody brought in." },
+          { title:"The flat allocation on {street}", vg:"f", to:"to the cooperative office", where:"on the allocation", exclude:["administracja"],
+            intro:"Cooperative clerk {victim} found a flat allocation on {street} in the files with the chairman's signature forged." },
+          { title:"The proof of earnings", vg:"m", to:"to the bank", where:"on the certificate", years:[1991,1999],
+            intro:"The manager of the bank branch on {street}, {victim}, granted a loan on a proof of earnings stamped by a firm that doesn't exist." },
+          { title:"The travel advance", vg:"f", to:"to the works cash office", where:"on the travel order",
+            intro:"Works cashier {victim} paid out a travel advance. The travel order had the manager's signature forged." },
+          { title:"The housing savings book", vg:"f", vage:"old", to:"to the {g:pko|PKO} bank", where:"on the savings book",
+            intro:"Pensioner {victim} from {street} discovered that someone had withdrawn {money} from her {g:ksiazeczka|housing savings book} by forging her signature." },
+          { title:"Tickets for the “{cinema}” cinema", vg:"f", to:"to the cinema", where:"on the tickets",
+            intro:"The cashier at the “{cinema}” cinema, {victim}, caught several dozen tickets with a forged stamp in the auditorium." }
+        ]
+      },
+
+      sabotaz: {
+        letters:[{ label:"Dismissal", vt:["adm","inst","firm"], name:"Disciplinary dismissal", icon:"card", k:["fired"], text:["A disciplinary dismissal with the manager's stamp.","«For gross breach of duty.» Concerning: {ini}. Appeal rejected."] },
+                 { label:"Complaint", vt:["adm"], name:"Complaint to the cooperative", icon:"letter", k:["adult"], text:["A complaint to the cooperative board, with a received stamp.","«If nobody fixes this properly, I'll show you personally what a pile of junk it is.» Signed: {ini}."] },
+                 { label:"Reprimand", vt:["adm","inst","firm"], name:"Reprimand on file", icon:"card", k:["job"], text:["A reprimand entered in the personnel file, signed by the manager.","Quarterly bonus withdrawn. Penalised: {ini}."] },
+                 { label:"Note", name:"Threatening note", icon:"letter", text:["A note slipped under the victims' door a week before the breakdown.","«You'll see what it means to brush me off.» Signed: {ini}."] }],
+        name:"Sabotage", subtags:["sabotaz"], toolLabel:"What did the damage",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["The culprit's thumbprint was left in the grease {where}. They held the tool in their left hand.","The cut {where} was made from the left, the way a {g:mankut|left-hander} holds a blade."],right:["The culprit's thumbprint was left in the grease {where}. They held the tool in their right hand.","The cut {where} was made from the right, the way a right-handed person holds a blade."]},
+          shoe:["The culprit's shoe print was left in the grease {where}, size {v}.","A print of the culprit's sole was left on the dusty ground {where}, size {v}."],
+          height:{tall:["On the wall above the spot where it was done, over two metres up, the culprit left fingerprints. They leaned a hand there while standing.","A witness saw the culprit {where} from a distance: they had to stoop low with every movement."],short:["To reach what they damaged, the culprit stood on a crate, which was left behind. A tall person would have reached without it.","A witness saw the culprit {where}: they stood on tiptoe to reach where a tall person would just reach up."]},
+          smoker:{yes:["A fresh cigarette end of the culprit's lies {where}.","Smoke from the culprit's cigarette was still hanging in the air {where}."]},
+          car:{yes:["A witness saw the culprit get into their own car straight afterwards and drive off.","Not far from the spot where it was done, there are fresh tyre marks. The culprit came here in their own car."]},
+          glasses:{yes:["The culprit's glasses case lay {where}, smeared with grease.","An arm from the culprit's glasses, snapped at the hinge, was left in the grease {where}."]},
+          dog:{yes:["Dog hair from the culprit's clothes got stuck in the grease {where}. Nobody keeps a dog here.","In the dust {where} there are dog's paw prints, and beside them the culprit's footprints."]},
+          jacket:{yes:["A shred of {g:ortalion|ortalion} from the culprit's sleeve was left on the sharp edge of the sheet metal {where}.","A witness heard the culprit's jacket rustle like {g:ortalion|ortalion} in the dark."]}
+        },
+        cause:{ sabotaz:"The expert has no doubt: it wasn't an ordinary breakdown; it didn't break by itself." },
+        itemsSentence:"That evening, tools that could have been used to do it went missing from the area.",
+        alibiEvent:"The damage was done",
+        windowRule:["The culprit personally took the tool from where it lay, at exactly the time it went missing. Nobody handed it over.", "The tool didn't change hands. The culprit was where it went missing, at exactly the time it went missing.", "The tool was taken by the same person who then used it. That person was on the spot when it went missing."],
+        keyRule:["Where the tool went missing, there are no signs of a break-in. The culprit opened the door with a key.", "The tool was taken from behind a locked door, and the lock is untouched. The culprit opened it with a key; nobody let them in.", "The door where the tool went missing was opened by the culprit with a key, not a lock pick."],
+        motives:[{t:"was getting back at the victim for being sacked", vt:["adm","inst","firm"], k:["fired"]},{t:"wanted someone to finally answer for the neglect", vt:["adm","inst"]},
+                 {t:"reckoned that after the breakdown [he|she] would get the repair job", roles:["hydraulik","elektryk","administrator","palacz","mechanik","dozorca"]},{t:"had been arguing with the management about repairs for months", vt:["adm"], k:["adult"]},
+                 {t:"wanted to ruin a competitor's business", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"believed [he|she] was owed a bonus [he|she] never got", vt:["inst","firm"], k:["job"]},
+                   {t:"wanted to get at someone [he|she] had been at odds with for years", vt:["priv"]},
+                   {t:"was fed up with someone looking down their nose at the whole staircase", vt:["priv"]},
+                   {t:"wanted revenge for being slandered in front of the neighbours", vt:["priv"]},
+                   {t:"wanted to spite the owner after an old quarrel about money", vt:["firm"]},
+                   {t:"wanted to show that the owner couldn't keep his own business in order", vt:["firm"]}],
+        suspicion:[{t:"The manager gave [him|her] a disciplinary dismissal last month.", vt:["adm","inst","firm"], k:["fired"]},{t:"Threatened that “everything here will grind to a halt yet”.", vt:["adm","inst","firm"]},{t:"Shouted at the meeting that the management robs the tenants.", vt:["adm"], k:["adult"]},
+                   {t:"Lost [his|her] bonus because of the manager and makes no secret of being angry.", vt:["inst","firm"], k:["job"]},{t:"They say it was [he|she] who slashed the boss's tyres.", vt:["inst","firm"], k:["job"]},{t:"Wrote complaints to the cooperative, but nobody answered.", vt:["adm"], k:["adult"]},
+                   {t:"The competition took [his|her] customers.", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},{t:"The manager didn't renew [his|her] contract.", vt:["inst"], k:["fired"]},{t:"Had a row with the manager in front of everyone in the courtyard.", vt:["inst","adm"]},
+                   {t:"Has been telling the whole estate for a week that [he|she] “will sort this out”.", vt:["adm","inst","firm"]},{t:"Said at a name-day party that the manager will be sorry yet.", vt:["inst","adm"]},{t:"Gets extra money for the repair every time something breaks down.", roles:["hydraulik","elektryk","administrator","palacz","mechanik","dozorca"]},
+                   "Quarrelled with the victims in front of witnesses and wouldn't apologise.",
+                   "Hasn't so much as said “good morning” to the victims since that row.",
+                   "Said over a beer that the victims “need to be taught a lesson”.",
+                   "The victims once made a fool of [him|her] in public, and [he|she] hasn't forgotten it.",
+                   "Asked the neighbours what time the victims usually go out.",
+                   "Was hanging around near the spot in the evening and wouldn't say why."],
+        noMotive:[{t:"Was in the same class at school as the manager, and they're still friends.", vt:["inst","adm"]},{t:"Lost the most of anyone on the staircase because of the breakdown.", vt:["adm"]},{t:"Has never had a bone to pick with the manager or the management.", vt:["adm","inst"]},
+                  {t:"Helped clear up after the breakdown, being on good terms with the management.", vt:["adm"]},{t:"Had no quarrel with the management.", vt:["adm"]},{t:"Likes the manager and praised him at the meeting.", vt:["inst","adm"], k:["adult"]},
+                  {t:"Has only just had a pay rise.", k:["job"]},{t:"Is glad that after the repairs everything finally works.", vt:["adm"]},"Has no dealings with the victims.",
+                  "Gained nothing from the breakdown and has no score to settle with anyone here.",{t:"The manager once got [him|her] a job, and they're on good terms to this day.", vt:["inst","adm"], k:["job"]},{t:"The manager once lent [him|her] money and never pressed for it back.", vt:["inst","adm"], k:["debt"]},
+                   "Has always got on well with the victims.",
+                   "Knew the victims well and never fell out with them.",
+                   "Nobody gained from the breakdown, and all [he|she] lost was time and nerves.",
+                   "On hearing about the breakdown, went straight to help the victims.",
+                   "Never wished the victims any harm."],
+        motiveRule:["It wasn't an ordinary breakdown. Someone bore the victims a grudge and wanted to harm them.", "The culprit had a score to settle with the victims, or was counting on making money from the breakdown.", "Someone did it out of spite or for profit. A random hooligan wouldn't have known what to damage."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "At {a} everything still worked; by {b} it didn't. Anyone with a confirmed alibi is not the culprit.", "It all happened between {a} and {b}. The culprit has no alibi for that time."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The lift on {street}", vt:["adm"], vg:"m", to:"to the lift machine room", where:"in the lift machine room",
+            intro:"The lift stopped in the block on {street}, with the building manager, {victim}, stuck inside. Someone had damaged the wiring in the machine room." },
+          { title:"Cold radiators on {street}", vt:["adm"], vg:"m", to:"to the boiler room", where:"by the boiler", exclude:["kotlownia"],
+            intro:"The radiators have gone cold in the whole tenement on {street}. Stoker {victim} found damaged valves by the boiler in the morning." },
+          { title:"The tram points on {street}", vt:["inst"], vg:"m", to:"to the tracks", where:"by the points",
+            intro:"A tram came off the rails at the points on {street}. Driver {victim} says someone tampered with the points." },
+          { title:"The postwoman's bicycle", vt:["priv"], vg:"f", to:"to the post office", where:"by the bicycle",
+            intro:"Postwoman {victim} came off her bicycle on {street}. Someone had damaged her brake cable." },
+          { title:"The dark staircase on {street}", vt:["adm"], vg:"m", to:"to the staircase", where:"by the fuse box",
+            intro:"The lights went out on the whole staircase of the tenement on {street}. The management electrician, {victim}, found damaged cables in the fuse box." },
+          { title:"The sewing room machine", vt:["inst"], vg:"f", to:"to the sewing room", where:"by the machine",
+            intro:"The newest machine in the sewing room on {street} has stopped. Manageress {victim} found the drive belt damaged." },
+          { title:"The chairman's {g:polonez|Polonez}", vt:["priv"], vg:"m", to:"to the car park outside the cooperative", where:"by the {g:polonez|Polonez}",
+            intro:"Cooperative chairman {victim} couldn't start his {g:polonez|Polonez} outside the block on {street}. Someone had damaged the leads under the bonnet." },
+          { title:"The allotment pump", vt:["inst"], vg:"m", vage:"old", to:"to the allotments", where:"by the pump", exclude:["dzialka"],
+            intro:"The pump that waters all the allotments on the edge of {district_gen} has stopped. Allotment society chairman {victim} found a damaged valve." },
+          { title:"The milk bar cold store", vt:["inst"], vg:"f", to:"to the milk bar", where:"by the cold store",
+            intro:"The cold store at the milk bar on {street} stopped and all the meat went off. Manageress {victim} found a damaged cable." },
+          { title:"The sound system at the fête", time:["17:00","20:00"], vt:["inst"], vg:"m", to:"to the fête in the park", where:"by the stage",
+            intro:"The sound system went dead at the fête in the park on {street}. Organiser {victim} found damaged cables behind the stage." },
+          { title:"The block's water pump", vt:["adm"], vg:"m", to:"to the cellar of the block", where:"by the pressure pump",
+            intro:"The water stopped running on the upper floors of the block on {street}. Building manager {victim} found damaged parts by the pressure pump." },
+          { title:"The car park barrier", vt:["firm"], vg:"m", to:"to the guarded car park", where:"by the barrier", years:[1991,1999],
+            intro:"At the guarded car park on {street}, someone damaged the cables to the barrier and the alarm. The car park owner, {victim}, reported it to {police_dat}." },
+          { title:"The taxi from the rank", vt:["firm"], vg:"m", to:"to the taxi rank", where:"by the taxi",
+            intro:"Taxi driver {victim} from the rank by {dworzec} couldn't start his car. Someone had damaged the leads and torn off the battery clamps." },
+          { title:"The bakery oven on {street}", vt:["inst"], vg:"m", to:"to the bakery", where:"by the oven", exclude:["piekarnia"],
+            intro:"The oven at the bakery on {street} went out in the middle of the night shift. Master baker {victim} found a damaged burner pipe." },
+          { title:"The communal aerial", vt:["priv"], vg:"f", to:"onto the tenement roof", where:"by the aerial", years:[1990,1999],
+            intro:"The picture vanished from every television on the staircase on {street}. {victim}, who collected money from the tenants for the communal aerial, found a damaged cable on the roof." },
+          { title:"The dairy {g:zuk|Żuk}", vt:["inst"], vg:"m", to:"to the dairy yard", where:"by the {g:zuk|Żuk}",
+            intro:"Dairy driver {victim} couldn't move his {g:zuk|Żuk} full of milk for the shops on {street} in the morning. Someone had damaged the brake pipes." },
+          { title:"The funfair roundabout", vt:["firm"], vg:"m", to:"to the funfair", where:"by the roundabout",
+            intro:"The roundabout at the funfair on the edge of {district_gen} has stopped. The owner, {victim}, found damaged parts by the motor." },
+          { title:"The entryphone on {street}", vt:["adm"], vg:"f", to:"to the stairwell with the entryphone", where:"by the entryphone", years:[1994,1999],
+            intro:"A week after the entryphone was installed on {street}, someone damaged its wiring. Building manager {victim} reported it to {police_dat}." },
+          { title:"The loom at the workers' cooperative", vt:["inst"], vg:"f", to:"to the workers' cooperative", where:"by the loom",
+            intro:"A loom at the workers' cooperative on {street} stopped just before an important order. The chairwoman, {victim}, found damaged gears." },
+          { title:"The postman's moped", vt:["inst"], vg:"m", to:"to the post office", where:"by the moped",
+            intro:"Postman {victim} from the post office on {street} couldn't start the moped he delivers pensions on. Someone had damaged the fuel line." }
+        ]
+      },
+
+      napad: {
+        letters:[{ label:"Seizure", name:"Bailiff's seizure record", icon:"card", k:["debt"], text:["A bailiff's seizure record, with the district court stamp.","Television and tape recorder seized against the debt. Still to recover: {money}. Debtor: {ini}."] },
+                 { label:"Notebook", name:"Loan shark's notebook", icon:"notebook", k:["debt"], text:["The notebook of the loan shark from {street2}, found during a search.","A page marked «final deadline!»: {ini}, {money}."] },
+                 { label:"Request", name:"Application to the works loan fund", icon:"card", k:["job","debt"], text:["An application to the works mutual loan fund, marked “refused”.","Request for {money} for urgent repayments. Applicant: {ini}."] }],
+        name:"Robbery", subtags:["tepe","ostre"], toolLabel:"What the robbery was committed with",
+        cause:{ tepe:"The attacker struck [him|her] with something heavy and ran off with the loot.", ostre:"The attacker threatened [him|her] with something sharp and ran off with the loot." },
+        itemsSentence:"That evening, objects that could have been used to do it went missing from the area.",
+        alibiEvent:"The robbery happened",
+        windowRule:["The attacker personally took what was used in the robbery from where it lay, at exactly the time it went missing. Nobody handed it over.", "What was used in the robbery didn't change hands. The attacker was where it went missing, at exactly the time it went missing.", "The attacker fetched what was used in the robbery, and was on the spot it went missing from when it went missing."],
+        keyRule:["Where the robbery weapon went missing, there are no signs of a break-in. The attacker opened the door with a key.", "What was used in the robbery was taken from behind a locked door, and the lock is intact. The attacker opened it with a key; nobody let them in.", "The door where the robbery weapon went missing was opened by the attacker with a key, not a lock pick."],
+        motives:[{t:"was drowning in debt to a loan shark", k:["debt"]},"lost {money} at cards",
+                 "needed money for a trip to Germany","knew when the victims carry the most money",
+                 {t:"had been out of work for months and lost patience", k:["fired"]},{t:"owed {money} to people it's better not to cross", k:["debt"]}],
+        suspicion:[{t:"Has lately been asking when the pensions are delivered.", vt:["rent"]},{t:"Owes money to people from the bazaar.", k:["debt"]},{t:"Hasn't shown up at work for a week.", k:["job"]},
+                   {t:"Has had no job since getting out of prison, and needs money right now.", k:["job","adult"]},"Was seen watching the victims from across the street.",{t:"Lost a whole pay packet at cards.", k:["job"]},
+                   "Said on the stairs that “money's lying in the street, you just have to pick it up”.",{t:"The bailiff seized [his|her] television last week.", k:["debt"]},{t:"Borrowed money from all [his|her] friends and paid nobody back.", k:["debt"]},
+                   "Has long had an eye on the victims' money and knew when they carry it.","Boasted when drunk that [he|she] would “soon be back on [his|her] feet”.",{t:"Lost [his|her] job when the works closed.", k:["fired"]}],
+        noMotive:[{t:"Has a good job and puts money in a savings book.", k:["job"]},"Has known the victims since childhood and is very fond of them.","Has just come into an inheritance from an aunt.",
+                  {t:"Has no debts at all.", k:["debt"]},"Isn't short of money and has never had a quarrel with the victims.","Family send [him|her] Deutschmarks from Germany, so [he|she] has nothing to complain about.",
+                  {t:"Has just sold [his|her] late parents' allotment and has plenty of money.", k:["adult"]},{t:"Used to bring the victims their shopping when they were ill.", vt:["elder"]},"Has several years' savings in the bank book and doesn't need anyone else's money.",
+                  {t:"Earns in Deutschmarks and has no shortage of money.", k:["job"]},"Is doing well and envies nobody.","Recently won on {g:totek|Totek}."],
+        motiveRule:["It wasn't a random robbery. The attacker knew when and where the money would be, and needed it badly.", "The attacker acted with calculation: drowning in debt, or watching the victims for a long time.", "Someone here needed money so badly they didn't stop short of robbery."],
+        alibiRule:["{ev} between {a} and {b}. The attacker has no confirmed alibi for that time.", "The victims say the robbery lasted a moment, somewhere between {a} and {b}. The attacker has no alibi for that time.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the attacker."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The kiosk robbery on {street}", time:["18:00","20:00"], vt:[], vg:"f", to:"to the kiosk", where:"by the kiosk", exclude:["kiosk"],
+            intro:"Kiosk woman {victim} was robbed on {street} while closing up the kiosk." },
+          { title:"The postman with the pensions", time:["17:00","19:30"], vt:["rent"], vg:"m", to:"to the stairwell on {street}", where:"on the staircase",
+            intro:"Postman {victim} was robbed on the staircase on {street} while delivering overdue pensions after hours." },
+          { title:"The exchange bureau robbery {district_na}", time:["17:00","19:30"], vt:[], vg:"m", to:"to the exchange bureau", where:"by the exchange bureau",
+            intro:"{victim}, owner of the exchange bureau on {street}, was robbed while closing up the till." },
+          { title:"The taxi's last fare", vt:[], vg:"m", to:"to the taxi rank", where:"in the taxi",
+            intro:"Taxi driver {victim} was robbed by a passenger he picked up at the rank by {dworzec}." },
+          { title:"Robbery {market_on}", time:["17:00","18:30"], vt:[], vg:"m", to:"{market_to}", where:"by the stall",
+            intro:"Trader {victim} was robbed {market_on} while counting the takings." },
+          { title:"The workers' wages", time:["16:30","18:30"], vt:[], vg:"f", to:"to the works gate", where:"by the gate",
+            intro:"Cashier {victim} was robbed outside the gate of the works on {street} while carrying the workers' wages." },
+          { title:"The pensioner outside {g:pko|PKO}", time:["16:30","18:00"], vt:["rent","elder"], vg:"f", vage:"old", to:"to the {g:pko|PKO} bank", where:"in the gateway",
+            intro:"Pensioner {victim} was robbed in a gateway on {street}, just after withdrawing her savings at {g:pko|PKO}." },
+          { title:"The {g:cpn|CPN} station on {street}", vt:[], vg:"m", to:"to the {g:cpn|CPN} station", where:"by the station till",
+            intro:"{g:cpn|CPN} station attendant {victim} was robbed at the till of the station on {street}." },
+          { title:"The robbery outside the {g:pewex|Pewex}", time:["17:30","20:00"], vt:[], vg:"f", to:"to the {g:pewex|Pewex}", where:"by the entrance", years:[1989,1990],
+            intro:"A shop assistant from the {g:pewex|Pewex} on {street}, {victim}, was robbed at the entrance while taking dollars to the bank." },
+          { title:"The bank courier", time:["16:30","18:00"], vt:[], vg:"m", to:"to the bank on {street}", where:"by the van", years:[1991,1999],
+            intro:"Cash courier {victim} was robbed outside the bank branch on {street}." },
+          { title:"The goldsmith of {street}", time:["17:00","19:30"], vt:[], vg:"m", vage:"old", to:"to the goldsmith's workshop", where:"in the workshop",
+            intro:"Goldsmith {victim} was robbed in his workshop on {street}. The attacker took wedding rings and chains." },
+          { title:"The cinema box office robbery", time:["21:30","23:00"], vt:[], vg:"f", to:"to the cinema", where:"by the box office",
+            intro:"The cashier at the “{cinema}” cinema, {victim}, was robbed at the box office after the last showing." },
+          { title:"The off-licence on {street}", time:["20:30","22:30"], vt:[], vg:"m", to:"to the off-licence", where:"behind the counter", years:[1990,1999],
+            intro:"The owner of the off-licence on {street}, {victim}, was robbed just before closing time." },
+          { title:"The meter reader with the bills", time:["17:00","20:00"], vt:[], vg:"f", to:"to the staircase", where:"on the staircase",
+            intro:"{g:inkasent|Meter reader} {victim} was robbed on the staircase on {street} while collecting money for the electricity." },
+          { title:"The driver at the terminus", vt:[], vg:"m", to:"to the bus terminus", where:"in the bus cab",
+            intro:"Bus driver {victim} was robbed at the terminus on {street} while selling tickets in his cab." },
+          { title:"The florist by the cemetery", time:["17:00","18:30"], vt:[], vg:"f", to:"to the cemetery", where:"by the stall",
+            intro:"Florist {victim} was robbed at her stall by the cemetery near {street} while counting the takings." },
+          { title:"The post office counter", vt:[], vg:"f", time:["17:30","19:00"], to:"to the post office on {street}", where:"by the counter window",
+            intro:"Post office clerk {victim} was robbed at her window just before the post office on {street} closed." },
+          { title:"The ice-cream kiosk on {street}", time:["19:00","21:00"], vt:[], vg:"m", to:"to the ice-cream kiosk", where:"by the kiosk", years:[1990,1999],
+            intro:"Ice-cream seller {victim} was robbed at his kiosk on {street} while closing up after a long day." },
+          { title:"The fake meter man", vt:["elder"], vg:"m", vage:"old", to:"to the pensioner's flat", where:"in the hallway",
+            intro:"Pensioner {victim} from {street} was robbed in his own hallway. The attacker rang the bell, saying he was from the gas board." },
+          { title:"The second-hand shop robbery", time:["17:00","19:30"], vt:[], vg:"m", to:"to the second-hand shop", where:"in the second-hand shop", years:[1990,1999],
+            intro:"The owner of the second-hand electronics shop on {street}, {victim}, was robbed at the counter. The cash and two VCRs vanished." }
+        ]
+      },
+
+      wandalizm: {
+        letters:[{ label:"Complaint", name:"Complaint about the victims", icon:"letter", k:["adult"], text:["A complaint to the management, with a received stamp.","«These people do as they please, and the management does nothing. If this goes on, I'll sort it out myself.» Signed: {ini}."] },
+                 { label:"Refusal", vt:["firm"], name:"Refusal to lease premises", icon:"card", k:["adult"], text:["A letter from the cooperative refusing the lease of commercial premises.","«The premises have been let to another tenant.» Applicant: {ini}."] },
+                 { label:"Note", name:"Abusive note", icon:"letter", text:["A note tucked behind the victims' door handle a month ago.","Nothing but insults, and at the end: «We'll settle this yet». Signed: {ini}."] }],
+        name:"Vandalism", subtags:["farba"], toolLabel:"What did the damage",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{
+          hand:{left:["The writing {where} was drawn from the right, and the paint runs on the left side of the letters. A left hand painted it.","The culprit's handprint was left in the fresh paint {where}. There's paint only on the left hand: that's the one they painted with."],right:["The writing {where} was drawn from the left, and the paint runs on the right side of the letters. A right hand painted it.","The culprit's handprint was left in the fresh paint {where}. There's paint only on the right hand: that's the one they painted with."]},
+          shoe:["The culprit's shoe print was left in the spilt paint {where}, size {v}.","Running off, the culprit stepped in the paint and left footprints on the pavement, size {v}."],
+          height:{tall:["The highest splashes of paint {where} are over two metres off the ground, and there's no sign of a ladder or a crate.","A witness at a window saw the culprit, while painting, reach easily above the door."],short:["The culprit could only reach the highest painted spot {where} from a crate, which was left behind.","A witness at a window saw the culprit stand on tiptoe and still not reach the top edge."]},
+          smoker:{yes:["A fresh cigarette end of the culprit's lies in a puddle of paint {where}.","Along with the smell of paint, smoke from the culprit's cigarette was still hanging {where}."]},
+          car:{yes:["A witness saw the culprit put something in the boot of their own car and drive off.","Fresh tyre marks were left in the paint nearby. The culprit drove off in their own car."]},
+          glasses:{yes:["The culprit's glasses case lay {where}, spattered with fresh paint.","An arm from the culprit's glasses, snapped at the hinge, lay in the spilt paint {where}."]},
+          dog:{yes:["Dog's paw prints were left in the fresh paint {where}, and beside them the culprit's shoes.","Dog hair from the culprit's clothes got stuck in the wet paint {where}."]},
+          jacket:{yes:["The print of the culprit's {g:ortalion|ortalion} sleeve, with its ribbed weave, was left in the paint {where}.","On the wire of a fence nearby hung a shred of {g:ortalion|ortalion} from the culprit's sleeve, spotted with paint."]}
+        },
+        cause:{ farba:"Everything was painted over and covered in writing. You can see from a distance it was deliberate." },
+        itemsSentence:"That evening, objects that could have been used to do it went missing from the area.",
+        alibiEvent:"The damage was done",
+        windowRule:["The culprit personally took what they painted with from where it lay, at exactly the time it went missing. Nobody handed it over.", "What did the damage didn't change hands. The culprit was where it went missing, at exactly the time it went missing.", "The culprit took what they used themselves, and was on the spot it went missing from when it went missing."],
+        keyRule:["Where the means of damage went missing, there are no signs of a break-in. The culprit opened the door with a key.", "What did the damage was taken from behind a locked door, and the lock is intact. The culprit opened it with a key; nobody let them in.", "The door where the culprit's tools went missing was opened by the culprit with a key, not a lock pick."],
+        motives:[{t:"was getting back at the victim for a complaint to the management", vt:["priv","firm"]},"wanted to make fools of the victims in front of the whole district",
+                 {t:"was furious at not getting those premises", vt:["firm"], k:["adult"]},{t:"hated the new shop that had taken [his|her] customers", vt:["firm"], roles:["fryzjer","kioskarz","handlarz","prywaciarz","wideo","krawcowa","zegarmistrz","szewc","komis","fotograf","kwiaciarka","taksowkarz","mechanik","stolarz","malarz","szklarz","cinkciarz","bylycinkciarz","akwizytor","praski","jarmark","obwarzanki","malarz_rynek","kaletnik","antykwariusz","bursztyn","dorozkarz","cukiernik"]},
+                 "wanted to show [his|her] mates [he|she] wasn't scared",{t:"had been arguing with the victims for years about a spot in the courtyard", vt:["priv","firm","adm"]},
+                   {t:"wanted to get at the officials who had turned [him|her] down", vt:["inst"]},
+                   {t:"wanted to get the estate authorities' attention", vt:["inst","adm"]}],
+        suspicion:[{t:"Shouted at the meeting that “it's an eyesore for the whole estate”.", vt:["adm","inst","firm"], k:["adult"]},{t:"The victims laughed at [him|her] in front of the whole courtyard, and [he|she] hasn't forgotten it.", vt:["priv","adm","firm"]},"Quarrelled with the victims in front of witnesses.",
+                   {t:"The victims sacked [him|her] last month.", vt:["firm","inst"], k:["fired"]},{t:"The victims accused [him|her] of a theft that never happened, and [he|she] has been going around like a bear with a sore head ever since.", vt:["priv","firm"]},{t:"Has long been complaining about the victims to the {g:dozorca|dozorca}.", vt:["priv","adm"]},
+                   {t:"The victims reported [him|her] to the management.", vt:["priv","firm"]},{t:"The victims set the {g:dzielnicowy|dzielnicowy} on [him|her] over loud music, and [he|she] hasn't forgiven them.", vt:["priv","adm"]},"Said over a beer that the victims “need to be taught a lesson”.",
+                   {t:"The victims never returned [his|her] deposit on the premises.", vt:["firm"], k:["adult"]},{t:"Hasn't so much as said “good morning” to the victims since the quarrel.", vt:["priv","firm","adm"]},"Threatened that the victims would remember [him|her].",
+                   {t:"Threatened that “the officials will see yet”.", vt:["inst"]},
+                   {t:"Lodged complaints with the directors until [he|she] was turned down.", vt:["inst"]}],
+        noMotive:["Gets on well with the victims.",{t:"Painted the victims' shop sign for free last year.", vt:["firm"]},"Never had any dispute with the victims, and thinks scrawls on walls are a disgrace.",
+                  "Helped wash the paint off in the morning, being friends with the victims.","Barely knows the victims and has nothing against them.","Has no quarrel with the victims.",
+                  {t:"Defended the victims against complaints at the meeting.", vt:["priv","adm","firm"], k:["adult"]},{t:"All that connects [him|her] with the victims is good neighbourliness and a borrowed ladder.", vt:["priv","adm"]},{t:"Went on holiday to Bulgaria with the victims.", vt:["priv","firm"]},
+                  {t:"The victims helped [him|her] move house, and they've liked each other ever since.", vt:["priv","adm","firm"]},"Bears the victims no grudge, and they bear [him|her] none.",{t:"The victims are distant relatives of [his|hers].", vt:["priv","firm"]}],
+        motiveRule:["It wasn't the prank of random hooligans. Someone bore the victims a grudge.", "The writing was aimed at the victims. The culprit had a score to settle with them.", "The culprit wanted to get at someone. The damage wasn't random."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "At {a} everything was clean; by {b} paint was already running down the wall. Anyone with a confirmed alibi is not the culprit.", "It all happened between {a} and {b}. The culprit has no alibi for that time."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The cooperative noticeboard", vt:["adm"], vg:"m", to:"to the cooperative noticeboard", where:"by the noticeboard",
+            intro:"Someone has wrecked the cooperative noticeboard on {street}. Chairman {victim} found the notices painted over." },
+          { title:"The hairdresser's sign", vt:["firm"], vg:"f", to:"to the hairdresser's", where:"by the sign", exclude:["fryzjer"],
+            intro:"Hairdresser {victim} from {street} found the sign over her salon daubed with paint in the morning." },
+          { title:"The school wall {district_na}", vt:["inst"], vg:"f", to:"to the school", where:"by the school wall",
+            intro:"The headmistress of the school on {street}, {victim}, found the wall covered in offensive writing in the morning." },
+          { title:"The shop window on {street}", vt:["firm"], vg:"m", to:"to the shop", where:"by the shop window", years:[1990,1999],
+            intro:"{victim}, owner of a private shop on {street}, found his window doused in paint in the morning." },
+          { title:"The monument in the park", vt:["inst"], vg:"m", to:"to the park", where:"by the monument",
+            intro:"Someone has doused the monument in the park on {street} with paint. Gardener {victim} noticed it in the morning." },
+          { title:"The daubed {g:polonez|Polonez}", vt:["priv"], vg:"m", to:"to the courtyard", where:"by the car",
+            intro:"{victim} from {street} found his {g:polonez|Polonez} daubed with paint from bonnet to boot in the morning." },
+          { title:"The painted kiosk", vt:["firm"], vg:"f", to:"to the kiosk", where:"by the kiosk", exclude:["kiosk"],
+            intro:"Kiosk woman {victim} found her kiosk on {street} daubed with paint in the morning, windows and newspapers alike." },
+          { title:"The freshly painted staircase", vt:["adm"], vg:"m", to:"to the staircase", where:"on the staircase",
+            intro:"A week after the staircase on {street} was painted, someone daubed the walls with paint. Building manager {victim} reported it to {police_dat}." },
+          { title:"The park benches on {street}", vt:["inst"], vg:"m", to:"to the park", where:"by the benches",
+            intro:"Someone has doused the new benches in the park on {street} with paint. City parks manager {victim} puts the damage at {money}." },
+          { title:"The exchange bureau sign", vt:["firm"], vg:"m", to:"to the exchange bureau", where:"by the sign",
+            intro:"{victim}, owner of the exchange bureau on {street}, found the sign and door daubed with paint in the morning." },
+          { title:"The painted tram stop", vt:["inst"], vg:"m", to:"to the stop", where:"by the shelter",
+            intro:"Someone has daubed the stop shelter on {street} with paint. {g:mpk|MPK} duty officer {victim} reported it in the morning." },
+          { title:"The election posters", vt:["priv"], vg:"m", to:"to the community centre", where:"by the noticeboard",
+            intro:"Someone painted over the election posters on the board outside the community centre on {street}. Candidate {victim} says it's the work of the competition." },
+          { title:"The nativity play scenery", vt:["inst"], vg:"f", to:"to the community hall", where:"by the stage", exclude:["swietlica"],
+            intro:"Instructor {victim} found the scenery for the nativity play in the community hall on {street} doused in paint in the morning." },
+          { title:"The neighbour's allotment", vt:["priv"], vg:"m", to:"to the allotments", where:"by the summerhouse", exclude:["dzialka"],
+            intro:"Allotment holder {victim} found his summerhouse on the edge of {district_gen} daubed with paint and his beds trampled." },
+          { title:"The tram at the terminus", vt:["inst"], vg:"m", to:"to the tram terminus", where:"by the tram",
+            intro:"At the terminus on {street}, someone daubed paint on a tram parked there overnight. Driver {victim} saw it in the morning." },
+          { title:"The door on {street}", vt:["priv"], vg:"f", to:"to the neighbour's door", where:"by the door",
+            intro:"{victim} from {street} found the door of her flat daubed with offensive writing in the morning." },
+          { title:"The video shop window", vt:["firm"], vg:"m", to:"to the video shop", where:"by the shop window", years:[1990,1999],
+            intro:"{victim}, owner of the video rental shop on {street}, found the window painted over and the film posters doused in paint in the morning." },
+          { title:"The clinic entrance", vt:["inst"], vg:"f", to:"to the clinic", where:"by the entrance",
+            intro:"Someone has daubed paint over the entrance to the clinic on {street}. Manageress {victim} reported it to {police_dat}." },
+          { title:"The painted stall", vt:["firm"], vg:"f", to:"{market_to}", where:"by the stall",
+            intro:"Trader {victim} found her stall {market_on} doused in paint, goods and all, in the morning." },
+          { title:"The school pitch", vt:["inst"], vg:"m", to:"to the school pitch", where:"by the goal",
+            intro:"School caretaker {victim} found the school pitch on {street} daubed with paint from goal to goal in the morning." }
+        ]
+      },
+
+      porwanie_psa: {
+        letters:[{ label:"Complaint", name:"Complaint about barking", icon:"letter", k:["adult"], text:["A complaint to the management about a dog that barks at night.","«If nobody does anything, I will.» Signed: {ini}."] },
+                 { label:"Notice", name:"Notice from the animal market", icon:"letter", text:["A sheet from the noticeboard at the animal market.","«Will buy pedigree dog, paying in Deutschmarks.» Contact via the {g:dozorca|dozorca}: {ini}."] },
+                 { label:"Debts", name:"Book of debts", icon:"notebook", k:["debt"], text:["The shop assistant's book from under the counter, debts on tick.","A page marked «no more credit»: {ini}, total {money}."] }],
+        name:"Dognapping", subtags:["klatka","sznur"], toolLabel:"What the dog was taken with",
+        /* porwany pies zostawia sierść wszędzie, więc ślad psa sprawcy brzmi inaczej */
+        traitRule:{ glasses:{ yes:["The culprit dropped a glasses case at the scene.","An arm from the culprit's glasses lay at the scene, snapped off at the hinge."] }, dog:{ yes:["Hair from a different dog than the one taken was left at the scene. The culprit brought it on their clothes.","The stolen dog followed the culprit without barking, as you would someone who smells of their own dog."] } },
+        cause:{ klatka:"The dog was carried off in something closed, because nobody heard any barking.", sznur:"The dog was led away on a makeshift lead. It left a mark on the garden gate." },
+        itemsSentence:"That evening, objects that could have been used to take a dog went missing from the area.",
+        alibiEvent:"The dog was taken",
+        windowRule:["The dognapper personally took what they later used to take the dog from where it lay, at exactly the time it went missing. Nobody handed it over.", "What the dog was taken with didn't change hands. The dognapper was where it went missing, at exactly the time it went missing.", "The dognapper fetched what they took the dog with, and was on the spot it went missing from when it went missing."],
+        keyRule:["Where the means of taking the dog went missing, there are no signs of a break-in. The dognapper opened the door with a key.", "What the dog was taken with was taken from behind a locked door, and the lock is intact. The dognapper opened it with a key; nobody let them in.", "The dognapper didn't need to break in for what they took the dog with. They opened the door with their own key."],
+        motives:[{t:"was counting on a ransom, being up to [his|her] neck in debt", k:["debt"]},"knew the owners would pay any money for their dog",
+                 "wanted to sell a pedigree dog at the market for Deutschmarks","wanted revenge on the owners for a complaint about the noise",
+                 "needed money for a trip to Germany","lost {money} at cards and was looking for easy money"],
+        suspicion:["Has lately been asking how much a pedigree dog like that costs.",{t:"Owes money to a loan shark.", k:["debt"]},"Quarrelled with the owners about the barking at night.",
+                   "Has sold puppies of unknown origin at the market before.","Says in Germany they pay Deutschmarks for a dog like that.",{t:"Has borrowed money from half the staircase.", k:["debt"]},
+                   "The owners' dog once bit [him|her], and [he|she] swore revenge.","Threatened the owners that “that mutt will disappear yet”.",{t:"Has been out of work for a month and was looking for any money going.", k:["fired"]},
+                   {t:"Wrote a complaint to the management about the owners' dog.", k:["adult"]},"Knows how much the owners spent on the dog for the show.",{t:"The bailiff came round last week.", k:["debt"]}],
+        noMotive:["Loves animals and took food to the shelter every week.","Helped the owners put up notices about the dog, having been friends with them for years.",{t:"Has no debts at all.", k:["debt"]},
+                  "Has known the owners for years, and they're friends.","Isn't short of money and has never quarrelled with the owners.","Knows the owners only by sight and has nothing against them.",
+                  {t:"Has a good job and doesn't need money.", k:["job"]},"Went mushroom picking with the owners every year.",{t:"The barking doesn't bother [him|her], and [he|she] has no debts at all.", k:["debt"]},
+                  "Chipped in towards the reward for finding the dog, being very fond of the owners.","Has been friends with the dog's owners for years and never had a dispute with them.","Never had any dispute with the owners."],
+        motiveRule:["The dognapper was counting on a ransom. They needed money, or had a score to settle with the owners.", "It wasn't a chance thief. The dognapper knew how much the owners love the dog and wanted to make money from it.", "Someone had a reason to strike at these particular owners."],
+        alibiRule:["{ev} between {a} and {b}. The dognapper has no confirmed alibi for that time.", "The neighbours heard the last bark between {a} and {b}. Anyone with a confirmed alibi is not the dognapper.", "It all happened between {a} and {b}. The dognapper has no alibi for that time."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"The stolen dachshund", vg:"f", vage:"old", to:"to the courtyard", where:"by the garden gate",
+            intro:"{victim} from {street} let her dachshund out into the courtyard. The dog didn't come back, and the next day there was a letter in the letterbox demanding {ransom_gen}." },
+          { title:"The Alsatian of {street}", vg:"m", to:"to the victim's house", where:"by the kennel",
+            intro:"{victim} from {street} found an empty kennel in the morning. The Alsatian was gone, and a note demanding {ransom_gen} hung on the kennel." },
+          { title:"The show poodle", vg:"f", to:"to the victim's flat", where:"in the hallway",
+            intro:"{victim} from {street} breeds poodles for shows. The best of them vanished from the hallway, and someone has demanded {ransom} for it." },
+          { title:"The building site mongrel", vg:"m", to:"to the building site", where:"by the hut",
+            intro:"Watchman {victim} from the building site on {street} has lost the dog that guarded the site. In the morning a note lay by the hut: {ransom}, or the dog won't be back." },
+          { title:"The chairman's setter", vg:"m", to:"to the chairman's house", where:"by the garden gate",
+            intro:"Cooperative chairman {victim} let his setter out into the garden on {street} for ten minutes. The dog vanished, and there was a letter in the letterbox demanding {ransom_gen}." },
+          { title:"The pharmacist's spaniel", time:["17:00","19:30"], vg:"f", to:"to the pharmacy", where:"by the entrance",
+            intro:"Pharmacist {victim} tied her spaniel up outside the pharmacy on {street}. When she came out the dog was gone, and in the evening someone demanded {ransom_gen}." },
+          { title:"The workshop boxer", vg:"m", to:"to the workshop", where:"by the gate",
+            intro:"Mechanic {victim} locked up his workshop on {street} and left the boxer in the yard. In the morning the dog was gone, and a letter demanding {ransom_gen} lay by the gate." },
+          { title:"The missing guide dog", vg:"m", vage:"old", to:"to the staircase", where:"by the door",
+            intro:"{victim}, a blind man from {street}, has lost his guide dog. Someone took it from outside his door and demanded {ransom_gen}." },
+          { title:"The Yorkie on the balcony", vg:"f", to:"to the victim's flat", where:"by the balcony", years:[1993,1999],
+            intro:"{victim} from {street} left her Yorkie on the ground-floor balcony. The dog vanished, and a slip of paper demanding {ransom_gen} lay on the balcony." },
+          { title:"The {g:dozorca|dozorca}'s wolfhound", vg:"m", to:"to the courtyard", where:"by the kennel",
+            intro:"The {g:dozorca|dozorca}, {victim}, from {street} has lost the wolfhound that guarded the courtyard. A note demanding {ransom_gen} hung on the {g:trzepak|trzepak}." },
+          { title:"The allotment greyhound", vg:"m", vage:"old", to:"to the allotments", where:"by the summerhouse", exclude:["dzialka"],
+            intro:"Allotment holder {victim} left his greyhound by the summerhouse on the edge of {district_gen}. By evening the dog was gone, and a letter demanding {ransom_gen} hung on the gate." },
+          { title:"The puppy from the stall", time:["17:00","18:30"], vg:"f", to:"{market_to}", where:"by the stall",
+            intro:"Trader {victim}, who has a stall {market_on}, has lost an Alsatian puppy. The next day someone demanded {ransom} for it." },
+          { title:"The patient from the vet's", time:["17:00","19:00"], vg:"f", to:"to the veterinary clinic", where:"by the cages",
+            intro:"A pedigree dog recovering from an operation has vanished from the veterinary clinic on {street}. Vet {victim} got a phone call demanding {ransom_gen}." },
+          { title:"The kiosk woman's mutt", vg:"f", to:"to the kiosk", where:"by the kiosk", exclude:["kiosk"],
+            intro:"Kiosk woman {victim} kept a little mongrel in her kiosk on {street}. In the evening the dog vanished, and someone left a letter in the hatch demanding {ransom_gen}." },
+          { title:"The wholesaler's Alsatian", vg:"m", to:"to the wholesaler's", where:"by the gate", years:[1992,1999],
+            intro:"{victim}, owner of the wholesaler's on {street}, has lost the Alsatian that guarded the stock. The dognapper demanded {ransom_gen}." },
+          { title:"The dog outside the school", time:["17:00","19:30"], vg:"f", to:"to the school", where:"by the school gate",
+            intro:"Teacher {victim} tied her dog up at the gate of the school on {street} during parents' evening. The dog was gone, and in the evening a letter demanding {ransom_gen} lay in the letterbox." },
+          { title:"The Great Dane from the villa", vg:"m", to:"to the villa", where:"by the fence", years:[1991,1999],
+            intro:"{victim}, who recently built a villa on {street}, has lost his Great Dane. The dognapper demanded {ransom_gen}." },
+          { title:"The taxi driver's dog", vg:"m", to:"to the taxi rank", where:"by the taxi",
+            intro:"Taxi driver {victim} used to take his dog along in the cab. When he popped out for cigarettes at the rank by {dworzec}, the dog was gone, and in the evening someone demanded {ransom_gen}." },
+          { title:"The bitch from the staircase on {street}", vg:"f", vage:"mid", to:"to the victim's door", where:"by the doormat",
+            intro:"{victim} from {street} let her little bitch out onto the landing for a moment. The dog vanished, and a letter demanding {ransom_gen} lay under the doormat." },
+          { title:"The presbytery dog", vg:"m", vage:"old", to:"to the presbytery", where:"by the presbytery gate",
+            intro:"Parish priest {victim} from the presbytery on {street} has lost the dog that guarded it. Someone has demanded {ransom_gen} for its return." }
+        ]
+      },
+
+      otrucie_czlowieka: {
+        letters:[{ label:"Will", vt:["priv"], name:"Copy of the will", icon:"card", heir:true, text:["A copy of the victim's will, with the notary's stamp.","The flat and savings go to one person: {ini}."] },
+                 { label:"Promissory note", name:"Promissory note to the victim", icon:"receipt", k:["debt"], text:["A promissory note made out to the victim, found in the victim's drawer.","Amount {money}, fell due last week. Debtor: {ini}."] },
+                 { label:"Letter", name:"Letter of grievances", icon:"letter", k:["fired","adult"], text:["A letter found in the victim's {g:kredens|kredens}.","«Because of you I've no job and no flat. We'll settle this yet.» Signed: {ini}."] }],
+        name:"Poisoning", subtags:["trucizna"], toolLabel:"Poison",
+        /* bez szamotaniny: ślad okularów bez stłuczonego szkła */
+        traitRule:{ glasses:{ yes:["The culprit dropped a glasses case at the scene.","An arm from the culprit's glasses lay at the scene, snapped off at the hinge."] } },
+        cause:{ trucizna:"The doctor has no doubt: it was poison, and given deliberately." },
+        itemsSentence:"That evening, substances that could have been used for it went missing from the area.",
+        alibiEvent:"The poison was given",
+        windowRule:["The culprit personally took the poison from where it lay, at exactly the time it went missing. Nobody handed it over.", "The poison didn't change hands. The culprit was where it went missing, at exactly the time it went missing.", "The poison was taken by the same person who gave it to the victim. That person was on the spot when it went missing."],
+        keyRule:["Where the poison went missing, there are no signs of a break-in. The culprit opened the door with a key.", "The poison was taken from a locked room, and the lock is intact. The culprit opened it with a key; nobody let them in.", "The door where the poison went missing was opened by the culprit with a key, not a lock pick."],
+        motives:[{t:"was counting on an inheritance from the victim", vt:["priv"], heir:true},{t:"wanted to take over the victim's flat", vt:["priv"], k:["adult"], heir:true},
+                 {t:"had hated the victim for years over an old denunciation", ages:["mid","old"]},{t:"owed the victim {money} and had nothing to pay it back with", k:["debt"]},
+                 {t:"was afraid the victim would give away [his|her] shady dealings", k:["adult"]},{t:"wanted the victim's job at the works", vt:["work"], k:["job"]},
+                 "wanted revenge for being humiliated in public","had nursed a grudge for years over an old wrong the victim never put right"],
+        suspicion:[{t:"Is named in the victim's will.", vt:["priv"]},{t:"Has been waiting for years to get the victim's flat.", vt:["priv"], k:["adult"]},"Quarrelled with the victim about money in front of witnesses.",
+                   {t:"The victim threatened to disinherit [him|her].", vt:["priv"]},{t:"Owed the victim {money}.", k:["debt"]},{t:"The victim knew about [his|her] shady dealings.", k:["adult"]},
+                   "A neighbour heard [him|her] say the victim “won't last much longer”.",{t:"The victim wanted to have [him|her] sacked.", vt:["work"], k:["job"]},"Hasn't spoken to the victim for months, since a quarrel over an allotment.",
+                   {t:"The victim took [his|her] job at the works.", vt:["work"], k:["job"]},{t:"The victim took [his|her] grandparents' flat, and [he|she] never got over it.", vt:["priv"], k:["adult"]},"The victim publicly accused [him|her] of fraud."],
+        noMotive:["Played cards with the victim every Friday, and they were friends.","Knew the victim only by sight, and nothing connected them.","Had no dealings with the victim.",
+                  "Would have gained nothing from the victim's death, and never quarrelled with the victim.",{t:"The victim helped [him|her] find a job, and they were friends from then on.", vt:["work"], k:["job"]},"Has nothing in common with the victim apart from the staircase.",
+                  {t:"Inherits nothing from the victim and never had a dispute with them.", vt:["priv"]},"The victim was [his|her] godparent.","Went to church with the victim every Sunday, and they never fell out.",
+                  "Went fishing with the victim every Sunday.","Never quarrelled with the victim, not even over trifles.","The victim had nothing against [him|her], and [he|she] had nothing against the victim."],
+        motiveRule:["It wasn't an accident or a mix-up at the pharmacy. Someone wanted to harm this particular person.", "The poison was given by someone who had a score to settle with the victim, or stood to gain if the victim disappeared.", "The culprit had a reason. The victim stood in their way."],
+        alibiRule:["{ev} between {a} and {b}. The culprit has no confirmed alibi for that time.", "The doctor established that the poison was given between {a} and {b}. Nobody can confirm where the culprit was at that time.", "It all happened between {a} and {b}. Anyone with a confirmed alibi is not the culprit."],
+        epilogueEnd:"and went straight {to}.",
+        scenes:[
+          { title:"Tea at the widow's", vt:["priv"], vg:"f", vage:"old", to:"to the widow's flat", where:"by the teacup",
+            intro:"Widow {victim} from {street} collapsed after her evening tea. The ambulance doctor couldn't save her." },
+          { title:"The cordial at the “{bar}” bar", time:["19:00","22:30"], vt:["priv"], vg:"m", to:"to the “{bar}” bar", where:"by the glass",
+            intro:"{victim}, a regular at the “{bar}” bar on {street}, collapsed after a glass of homemade cordial. He survived thanks to having his stomach pumped." },
+          { title:"The name-day party on {street}", vt:["priv"], vg:"m", to:"to the name-day party", where:"by the table",
+            intro:"{victim} from {street} was taken ill at his own name-day party. He died in hospital before morning." },
+          { title:"Coffee at the cooperative office", time:["16:30","18:30"], vt:["work"], vg:"f", to:"to the cooperative office", where:"by the desk", exclude:["administracja"],
+            intro:"The manager of the cooperative office on {street}, {victim}, collapsed at her desk after drinking her coffee. She survived." },
+          { title:"Soup in the canteen", time:["16:30","19:00"], vt:["work"], vg:"m", to:"to the works canteen", where:"by the table",
+            intro:"Foreman {victim} was taken to hospital straight from the works canteen on {street}. The poison was only in his bowl." },
+          { title:"The cake on the doorstep", vt:["priv"], vg:"m", vage:"old", to:"to the pensioner's flat", where:"by the cake plate",
+            intro:"Pensioner {victim} from {street} died after eating a cake someone left outside his door." },
+          { title:"The heart pills", vt:["priv"], vg:"f", vage:"old", to:"to the pensioner's flat", where:"by the medicines",
+            intro:"Pensioner {victim} from {street} took her heart pills in the evening. Someone had swapped them in the box." },
+          { title:"Wine in the summerhouse", vt:["priv"], vg:"m", to:"to the allotments", where:"in the summerhouse", exclude:["dzialka"],
+            intro:"Allotment holder {victim} was found unconscious in his summerhouse on the edge of {district_gen}. A bottle of homemade wine stood beside him." },
+          { title:"Vodka at the wedding", vt:["priv"], vg:"m", to:"to the wedding at the fire station hall", where:"by the wedding table",
+            intro:"The bride's father, {victim} from {street}, collapsed at the wedding after vodka from a separate bottle. He survived, but spent a week in hospital." },
+          { title:"The night watchman's flask", vt:["work"], vg:"m", to:"to the porter's lodge", where:"in the porter's lodge",
+            intro:"Night watchman {victim} was found unconscious in the porter's lodge of the wholesaler's on {street}. There was poison in his flask of tea." },
+          { title:"Chocolates from a parent", time:["16:30","19:00"], vt:["work"], vg:"f", to:"to the staff room", where:"by the box of chocolates",
+            intro:"Teacher {victim} from the school on {street} collapsed in the staff room after a chocolate from a box from a “grateful parent”." },
+          { title:"Coffee at the watchmaker's", vt:["work"], vg:"m", vage:"old", to:"to the watchmaker's workshop", where:"by the coffee",
+            intro:"Watchmaker {victim} from {street} died in his workshop over a half-finished coffee." },
+          { title:"Sandwiches at the depot", vt:["work"], vg:"m", to:"to the depot", where:"in the crew room",
+            intro:"Tram driver {victim} was taken to hospital from the crew room at the depot on {street}. Someone had put something in his sandwiches." },
+          { title:"The chairman's glass", time:["18:00","20:00"], vt:["work"], vg:"m", to:"to the cooperative meeting", where:"by the top table",
+            intro:"Cooperative chairman {victim} collapsed at a meeting in the community hall on {street} after a sip of water from his glass. He survived." },
+          { title:"The carafe at the exchange bureau", vt:["work"], vg:"m", to:"to the exchange bureau", where:"behind the counter",
+            intro:"{victim}, owner of the exchange bureau on {street}, was found dead behind the counter. There was poison in the water carafe." },
+          { title:"Soup on the third floor", vt:["priv"], vg:"f", vage:"mid", to:"to the third floor", where:"in the kitchen",
+            intro:"{victim} from {street} collapsed in the kitchen after the soup she'd cooked for the whole family. The poison was only in her bowl." },
+          { title:"A toast at the restaurant", time:["19:00","22:00"], vt:["work"], vg:"m", to:"to the restaurant", where:"by the table", years:[1990,1999],
+            intro:"Businessman {victim} collapsed in a restaurant on {street} after a toast to a successful deal. He survived." },
+          { title:"The flask at the station ticket office", vt:["work"], vg:"f", to:"to the station ticket office", where:"in the ticket office",
+            intro:"Ticket clerk {victim} from the booking office at {dworzec} collapsed after tea from her flask." },
+          { title:"The tailor of {street}", vt:["work"], vg:"m", vage:"old", to:"to the tailor's workshop", where:"by the sewing machine",
+            intro:"Tailor {victim} from {street} died at his sewing machine. The doctor caught a bitter smell in his glass of tea." },
+          { title:"The dentist's party", vt:["work"], vg:"f", to:"to the party at the dentist's", where:"by the table", years:[1990,1999],
+            intro:"Dentist {victim} from {street} was taken ill at a party in her own home. She survived because the guests quickly called an ambulance." }
+        ]
+      }
+    }
+  };
+
+  // treści angielskie dla generatora (warstwa językowa: data/i18n/i18n.js); bez root.SIATKA_BASE, żeby nie nadpisać polskich danych
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { content: { base: BASE } });
+  if (typeof module !== "undefined" && module.exports) module.exports = BASE;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/en/cities.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — paczki miast po angielsku (lata 1989–1999).
+ * Ta sama struktura i kolejność co data/i18n/pl/cities.js (pilnuje tego tools/i18n-check.js).
+ *
+ * Każde miasto daje: dzielnicę (z formami gramatycznymi), ulice w dopełniaczu
+ * („z Ząbkowskiej”, „przy Ząbkowskiej”), targ, bary, kościół, kino, gazetę,
+ * dworzec, drużynę, zakład pracy, uczelnię, własne role i smaczki.
+ * Pola mogą być tekstem albo listą {t, years} — wtedy generator bierze wariant z danego roku.
+ *
+ * Nowe miasto = nowy wpis o tej samej strukturze.
+ */
+(function (root) {
+  const CITIES = {
+    warszawa: {
+      name:"Warsaw",
+      district:{ nom:"Praga", gen:"Praga", na:"in Praga", po:"around Praga" },
+      streets:["Ząbkowska Street","Brzeska Street","Targowa Street","Stalowa Street","Kawęczyńska Street","Okrzei Street","Wileńska Street","Inżynierska Street","Środkowa Street","Konopacka Street"],
+      market:{ on:"at the Różycki bazaar", from:"from the Różycki bazaar", to:"to the Różycki bazaar" },
+      bars:["Pod Kogutem","Na Rogu","Pod Kasztanem"],
+      church_at:"at St Florian's", teams:["Legia","Polonia"], cinema:"Praha", gazeta:"Express Wieczorny",
+      dworzec:"Wileński station", szpital:"the Praga hospital", walk:"down to the Vistula", uni:"the Polytechnic",
+      zaklad_at:"at the FSO car plant in Żerań",
+      worker:{ id:"worker", age:["young","mid"], m:"FSO car plant worker", f:"FSO car plant worker", access:[],
+        outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Has been bolting Polonezes together at Żerań for twenty years.","Dreads the redundancies everyone at the plant is talking about."] },
+      locations:[
+        { id:"szczeka", pt:"street", name:"Stall at the Różycki bazaar", label:"Stall", gen:"the stall", in:"at the stall in the bazaar", from:"from the stall in the bazaar", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+          open:["At the bazaar everyone hangs around other people's stalls all day.", "You can simply lift the tarpaulin at the back of the stall.",
+                "The traders at the next stalls watch their own goods and nobody else's.", "The tin at the back of the stall sticks out. One tug and it bends."],
+          desc:["A tin stall with dumplings in jars and cabbage sold by weight.","Between the stalls it smells of tripe soup and cheap perfume.",
+                "On the counter: a calculator, scales and a pile of Pewex carrier bags.","Under the tarpaulin: crates of stock and the trader's stool."] },
+        { id:"przystan", pt:"street", name:"Boathouse on the Vistula", label:"Boathouse", gen:"the boathouse", in:"at the boathouse", from:"from the boathouse", icon:"pier", roles:["wioslarz"],
+          open:["The boat shed is tied shut with a bit of string.", "Anyone coming over the embankment can walk onto the jetty and into the shed.",
+                "The shed door hangs on one hinge and won't close.", "The rowers leave the shed open because they come back in the evening anyway."],
+          desc:["A wooden jetty and a boat shed, looking across to the Old Town.","The rowers' boats lie upside down on racks.",
+                "Oars hang on the shed wall next to a calendar of races.","A chill comes off the Vistula, and nets are drying on the jetty."] }
+      ],
+      roles:[
+        { id:"praski", age:["young","mid"], m:"Bazaar wide boy", f:null, access:[], outfit:{shape:"jacket",c:"#59493b",d:"#c9b98f"}, headwear:{m:["kaszkiet"]},
+          flavor:["At the bazaar he'll fix you anything, from Polonez parts to Legia tickets."] },
+        { id:"jarmark", age:["young","mid"], m:"Trader at the Tenth-Anniversary Stadium", f:"Trader at the Tenth-Anniversary Stadium", access:[], outfit:{shape:"jacket",c:"#3b3054",d:"#c9b98f"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+          flavor:["Sells everything on the terraces of the Tenth-Anniversary Stadium, from jeans to cassettes.","Haggles better in Russian than in Polish."] },
+        { id:"windziarz", age:["mid","old"], m:"Lift operator at the Palace of Culture", f:"Lift operator at the Palace of Culture", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Takes tourists up to the viewing terrace on the thirtieth floor.","Knows every lift in the Palace by its sound."] },
+        { id:"wioslarz", age:"young", m:"Club rower", f:"Club rower", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trains at the boathouse every day at dawn.","Shoulders as wide as a wardrobe door."] },
+        { id:"kelner_wawa", age:["young","mid"], m:"Waiter at the Hotel Europejski", f:"Waitress at the Hotel Europejski", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Only takes tips in dollars.","Knows which diplomat drinks what with lunch."] }
+      ],
+      flavor:["Talks in thick Praga slang, straight out of an old street ballad.","Says he only crosses the bridge to the left bank on important business.",
+              "Remembers when the whole staircase shared one telephone.",
+              "Takes the grandchildren to the Praga zoo on Sundays.","Goes to the Tenth-Anniversary Stadium for cassettes and jeans.","Says “the bazaar”, never “the market”, and corrects anyone who doesn't.",
+              "Knows every porter at Wileński station.","Remembers Warsaw when Praga still had wooden houses.","Plays old Warsaw street-band records in the evenings.",
+              "Swears the best tripe soup is at the bar on Targowa Street.","Walks across the Śląsko-Dąbrowski Bridge because trams frighten [him|her].",
+              "Calls the Palace of Culture “{g:pekin|Pekin}” and has no intention of stopping.","Has a cousin in Wola and only sees him at funerals.","Buys the “Express Wieczorny” every day at the same time.",
+              {t:"Goes to watch the new tower blocks going up in the centre.", years:[1995,1999]}],
+      quips:["Nothing happens in Praga without a witness.",
+        "Warsaw's big, but gossip gets round it faster than a tram.",
+        "Caught before he could buy a ticket to Central Station.",
+        "Capital city or not, this one was pure Praga backyard.",
+        "The Vistula keeps flowing, and this one's off our desk.",
+        "Everything in Warsaw takes a queue. This case waited its turn too."]
+    },
+
+    poznan: {
+      name:"Poznań",
+      district:{ nom:"Jeżyce", gen:"Jeżyce", na:"in Jeżyce", po:"around Jeżyce" },
+      streets:["Dąbrowskiego Street","Kraszewskiego Street","Słowackiego Street","Szamarzewskiego Street","Prusa Street","Jackowskiego Street","Żeromskiego Street","Kościelna Street","Poznańska Street","Mylna Street"],
+      market:{ on:"at the Jeżyce market", from:"from the Jeżyce market", to:"to the Jeżyce market" },
+      bars:["Pod Koziołkami","U Pyrki","Pod Arkadami"],
+      church_at:"at the parish church", teams:["Lech","Warta"], cinema:"Muza", gazeta:"Głos Wielkopolski",
+      dworzec:"Główny station", szpital:"the city hospital", walk:"down to the Warta", uni:"the university",
+      zaklad_at:"at the Cegielski works",
+      worker:{ id:"worker", age:["young","mid"], m:"Cegielski works labourer", f:"Cegielski works labourer", access:[],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#5b7a99"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Builds ship engines at the Cegielski works.","After every {g:szychta|shift} buys a paper at the same kiosk."] },
+      locations:[
+        { id:"piekarnia", pt:"work", name:"Bakery in Jeżyce", label:"Bakery", gen:"the bakery", in:"at the bakery", from:"from the bakery", icon:"shop", roles:["piekarz"],
+          open:["The back door is open because the bakers keep stepping out for a smoke.", "In the evening anyone after a loaf out of hours walks straight in.",
+                "The window onto the yard is open to let out the heat from the ovens.", "The back room is through a passage nobody ever locks."],
+          desc:["A bakery that in November fills half the district with the smell of St Martin's croissants.","The ovens start heating up at three in the morning.",
+                "In the back, sacks of flour and baking trays stacked into a tower.","On the counter, wicker bread baskets and a scale with brass weights."] },
+        { id:"przystan", pt:"street", name:"Boathouse on the Warta", label:"Boathouse", gen:"the boathouse", in:"at the boathouse", from:"from the boathouse", icon:"pier", roles:["wioslarz"],
+          open:["The boat shed is tied shut with a bit of string.", "Anyone coming over the embankment can walk onto the jetty and into the shed.",
+                "The shed door hangs on one hinge and won't close.", "The rowers leave the shed open because they come back in the evening anyway."],
+          desc:["A rowing club boathouse with a wooden jetty on the Warta.","A board of regatta results hangs on the shed wall.",
+                "The boats rest on trestles, with tins of grease underneath.","From the jetty you can see the cathedral on Ostrów Tumski."] }
+      ],
+      roles:[
+        { id:"piekarz", age:"mid", m:"Baker", f:"Baker", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d8d2c4"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["[His|Her] hands are always white with flour.","Bakes St Martin's croissants all night on the saint's day."] },
+        { id:"targi", age:["young","mid"], m:"Poznań Trade Fair worker", f:"Poznań Trade Fair worker", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["No time for anything in June, when half of Europe descends on the trade fair."] },
+        { id:"wioslarz", age:"young", m:"Club rower", f:"Club rower", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trains on the Warta every day at dawn.","Shoulders as wide as a wardrobe door."] },
+        { id:"piwowar", age:"mid", m:"Brewery brewer", f:"Brewery lab technician", access:[], outfit:{shape:"apron",c:"#7a6a3b",d:"#e8d3a5"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Works at the brewery and smells of malt even on Sundays.","Rates every beer in the bar before drinking it."] },
+        { id:"cukiernik", age:["mid","old"], m:"Confectioner", f:"Confectioner", access:["piekarnia"], outfit:{shape:"apron",c:"#f1f1ea",d:"#d48aa8"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Bakes St Martin's croissants to grandad's recipe.","Buys poppy seed for the croissants from one trader on the market, and only from him."] }
+      ],
+      flavor:["Never calls the tram anything but “bimba”.","Always has a glazed bun with [his|her] coffee.","Says “tej” in almost every sentence.",
+              "Calls potatoes “pyry” and knows no other word for them.","Turns every złoty over twice before spending it.",
+              "Stands on the Old Market Square at noon to watch the goats butt heads on the town hall clock.","Calls potato pancakes “plyndze”.","Calls a jacket a “jaka”.",
+              "Always buys a St Martin's croissant on the day, even if it's the last one.","Goes to Lake Malta on Sundays.","Always makes gzik, cottage cheese with onion, to go with potatoes.",
+              "Supports {team} and goes to matches with the whole staircase.","Calls a group of friends “wiara”.","Only ever goes on day trips to Kórnik and Rogalin.",
+              "Says nobody in Poznań ever wastes anything."],
+      quips:["Tej, another one off the books.",
+        "Poznań likes things in order, even an investigation.",
+        "We made it before lunch, and in Poznań lunch is sacred.",
+        "Potatoes with gzik eaten, case closed.",
+        "The town hall goats haven't even butted heads yet, and we're done.",
+        "Poznań likes its Ordnung. So does this case."]
+    },
+
+    krakow: {
+      name:"Kraków",
+      district:{ nom:"Kazimierz", gen:"Kazimierz", na:"in Kazimierz", po:"around Kazimierz" },
+      streets:["Szeroka Street","Józefa Street","Miodowa Street","Krakowska Street","Dietla Street","Estery Street","Bożego Ciała Street","Meiselsa Street","Starowiślna Street","Augustiańska Street"],
+      market:{ on:"at Stary Kleparz market", from:"from Stary Kleparz market", to:"to Stary Kleparz market" },
+      bars:["Pod Baranami","U Wróbla","Pod Wawelem"],
+      church_at:"at Corpus Christi church", teams:["Wisła","Cracovia"], cinema:"Kijów", gazeta:"Gazeta Krakowska",
+      dworzec:"Główny station", szpital:"the city hospital", walk:"down to the Vistula, below Wawel", uni:"the Jagiellonian University",
+      zaklad_at:[ {t:"at the Lenin Steelworks", years:[1989,1989]}, {t:"at the Sendzimir Steelworks", years:[1990,1999]} ],
+      worker:{ id:"worker", age:["young","mid"], m:"Nowa Huta steelworker", f:"Steelworks lab technician", access:[],
+        outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
+        flavor:["Takes the tram to the steel combine in Nowa Huta every day.","Says the steelworks is [his|her] whole life."] },
+      locations:[
+        { id:"stajnia", pt:"work", name:"Cab stables", label:"Stables", gen:"the stables", in:"in the stables", from:"from the stables", icon:"stable", roles:["dorozkarz"],
+          open:["The stable doors stand open so the horses get some air.", "The stables are only locked for the night. In the evening cabmen and their friends come and go.",
+                "The groom pops out to the bar and leaves the doors ajar.", "You get into the stables through a gate nobody watches."],
+          desc:["Stables in a courtyard, where horse cabs set off for the Market Square every morning.","It smells of hay, leather and horses.",
+                "Horse collars and harness with brass fittings hang on the wall.","A cab with its hood up waits in the corner for a new wheel."] },
+        { id:"piwnica_jazz", pt:"shop", name:"Jazz cellar", label:"Club", gen:"the club", in:"in the jazz cellar", from:"from the jazz cellar", icon:"cellar", roles:["muzyk"],
+          open:["In the evening anyone who pays for a ticket gets in.", "The bouncer lets in anyone who knows one of the musicians.",
+                "The back door stands open because the musicians carry their gear out that way.", "Between sets the bouncer goes for a smoke and nobody watches the door."],
+          desc:["A brick cellar with a small stage and a piano missing one key.","They play until dawn, and the smoke turns grey under the vaulted ceiling.",
+                "Jazz festival posters and signed photos cover the walls.","Behind the bar, a shelf of glasses and an old cash register."] }
+      ],
+      roles:[
+        { id:"dorozkarz", age:["mid","old"], m:"Market Square cabman", f:null, access:[], outfit:{shape:"jacket",c:"#2b2b2b",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+          flavor:["Drives tourists round the Market Square in a horse cab.","Knows the horse better than [his|her] own family."] },
+        { id:"muzyk", age:["young","mid"], m:"Jazz musician", f:"Jazz singer", access:["piwnica_jazz"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Plays until dawn in a cellar off the Market Square.","Says real jazz ended with Komeda."] },
+        { id:"obwarzanki", age:["mid","old"], m:"Obwarzanek seller", f:"Obwarzanek seller", access:[], outfit:{shape:"apron",c:"#8a6d55",d:"#e8d9c1"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+          flavor:["Stands with a cart of obwarzanki, Kraków's ring-shaped bread, by the Planty from dawn."] },
+        { id:"przewodnik", age:["mid","old"], m:"City guide", f:"City guide", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Knows every legend about the dragon and every date in the city's history.","Speaks better German than the tourists [he|she] shows around."] },
+        { id:"malarz_rynek", age:["young","mid","old"], m:"Painter at St Florian's Gate", f:"Painter at St Florian's Gate", access:[], outfit:{shape:"jacket",c:"#6b4a8a",d:"#e8d9c1"}, headwear:{m:["beret"],f:["beret"]},
+          flavor:["Sells tourists watercolours of Wawel and the Cloth Hall.","Has had the same spot on the walls by Floriańska Street for years."] }
+      ],
+      flavor:["Says [he|she] is going out “na pole”, the Kraków way, not “na dwór”.","Buys an obwarzanek on the corner every morning.",
+              "Complains about tourists, though [he|she] makes a living off them.","Knows which cellar off the Market Square has the best jazz.",
+              "Calls blueberries “borówki”.","Walks round the Old Town along the Planty every Sunday.","Always looks up at the {g:hejnal|hejnał} from St Mary's tower.",
+              "Remembers Kazimierz when half the tenements stood empty.","Says that in Kraków even the pigeons are older than anywhere else.","Has supported {team} since childhood and won't say the other club's name.",
+              "Only goes up to Wawel with visitors from other cities.","Calls a meat patty a “schnitzel”.","Buys a Kraków nativity crib from the same maker every Christmas.",
+              "Insists a real obwarzanek comes from a cart, never from a bakery.",{t:"Goes to every film about Kazimierz since they shot “Schindler's List” here.", years:[1994,1999]}],
+      quips:["The {g:hejnal|hejnał} hasn't even sounded, and the case is closed.",
+        "The dragon on Wawel didn't breathe a spark, and the case solved itself.",
+        "Everybody in Kraków knows everybody. Nobody hides for long.",
+        "They're already whispering about it on the Planty.",
+        "The coffee at the Cloth Hall's gone cold, but the case is closed.",
+        "The Market Square has seen worse stories. This one was unusually quick."]
+    },
+
+    lodz: {
+      name:"Łódź",
+      district:{ nom:"Bałuty", gen:"Bałuty", na:"in Bałuty", po:"around Bałuty" },
+      streets:["Zgierska Street","Limanowskiego Street","Łagiewnicka Street","Franciszkańska Street","Smugowa Street","Lutomierska Street","Wojska Polskiego Street","Drewnowska Street","Piotrkowska Street","Ogrodowa Street"],
+      market:{ on:"at {g:baluckirynek|Bałucki Rynek} market", from:"from {g:baluckirynek|Bałucki Rynek} market", to:"to {g:baluckirynek|Bałucki Rynek} market" },
+      bars:["Pod Fabrykantem","Na Bałutach","U Szymona"],
+      church_at:"at the cathedral", teams:["ŁKS","Widzew"], cinema:"Bałtyk", gazeta:"Express Ilustrowany",
+      dworzec:"Fabryczny station", szpital:"the city hospital", walk:"to the park at Zdrowie", uni:"the Film School",
+      zaklad_at:"at the textile mills",
+      worker:{ id:"worker", age:["young","mid"], m:"Spinning mill foreman", f:"Textile worker", access:[],
+        outfit:{shape:"apron",c:"#7d6a8f",d:"#d8cfe3"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Works three shifts at the looms, like [his|her] mother before [him|her].",
+                {t:"Fears the mill will go under like the ones next door.", years:[1990,1999]}] },
+      locations:[
+        { id:"przedzalnia", pt:"work", name:"Spinning mill hall", label:"Spinning mill", gen:"the spinning mill", in:"in the {g:przedzalnia|spinning mill}", from:"from the spinning mill", icon:"factory", roles:["worker","portier_fab"],
+          open:["Hundreds of people pass the gatehouse at shift change, and nobody checks a pass.", "The side gate by the railway has no watchman.",
+                "The hall windows are open because it's as hot as a bathhouse by the machines.", "The gatekeeper sleeps in his booth, and the turnstile beside it is always open."],
+          desc:["A hall of brick arches and rows of machines that never fall silent, not even at night.","The gatehouse has a board with keys to every department.",
+                "Cotton dust hangs in the air and settles on everything.","Under the windows stand baskets of bobbins and bales of cloth."] },
+        { id:"filmowka", pt:"work", name:"Film School props store", label:"Props store", gen:"the props store", in:"in the props store", from:"from the Film School props store", icon:"workshop", roles:["student","operator"],
+          open:["The loans ledger lies open, and the door stands ajar.", "In the evening someone is always carrying something out for a shoot, and nobody watches the door.",
+                "The storekeeper goes for coffee and leaves the door wide open.", "You reach the store down a corridor every student walks along."],
+          desc:["A store in the palace on Targowa Street, full of costumes, lamps and old reels.","Students borrow kit here for their exercise films, signing for it in a ledger.",
+                "Uniforms from various wars hang on the rails beside ball gowns.","Lamps hang from the ceiling, and cables lie coiled on the floor."] }
+      ],
+      roles:[
+        { id:"operator", age:["young","mid"], m:"Film School camera operator", f:"Film School editor", access:["filmowka"], outfit:{shape:"jacket",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Shoots the students' exercise films and knows every camera in the school.","Says Łódź looks best on black-and-white stock."] },
+        { id:"portier_fab", age:["mid","old"], m:"Spinning mill gatekeeper", f:"Spinning mill gatekeeper", access:["przedzalnia"], outfit:{shape:"collar",c:"#4f5560",d:"#c9a646"}, headwear:{m:["kolejarz"],f:[""]},
+          flavor:["Has sat in the booth by the factory gate for thirty years.","Knows every mill girl by name and by her step."] },
+        { id:"podmiejski", age:"mid", m:"Suburban tram driver", f:"Suburban tram driver", access:[], outfit:{shape:"collar",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kolejarz"],f:["kolejarz"]},
+          flavor:["Drives the suburban tram out to Zgierz and Ozorków.","Knows someone at every stop who gets on every day."] },
+        { id:"grand", age:["young","mid"], m:"Waiter at the Grand Hotel", f:"Waitress at the Grand Hotel", access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Has served coffee to actors in Łódź for a shoot.","Knows which director leaves the biggest tips."] },
+        { id:"szwaczka", age:["mid","old"], m:"Clothing factory cutter", f:"Clothing factory seamstress", access:[], outfit:{shape:"apron",c:"#8c3b4a",d:"#e6d3dd"}, headwear:{m:[""],f:["chustka"]},
+          flavor:["Sews coats for export that later turn up in Western catalogues.","Wears a thimble even at dinner."] }
+      ],
+      flavor:["Calls a bread roll an “angielka”.","Lives in a tenement with a courtyard like the bottom of a well.","Remembers when the factory sirens set the rhythm of the day.",
+              "Always takes a Sunday stroll down Piotrkowska Street.",
+              "Calls the pavement a “trytuar”.","Calls a monthly tram pass a “migawka”.","Calls the balcony a “ganek”, though [he|she] lives on the third floor.",
+              "Says every tenement in Łódź has its own factory owner and its own legend.","Remembers when the only water in Bałuty came from the courtyard well.","Supports {team} and won't speak to the neighbour who backs the other side.",
+              "Lives two stops from Poznański's mill, and someone in the family worked there all their life.","Goes to the Sunday morning show at the “{cinema}” cinema.",
+              {t:"Worries that one mill after another is closing.", years:[1990,1999]},"Calls anything carried out of the works “szaber”.","Knows every passage between Piotrkowska and Kościuszki."],
+      quips:["In Łódź everyone knows everyone. It would have come out anyway.",
+        "Piotrkowska hasn't even gone to sleep, and the case is solved.",
+        "The factory whistle blows, case closed, time to go home.",
+        "Łódź doesn't like secrets, especially in Bałuty.",
+        "The mill girls said it would end badly. They were right.",
+        "Everything's tangled, but this thread came loose."]
+    },
+
+    gdansk: {
+      name:"Gdańsk",
+      district:{ nom:"Wrzeszcz", gen:"Wrzeszcz", na:"in Wrzeszcz", po:"around Wrzeszcz" },
+      streets:["Wajdeloty Street","Grunwaldzka Street","Jaśkowa Dolina Street","Danusi Street","Konopnickiej Street","Lendziona Street","Kościuszki Street","Mickiewicza Street","Aldony Street","Partyzantów Street"],
+      market:{ on:"at the market hall", from:"from the market hall", to:"to the market hall" },
+      bars:["Pod Żurawiem","Kotwica","U Rybaka"],
+      church_at:"at St Mary's Basilica", teams:["Lechia"], cinema:"Neptun", gazeta:"Dziennik Bałtycki",
+      dworzec:"Główny station", szpital:"the city hospital", walk:"to the sea at Brzeźno", uni:"the Polytechnic",
+      zaklad_at:"at the Gdańsk Shipyard",
+      worker:{ id:"worker", age:["young","mid"], m:"Shipyard worker", f:"Shipyard crane operator", access:[],
+        outfit:{shape:"plain",c:"#2f4f6f",d:"#c9a646"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Has worked at the slipway in the shipyard for years.","Brings up August 1980 at every opportunity."] },
+      locations:[
+        { id:"szopa_rybacka", pt:"work", name:"Fishermen's shed at Brzeźno", label:"Shed", gen:"the fishermen's shed", in:"in the fishermen's shed", from:"from the fishermen's shed", icon:"shed", roles:["rybak"],
+          open:["The shed on the beach has no lock, just a wooden latch.", "The fishermen never lock the shed. They say everyone knows each other anyway.",
+                "The sea wind keeps blowing the shed door open, so nobody bothers to shut it.", "The fishermen leave the shed open so the nets dry in the draught."],
+          desc:["A tarred shed on the beach, full of nets and fish crates.","A chill comes off the sea, and inside it smells of herring.",
+                "Barrels stand by the wall, and oilskins hang on hooks.","Through gaps in the boards you can see boats pulled up on the sand."] },
+        { id:"magazyn_port", pt:"work", name:"Warehouse in the port", label:"Quay", gen:"the port warehouse", in:"in the port warehouse", from:"from the warehouse in the port", icon:"garage", roles:["portowiec"],
+          open:["There's a hole in the quay fence every docker knows about.", "The warehouse gate stands open because they're still unloading a freighter in the evening.",
+                "The watchman walks the quay once an hour, and the side door stays open.", "Anyone in docker's overalls can walk in up the loading ramp."],
+          desc:["A warehouse on the quay where cargo from the freighters is stored.","A red-brick warehouse full of crates and sacks of coffee.",
+                "A gantry crane under the roof, forklift tracks on the floor.","The crates are stencilled in Swedish and German."] }
+      ],
+      roles:[
+        { id:"rybak", age:["mid","old"], m:"Brzeźno fisherman", f:null, access:[], outfit:{shape:"jacket",c:"#3e4a6b",d:"#c9d9e0"}, headwear:{m:["beret"]},
+          flavor:["Takes the boat out before dawn.","[His|Her] hands are cracked from the salt."] },
+        { id:"portowiec", age:["young","mid"], m:"Docker", f:null, access:[], outfit:{shape:"plain",c:"#5c2f2f",d:"#d9a648"}, headwear:{m:["kaszkiet"]},
+          flavor:["Knows what's come into port before the papers do."] },
+        { id:"bursztyn", age:["mid","old"], m:"Amber cutter", f:"Amber cutter", access:[], outfit:{shape:"apron",c:"#a5835a",d:"#e8c34a"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Polishes amber in a workshop on Mariacka Street.","Can tell real amber from rosin by the smell."] },
+        { id:"marynarz", age:["young","mid"], m:"Merchant seaman with Polish Ocean Lines", f:null, access:[], outfit:{shape:"collar",c:"#1f3a5a",d:"#e6e6e6"}, headwear:{m:["kolejarz",""]},
+          flavor:["Half the year at sea, half at home, bringing back goods from the West.","Has an anchor tattooed on [his|her] forearm."] },
+        { id:"ratownik", age:"young", m:"{g:wopr|WOPR} lifeguard", f:"{g:wopr|WOPR} lifeguard", access:[], outfit:{shape:"plain",c:"#c22a2a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Sits on the lifeguard tower at Brzeźno all summer.","Swims in the sea even in October."] }
+      ],
+      flavor:["Takes the local train to Sopot at weekends.","Keeps a piece of amber found on the beach in a drawer.","Goes down to the sea in winter to watch the storms.",
+              "Only goes to Długi Targ with visitors.","Remembers August 1980 like it was yesterday.","Always pays to get onto Sopot pier, though [he|she] knows the hole in the fence.",
+              "Says the real Gdańsk only begins beyond the Highland Gate.","Goes to Oliwa for the organ concert on Sundays.","Only buys smoked fish from one stall in Brzeźno.",
+              "Supports {team} and goes to matches in the rain.","Has a barometer at home and checks it every morning.","Calls a potato a “bulwa”, like a Kashubian grandmother.",
+              "Remembers swimming in the sea as a child, before the beaches closed because of the algae.",{t:"Goes to the {g:jarmark|Dominican Fair} every August.", years:[1989,1999]},"Can tell which ships are in the roads just from their funnels."],
+      quips:["The sea wind blows everything away, but not this case.",
+        "The shipyard whistle calls the shift, and we wrap up the case.",
+        "The gulls are screaming. Case closed.",
+        "They're already talking about it on Długi Targ.",
+        "The sea's calmed down, and so has this case.",
+        "In Gdańsk the waves wash away the tracks, but not all of them."]
+    },
+
+    katowice: {
+      name:"Katowice",
+      district:{ nom:"Nikiszowiec", gen:"Nikiszowiec", na:"in Nikiszowiec", po:"around Nikisz" },
+      streets:["Szopienicka Street","Odrzańska Street","Rymarska Street","Zamkowa Street","Krawczyka Street","Janowska Street","Mariacka Street","Gliwicka Street"],
+      market:{ on:"at the Szopienice market", from:"from the Szopienice market", to:"to the Szopienice market" },
+      bars:["Pod Szybem","U Ecika","Na Grubie"],
+      church_at:"at St Anne's", teams:["GKS Katowice"], cinema:"Rialto", gazeta:"Trybuna Śląska",
+      dworzec:"Główny station", szpital:"the miners' hospital", walk:"to the Silesian Park", uni:"the University of Silesia",
+      zaklad_at:"at the “Wieczorek” mine",
+      worker:{ id:"worker", age:["young","mid"], m:"“Wieczorek” coal miner", f:"Mine lamp room attendant", access:[],
+        outfit:{shape:"plain",c:"#1f1f22",d:"#3a3a40"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["After every {g:szychta|shift} goes for a beer with [his|her] {g:kamrat|kamraty}.","Has coal dust under [his|her] nails that no scrubbing will shift."] },
+      locations:[
+        { id:"golebnik", pt:"cellar", name:"Pigeon loft in the attic of a {g:familok|familok}", label:"Pigeon loft", gen:"the pigeon loft", in:"in the pigeon loft", from:"from the pigeon loft", icon:"dovecote", roles:["golebiarz"],
+          open:["The attic door of the {g:familok|familok} has no lock.", "The loft shuts with a hook anyone can lift.",
+                "The loft hatch stays open all day so the birds can come home.", "Anyone goes up to the attic, because the tenants dry their washing there."],
+          desc:["A pigeon loft in the attic, with a landing board above the rooftops of the {g:familok|familoks}.","It smells of grain, and race certificates hang on the wall.",
+                "Transport baskets and tins of feed stand on the shelves.","The results of the last race from Germany are chalked on a board."] },
+        { id:"lampownia", pt:"work", name:"Lamp room at the “Wieczorek” mine", label:"{g:lampownia|Lamp room}", gen:"the lamp room", in:"in the lamp room", from:"from the lamp room", icon:"mine", roles:["worker","sztygar"],
+          open:["At shift change the whole shift passes through the lamp room and nobody watches anybody.", "The lamp room hatch is open all night.",
+                "The attendant pops over to the pithead hall and leaves the door open.", "You walk straight into the lamp room from the showers, and the door between has no lock."],
+          desc:["The lamp room under the shaft, where miners collect their lamps before the {g:szychta|shift}.","Neat rows of lamps and numbered tags on the racks.",
+                "A figure of St Barbara hangs on the wall, with fresh flowers beneath it.","The lamp chargers hum day and night."] }
+      ],
+      roles:[
+        { id:"golebiarz", age:"old", m:"Pigeon fancier", f:null, access:[], outfit:{shape:"jacket",c:"#4f5560",d:"#a9b4c0"}, headwear:{m:["kaszkiet"]},
+          flavor:["[His|Her] pigeons flew home from Germany faster than the train.","Keeps a loft in the attic and knows every bird by name."] },
+        { id:"sztygar", age:"mid", m:"“Wieczorek” mine overman", f:null, access:["lampownia"], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kaszkiet"]},
+          flavor:["Runs a shift underground and knows every gallery in the mine.","Puts on the dress uniform with the plume for St Barbara's Day."] },
+        { id:"hutnik", age:["young","mid"], m:"Baildon steelworker", f:"Baildon steelworks lab technician", access:[], outfit:{shape:"plain",c:"#5a3a2a",d:"#9a7550"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Works the furnace at the Baildon steelworks, and [his|her] eyebrows are singed.",{t:"Fears the steelworks will close like the others.", years:[1990,1999]}] },
+        { id:"skarbek", age:["young","mid"], m:"Skarbek store assistant", f:"Skarbek store assistant", access:[], outfit:{shape:"collar",c:"#8c3b4a",d:"#eee8dc"}, headwear:{m:[""],f:[""]},
+          flavor:["Works at the Skarbek department store and knows when deliveries are coming.","Keeps things under the counter for friends from the {g:familok|familok}."] },
+        { id:"orkiestra", age:["mid","old"], m:"Mine brass band musician", f:null, access:[], outfit:{shape:"collar",c:"#1f1f22",d:"#c9a646"}, headwear:{m:["kolejarz"]},
+          flavor:["Plays the tuba in the mine band every St Barbara's Day.","Has known the miners' marches by heart since childhood."] }
+      ],
+      flavor:["Has lived in a {g:familok|familok} since birth.","Sunday dinner is always beef roulades, red cabbage and dumplings.",
+              "Speaks Silesian so thick that outsiders can't follow a word.","Dries washing on the balcony, though soot still drifts over from the mine.",
+              "Calls potatoes “kartofle” and tomatoes “tomaty”.","Says “{g:fajrant|fajrant}” for knocking-off time and “{g:szychta|szychta}” for a shift.","Keeps [his|her] father's miner's dress uniform in the wardrobe.",
+              "Always goes to the beer feast on St Barbara's Day.","Rides the Elka cable car in the Silesian Park on Sundays.","Calls a suit an “ancug”.",
+              "Calls every red-brick building a “{g:familok|familok}”, even the school.","Supports {team} and remembers every match against Ruch.","Has a kitchen {g:kredens|dresser} that has survived three generations.",
+              {t:"Worries that the mines are starting to close.", years:[1993,1999]},"Says “{g:gryfnie|gryfnie}” about anything [he|she] likes."],
+      quips:["Szczęść Boże. Case closed before the {g:szychta|shift}.",
+        "Case solved. Now we can go down the pit in peace.",
+        "In Silesia things must be in order, even in crime.",
+        "Everyone knew. Nobody said a word.",
+        "The mine doesn't wait, and neither will we.",
+        "Silesia doesn't like lies. This one didn't wriggle out either."]
+    },
+
+    wroclaw: {
+      name:"Wrocław",
+      district:{ nom:"Nadodrze", gen:"Nadodrze", na:"in Nadodrze", po:"around Nadodrze" },
+      streets:["Jedności Narodowej Street","Roosevelta Street","Kurkowa Street","Dubois Street","Pomorska Street","Łokietka Street","Trzebnicka Street","Słowiańska Street","Daszyńskiego Street","Prusa Street"],
+      market:{ on:"at the market hall", from:"from the market hall", to:"to the market hall" },
+      bars:["Pod Kalamburem","U Krasnala","Na Nadodrzu"],
+      church_at:"at the cathedral on Ostrów Tumski", teams:["Śląsk"], cinema:"Warszawa", gazeta:"Wieczór Wrocławia",
+      dworzec:"Główny station", szpital:"the city hospital", walk:"down to the Oder", uni:"the Polytechnic",
+      zaklad_at:"at the Pafawag works",
+      worker:{ id:"worker", age:["young","mid"], m:"Pafawag works labourer", f:"Pafawag works labourer", access:[],
+        outfit:{shape:"plain",c:"#3d5a85",d:"#2b3f5e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
+        flavor:["Has been building locomotives at Pafawag for years."] },
+      locations:[
+        { id:"zajezdnia", pt:"work", name:"Tram depot", label:"Depot", gen:"the depot", in:"at the depot", from:"from the depot", icon:"depot", roles:["motorniczy"],
+          open:["Trams roll in and out of the gate, and the gatekeeper can barely keep up.", "Nobody watches the side gate by the tracks.",
+                "The door to the depot workshop stands open because the mechanics carry parts out that way.", "The gatekeeper does his rounds, and the gate stays open for trams coming off their routes."],
+          desc:["A depot with a brick hall and inspection pits under the tracks.","At night the trams stand in rows, and the duty officer plays cards in his cubbyhole.",
+                "A timetable hangs on the wall, its changes added in biro.","Tools and a tin of grease lie in the pit under a tram."] },
+        { id:"przystan", pt:"street", name:"Boathouse on the Oder", label:"Boathouse", gen:"the boathouse", in:"at the boathouse", from:"from the boathouse", icon:"pier", roles:["wioslarz"],
+          open:["The boat shed is tied shut with a bit of string.", "Anyone coming over the embankment can walk onto the jetty and into the shed.",
+                "The shed door hangs on one hinge and won't close.", "The rowers leave the shed open because they come back in the evening anyway."],
+          desc:["A jetty on the Oder, with boats chained up.","In the evening a mist rises over the water.",
+                "Oars hang on the shed wall beside photos of pre-war crews.","From the jetty you can see the cathedral towers on Ostrów Tumski."] }
+      ],
+      roles:[
+        { id:"przewodnik", age:["mid","old"], m:"City guide", f:"City guide", access:[], outfit:{shape:"collar",c:"#3e4a6b",d:"#c9a646"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Shows round Germans who come looking for their old homes.","Knows the history of every tenement in Nadodrze."] },
+        { id:"wioslarz", age:"young", m:"Club rower", f:"Club rower", access:["przystan"], outfit:{shape:"plain",c:"#3e4a6b",d:"#e6e6e6"}, headwear:{m:[""],f:[""]},
+          flavor:["Trains on the Oder every day at dawn.","Shoulders as wide as a wardrobe door."] },
+        { id:"zoo", age:["young","mid"], no:["dogfear"], m:"Zookeeper", f:"Zookeeper", access:[], outfit:{shape:"plain",c:"#4c6b3a",d:"#a3b37a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Feeds the elephants at the zoo and smells of hay.","Says animals are more honest than people."] },
+        { id:"kaletnik", age:["mid","old"], m:"Nadodrze leatherworker", f:"Nadodrze leatherworker", access:[], outfit:{shape:"apron",c:"#6b4a2e",d:"#a5835a"}, headwear:{m:["kaszkiet"],f:[""]},
+          flavor:["Makes briefcases and belts in a workshop on the ground floor of a tenement.","Chooses leather by sniffing it like wine."] },
+        { id:"antykwariusz", age:"old", m:"Antiquarian bookseller", f:"Antiquarian bookseller", access:[], outfit:{shape:"collar",c:"#59493b",d:"#c8b89c"}, headwear:{m:["beret",""],f:[""]},
+          flavor:["Deals in books left behind by the city's former inhabitants.","Reads German and Latin."] }
+      ],
+      flavor:["Lives in the Bermuda Triangle district and isn't afraid of anyone.","[His|Her] grandmother came here from Lwów, and [he|she] still has that sing-song accent.",
+              {t:"Remembers the 1997 flood, when water filled the whole courtyard.", years:[1998,1999]},
+              "Says “{g:tajoj|ta joj}” like a grandmother from Lwów.","Goes to the Japanese Garden on Sundays.","Spends every warm afternoon on Słodowa Island.",
+              "Once found pre-war German newspapers in the cellar.","Has supported {team} since they won the league.","Says [he|she] went to every concert at the People's Hall.",
+              "Waits for the tram by Świebodzki station, though it's a long way.","Has a German-made {g:kredens|dresser} that came with the flat.","Always pops into the Piwnica Świdnicka cellar bar on the Market Square, if only for a moment.",
+              "Knows every bridge on the Oder, and there are over a hundred.",{t:"Has kept sandbags in the attic since the flood.", years:[1997,1999]},"Says “a flat after the Germans”, and nobody bats an eyelid."],
+      quips:["The Oder flows on calmly, and the case is solved.",
+        "The pigeons on the Market Square already knew who did it.",
+        "Wrocław has survived worse than one case like this.",
+        "The bridges are still standing. Case closed.",
+        "Ostrów Tumski is at peace, like after a good confession.",
+        "So many bridges, and he still had nowhere to run."]
+    }
+  };
+
+  // treści angielskie dla generatora (warstwa językowa: data/i18n/i18n.js); bez root.SIATKA_CITIES, żeby nie nadpisać polskich danych
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { content: { cities: CITIES } });
+  if (typeof module !== "undefined" && module.exports) module.exports = CITIES;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/en/glossary.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — Kartoteka (glossary) in English. Source: docs/kartoteka-hasla.md.
+ * Same ids as data/i18n/pl/glossary.js; term stays Polish (it is the word the player meets in the files), text explains it.
+ */
+(function (root) {
+  const GLOSSARY = {
+    mo: { term:"MO (Milicja Obywatelska)", note:"until May 1990", text:"The Citizens' Militia, communist Poland's police force. In May 1990 it was replaced by the Policja." },
+    dzielnicowy: { term:"Dzielnicowy", text:"The neighbourhood beat officer, assigned to a few streets and expected to know every face on them." },
+    dozorca: { term:"Dozorca / dozorczyni", text:"Building caretaker. Kept the keys, swept the yard, and knew everyone's business." },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", text:"A savings book for a cooperative flat. People paid in for decades and many never got the keys." },
+    komitet: { term:"Komitet kolejkowy", note:"until c. 1990", text:"A queue run by the people in it. You got a number and had to turn up for roll call, sometimes for days." },
+    inkasent: { term:"Inkasent gazowni", text:"The gas board's meter man, who went door to door reading meters and collecting money. He saw inside every flat." },
+    spolem: { term:"Społem", text:"The cooperative grocery chain. Every neighbourhood had one, with the same scales, the same smell, the same queue." },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"The green newspaper kiosks. Papers, cigarettes, tram tickets, and a kiosk lady who saw everything." },
+    pewex: { term:"Pewex", note:"until the mid-1990s", text:"Hard-currency shops selling Western goods (jeans, chocolate, whisky) for dollars or vouchers, never złoty." },
+    cpn: { term:"CPN", text:"The state petrol stations, for years the only ones in the country. Look for the orange sign." },
+    pzu: { term:"PZU", text:"The state insurer. Compulsory car insurance meant a trip to PZU and a stamped policy." },
+    pko: { term:"PKO", text:"The state savings bank. Your savings book, your pension and your patience all lived there." },
+    mpo: { term:"MPO", text:"The municipal sanitation company. The binmen in orange." },
+    mpk: { term:"MPK", text:"The municipal transport company: trams, buses and tickets punched by hand." },
+    pkp: { term:"PKP", text:"Polish State Railways. Conductors with ticket punches and timetables nobody fully trusted." },
+    wopr: { term:"WOPR", text:"The volunteer lifeguard service, the people in red at every beach and river bathing spot." },
+    talon: { term:"Talon", note:"until c. 1990", text:"An allocation voucher for things you couldn't simply buy, like a car. Often worth more than the car." },
+    szczeka: { term:"Szczęka", text:"A folding tin market stall, nicknamed \"the jaw\" for the way it opened. Half of Poland's new businesses started in one." },
+    saksy: { term:"Saksy", text:"Going to work in the West, usually Germany, often off the books. Came back with marks and a used car." },
+    cinkciarz: { term:"Cinkciarz", note:"until c. 1990", text:"A black-market money changer, named after his whispered \"change money?\". Better rates than the bank, and a fair chance of being cheated." },
+    totek: { term:"Totek / Lotto", text:"The state lottery. Numbers ticked every Wednesday and Saturday, and dreams of a Polonez." },
+    pekin: { term:"Pekin", note:"Warsaw", text:"Locals' nickname for the Palace of Culture and Science, Stalin's \"gift\" towering over Warsaw." },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"The bugle call played every hour from St Mary's tower, broken off mid-note, as it has been for centuries." },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"The market at the heart of Bałuty, a crush of stalls and traders." },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"A spinning mill. Łódź was Poland's textile city, and in the nineties its mills were closing one by one." },
+    familok: { term:"Familok", note:"Silesia", text:"A red-brick Silesian miners' tenement. Nikiszowiec is built entirely of them." },
+    lampownia: { term:"Lampownia", note:"Silesia", text:"The lamp room at a coal mine, where miners collected their lamps before going down. Every lamp counted back in." },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Gdańsk's great summer fair, running since the Middle Ages. Every August the whole city goes." },
+    szychta: { term:"Szychta", note:"Silesia", text:"A shift at the mine or steelworks." },
+    barborka: { term:"Barbórka", note:"Silesia", text:"The miners' feast on St Barbara's Day, 4 December. Brass bands, dress uniforms, and nobody sober by evening." },
+    fajrant: { term:"Fajrant", text:"Clocking-off time." },
+    kamrat: { term:"Kamrat", note:"Silesia", text:"Workmate, mate." },
+    gryfnie: { term:"Gryfnie", note:"Silesia", text:"Nice, lovely, in Silesian dialect." },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"A Lwów expression brought to Wrocław by families resettled after the war. Roughly \"oh, come on\"." },
+    mankut: { term:"Mańkut", text:"A left-hander. In school they tied your hand to the desk. It rarely worked." },
+    matura: { term:"Matura", text:"The school-leaving exam, the ticket to university and the subject of every family's anxiety." },
+    ortalion: { term:"Ortalion", text:"A rustling nylon jacket, the uniform of the eighties and nineties. You heard it before you saw it." },
+    relaks: { term:"Relaks", text:"A popular Polish shoe brand. Everyone had a pair of winter boots from it." },
+    mebloscianka: { term:"Meblościanka", text:"The wall unit: one long row of cabinets, glass shelves for the good crystal, in every flat in the country." },
+    kredens: { term:"Kredens", text:"The kitchen dresser, home of the best plates and the chocolates saved for guests." },
+    trzepak: { term:"Trzepak", text:"A metal frame in the courtyard for beating carpets. For kids, a climbing frame. For pensioners, an observation post." },
+    lucznik: { term:"Łucznik", text:"The Polish typewriter, made in Radom. Every office had one, and every one had a wonky letter." },
+    zenit: { term:"Zenit", text:"A Soviet film camera, heavy and indestructible." },
+    pegasus: { term:"Pegasus", note:"from c. 1993", text:"The bazaar clone of the Nintendo. Every kid on the estate had one, and a cartridge with \"9999 in 1\" games." },
+    wigry: { term:"Wigry", text:"The Polish folding bicycle. Every cellar had one, usually with a flat tyre." },
+    polsilver: { term:"Polsilver", text:"Polish razor blades, in a little cardboard sleeve." },
+    denaturat: { term:"Denaturat", text:"Purple methylated spirits for cleaning. \"Not for drinking\", the label said. Not everyone listened." },
+    luminal: { term:"Luminal", text:"A strong barbiturate sleeping pill from the old pharmacies." },
+    maluch: { term:"Maluch (Fiat 126p)", text:"The tiny Fiat 126p, Poland's people's car. Families of four went on holiday in one." },
+    polonez: { term:"Polonez", text:"The bigger Polish car, built by FSO in Warsaw. Every family dreamt of one." },
+    syrenka: { term:"Syrenka", text:"An old Polish car, made until 1983. By the nineties, a museum piece still clattering around the courtyards." },
+    zuk: { term:"Żuk", text:"The Polish delivery van: groceries, house moves, building sites, and the occasional getaway." },
+    cinquecento: { term:"Cinquecento", note:"from 1991", text:"The small Fiat built in Tychy, the Maluch's successor." },
+    tico: { term:"Daewoo Tico", note:"from c. 1996", text:"A small Korean car that flooded Polish streets in the late nineties." },
+    sygnal: { term:"Sygnał czasu", text:"The pips on Polish Radio marking the full hour. The whole country set its watches by them." },
+    trojka: { term:"Trójka", text:"Polish Radio Three, the cult music station. Its chart show was a national ritual." },
+    discopolo: { term:"Disco polo", note:"the 1990s", text:"Cheesy Polish dance pop sold on bazaar cassettes. Mocked by everyone, danced to by everyone." },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"from May 1989", text:"The first independent daily newspaper, founded just before the 1989 elections." },
+    sporty: { term:"Sporty", text:"The cheapest Polish cigarettes, unfiltered and unforgiving." }
+  };
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { content: { glossary: GLOSSARY } });
+  if (typeof module !== "undefined" && module.exports) module.exports = GLOSSARY;
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/en/changelog.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka – a Polish Crime Board — changelog ("What's new" in Settings), English.
+ * Newest first. Same structure and order as data/i18n/pl/changelog.js. `v` = generator version.
+ * New release = new entry on top, in BOTH files.
+ */
+(function (root) {
+  const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
+  if (I18N) I18N.register("en", { messages: { "ui.changelog": [
+    { v: "2.2.1", date: "2026-11-18", items: [
+      "Motives fit the victim: a feud with the estate office only when something breaks in the building, a rival only when it's someone's business, barking only when there's a dog.",
+      "Witnesses fit the place: children playing bottle caps in the courtyard, not in the spinning mill; at the works, it's the crew who give statements.",
+      "The time of the crime depends on the scene: the market, shops, pharmacy and post office are hit while they're open or just after closing.",
+      "Clearer relations in the explanation: “Piotr Kowal and Alicja Baran: in-laws, not neighbours from the staircase”.",
+      "The commissioner's remarks follow the seasons, and the nineties details are more accurate (TV series, phones, pagers, cars, newspapers)."
+    ] },
+    { v: "2.2", date: "2026-11-15", items: [
+      "New kinds of clues in the notebook: height comparisons, suspects' ties to other people, the caretaker's notebook, and traces that tell you what wasn't there.",
+      "New case type: the timeline. Nobody can be in two places at once. Use the walking-time table and the times in the files to work out who could have reached the scene.",
+      "Nineties prices are closer to the truth: parking for a few złoty, car insurance for a few hundred."
+    ] },
+    { v: "2.1.2", date: "2026-11-11", items: [
+      "Bug fixed: a suspect is no longer in two places at the same time, or somewhere else during their own alibi.",
+      "Rules about missing items are clearer: “The culprit personally took… at exactly the time it went missing. Nobody handed it over.”",
+      "Portraits no longer give away notebook traits: only some smokers have a cigarette, and glasses vanish from photos when a rule is about them.",
+      "Shorter tutorial: 4 steps, an easier-to-find “Skip”, and “How to play” is always in Settings.",
+      "Tutorial fixed."
+    ] },
+    { v: "2.1.1", date: "2026-11-06", items: [
+      "11 kinds of crime instead of 4: theft, animal poisoning, arson, blackmail, forgery, sabotage, robbery, vandalism, dognapping and poisoning.",
+      "220 scenes, new roles, places and items with icons, and more varied sentences in the files.",
+      "More accurate nineties details: ration coupons, prices, names and dates."
+    ] },
+    { v: "2.1", date: "2026-11-05", items: [
+      "Physical evidence: polaroids of items and documents that you link to suspects by initials or flat number.",
+      "Names fit the characters' ages, and the game avoids repeating names and scenes from recent cases."
+    ] }
+  ] } });
+})(fake);
+
+})(undefined, undefined);
+
+/* ===== data/i18n/boot.js @ 6026b81 ===== */
+(function (module, require) {
+/*
+ * Siatka Powiązań — wybór języka interfejsu (ładuje się po wszystkich paczkach językowych, przed grą).
+ * Kolejność: ?lang=pl|en w adresie (nadpisuje i zapamiętuje, do linków z itch i Reddita) → zapamiętany wybór
+ * (localStorage "siatka-lang") → pierwsza wizyta: navigator.language (pl* → polski, reszta → angielski), też zapamiętane.
+ * Angielski jest wybieralny tylko w #dev, dopóki EN_PUBLIC jest false (angielskich treści spraw jeszcze nie ma:
+ * interfejs byłby po angielsku, a sprawa po polsku). Gdy treści data/i18n/en/ będą gotowe, ustaw EN_PUBLIC = true.
+ */
+(function (root) {
+  "use strict";
+  const I = root.SiatkaI18n;
+  if (!I) return;
+  const KEY = "siatka-lang", EN_PUBLIC = false;
+  const store = {
+    get() { try { return localStorage.getItem(KEY); } catch (_) { return null; } },
+    set(v) { try { localStorage.setItem(KEY, v); } catch (_) {} }
+  };
+  const loc = root.location || { search: "", hash: "" };
+  I.EN_PUBLIC = EN_PUBLIC;
+  /* czy angielski jest dostępny w tej sesji */
+  I.enAvailable = () => !!I.packs.en && (EN_PUBLIC || loc.hash === "#dev");
+  /* język interfejsu dla tej sesji */
+  I.pick = function () {
+    if (!I.enAvailable()) return "pl";
+    let q = null;
+    try { q = new URLSearchParams(loc.search).get("lang"); } catch (_) {}
+    q = q && q.toLowerCase();
+    if (q === "pl" || q === "en") { store.set(q); return q; }
+    const saved = store.get();
+    if (saved === "pl" || saved === "en") return saved;
+    const nav = (root.navigator && (root.navigator.languages && root.navigator.languages[0] || root.navigator.language)) || "pl";
+    const lang = /^pl/i.test(nav) ? "pl" : "en";
+    store.set(lang);
+    return lang;
+  };
+  /* <html lang> i <title> zgodne z językiem */
+  I.applyDocument = function () {
+    if (typeof document === "undefined") return;
+    document.documentElement.lang = I.lang;
+    document.title = I.t("ui.html.title");
+  };
+  /* zmiana języka z Ustawień: zapis, usunięcie ?lang z adresu (inaczej nadpisałby wybór) i przeładowanie */
+  I.setLang = function (lang) {
+    store.set(lang);
+    try {
+      const u = new URL(loc.href);
+      u.searchParams.delete("lang");
+      root.history.replaceState(null, "", u.pathname + (u.search || "") + u.hash);
+    } catch (_) {}
+    root.location.reload();
+  };
+  I.use(I.pick());
+  I.applyDocument();
+})(fake);
+
+})(undefined, undefined);
+
+  const world = { base: fake.SIATKA_BASE, cities: fake.SIATKA_CITIES };
+  const E = fake.Siatka, I = fake.SiatkaI18n;
+  /* lang: język treści (od wersji z data/i18n/en/). Bez treści tego języka w zamrożonym pliku albo dla pl: dane polskie. */
+  const inLang = (lang, f) => {
+    const p = I && lang && lang !== "pl" && I.packs[lang];
+    if (!(p && p.content && p.content.base)) return f(world);
+    const prev = I.genOverride; I.genOverride = lang;
+    try { return f(I.world(lang)); } finally { I.genOverride = prev; }
+  };
+  const gen = {
+    id: "2.2.1", commit: "6026b81",
+    generateCase: (seed, opts, lang) => inLang(lang, w => E.generateCase(w, seed, opts)),
+    dailyCase: (date, lang) => inLang(lang, w => E.dailyCase(w, date)),
+    solve: c => E.solve(c)
+  };
+  (root.SiatkaLegacy = root.SiatkaLegacy || {})["2.2.1"] = gen;
+  if (typeof module !== "undefined" && module.exports) module.exports = gen;
+})(typeof window !== "undefined" ? window : globalThis);

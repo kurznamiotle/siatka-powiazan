@@ -1,0 +1,31 @@
+{
+  "note": "Sprawy dnia wygenerowane wdrożonym kodem f900cef (wersja 2.2.1; zamrożone z 6026b81 na wip/i18n, te same sprawy PL). Nowy kod musi dawać dla tych dni dokładnie to samo.",
+  "version": "2.2.1",
+  "commit": "f900cef",
+  "days": [
+    {
+      "date": "2026-11-18",
+      "number": 16,
+      "title": "Ławki w parku przy Mickiewicza",
+      "sha1": "7466403ae3c3e7f0628afa86cc97b856b0210e85"
+    },
+    {
+      "date": "2026-11-19",
+      "number": 17,
+      "title": "Dżinsy ze szczęki",
+      "sha1": "0fe186016d74e7042f2605e3f1ab7982d06b0b7e"
+    },
+    {
+      "date": "2026-11-20",
+      "number": 18,
+      "title": "Szyld kantoru",
+      "sha1": "fb51e47c1edf5615aca73acf58c98729d4e147af"
+    },
+    {
+      "date": "2026-11-21",
+      "number": 19,
+      "title": "Tabletki na serce",
+      "sha1": "4175f5dbfdce9ea775744daee2f075013082dc12"
+    }
+  ]
+}
