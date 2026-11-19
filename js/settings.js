@@ -142,8 +142,15 @@ const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
     note: (LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>`)
       + (window.SiatkaGame && window.SiatkaGame.caseInOtherLang && window.SiatkaGame.caseInOtherLang() ? `<small class="set-note" id="langNext">${t("ui.settings.case_lang_next")}</small>` : "") });
 const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
+/* Kartoteka: hasła, które gracz już widział w aktach (js/glossary.js, siatka-glossary), alfabetycznie */
+function renderGloss() {
+  $("menuCard").innerHTML = window.SiatkaGloss.listHtml();
+  $("glBack").onclick = () => { view = "main"; render(); };
+  $("menuCard").scrollTop = 0;
+}
 function render() {
   if (view === "news") return renderNews();
+  if (view === "gloss") return renderGloss();
   let app;
   if (installed()) app = t("ui.settings.gra_jest_zainstalowana_na_tym_html");
   else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
@@ -153,6 +160,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
+  if ($("setGloss")) { $("setGloss").hidden = !window.SiatkaGloss; $("setGloss").onclick = () => { view = "gloss"; track("ustawienia/kartoteka", t("ui.gloss.title")); render(); }; }
   $("setStats").onclick =() => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");

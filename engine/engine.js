@@ -206,7 +206,24 @@
       if (v && typeof v === "object") for (const k of Object.keys(v)) if (k !== "used" && k !== "facts") v[k] = walk(v[k]);
       return v;
     };
-    return walk(c);
+    walk(c);
+    /* Znaczniki z glossary() (niewidoczne, po tekście): w aktach, notatniku i podpowiedziach zostają jako „{g:id|tekst}”
+       (gra je podkreśla i otwiera hasło), wszędzie indziej (także w used i facts) zostaje sam tekst. */
+    if (!I || !I.glossaryResolve) return c;
+    const res = (v, keep) => {
+      if (typeof v === "string") return I.glossaryResolve(v, keep);
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = res(v[i], keep); return v; }
+      if (v && typeof v === "object") for (const k of Object.keys(v)) v[k] = res(v[k], keep);
+      return v;
+    };
+    const keep = { intro: 1, hints: 1, travel_note: 1 };
+    for (const k of Object.keys(c)) {
+      if (keep[k]) c[k] = res(c[k], true);
+      else if (k === "rules") c.rules.forEach(r => { for (const f of Object.keys(r)) r[f] = res(r[f], f === "text"); });
+      else if (k === "nodes") c.nodes.forEach(n => { for (const f of Object.keys(n)) n[f] = res(n[f], f === "text"); });
+      else c[k] = res(c[k], false);
+    }
+    return c;
   }
   function generateCase(world, seed, opts = {}) {
     // miasto, rok i wielkość losujemy raz, żeby ponowne próby nie zmieniały proporcji

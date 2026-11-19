@@ -49,7 +49,12 @@ for (let i = 0; i < N; i++) {
   const e = gen("en", seed, opts, WEN), sa = skeleton(a, W), se = skeleton(e, WEN);
   if (sa !== se) { const A = JSON.parse(sa), E = JSON.parse(se); fail(`${seed}: struktura pl ≠ en (treści EN) w: ${Object.keys(A).filter(k => JSON.stringify(A[k]) !== JSON.stringify(E[k])).join(", ")}`); }
   else full++;
-  const etext = [e.title, e.intro, e.epilogue, ...e.hints, ...e.why.flat(), ...e.rules.map(r => r.text), ...e.nodes.flatMap(n => [n.name, n.label, ...n.text])].join(" ");
+  // Kartoteka: „{g:id|tekst}” tylko w aktach, notatniku, podpowiedziach i intro; nigdzie niewidoczny znacznik z generatora
+  const bare = [e.title, e.epilogue, e.quip, ...e.why.flat(), ...e.nodes.flatMap(n => [n.name, n.label, n.kind])].join(" ");
+  if (/\{g:/.test(bare)) fail(`${seed}: znacznik Kartoteki poza aktami i notatnikiem: ${(bare.match(/.{0,40}\{g:.{0,40}/) || [""])[0]}`);
+  if (/[\uE000-\uE2FF]/.test(JSON.stringify(e))) fail(`${seed}: w sprawie EN został niewidoczny znacznik Kartoteki`);
+  const etext = [e.title, e.intro, e.epilogue, ...e.hints, ...e.why.flat(), ...e.rules.map(r => r.text), ...e.nodes.flatMap(n => [n.name, n.label, ...n.text])].join(" ")
+    .replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1");
   if (/\{[a-zA-Z_:]+[|}]|\[[^\]]*\|[^\]]*\]|undefined|NaN/.test(etext)) fail(`${seed}: nierozwiązana wstawka, nawias albo undefined w sprawie EN: ${(etext.match(/.{0,40}(\{[a-zA-Z_:]+[|}]|\[[^\]]*\|[^\]]*\]|undefined|NaN).{0,40}/) || [""])[0]}`);
 }
 /* (3) avoid niezależny od języka: ostatnie sprawy zapisane jako ścieżki w danych (encodeUsed), następna sprawa

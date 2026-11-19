@@ -122,10 +122,12 @@ function buildRich() {
   ];
   RICH = new RegExp(`(?<![\\p{L}\\d])(?:${parts.join("|")})(?![\\p{L}\\d])`, "giu");
 }
-const rich = s => String(s).replace(RICH, (m, ...a) => {
+const richRaw = s => String(s).replace(RICH, (m, ...a) => {
   const g = a[a.length - 1];
   return `<b class="fx fx-${g.t ? "t" : g.l ? "l" : g.k ? "k" : "v"}">${m}</b>`;
 });
+// Kartoteka (js/glossary.js): hasła podkreślone kropkami; gdy treść sprawy nie ma znaczników {g:…}, formy z języka treści
+const rich = s => window.SiatkaGloss ? SiatkaGloss.html(s, richRaw, caseLang) : richRaw(SiatkaI18n.glossaryPlain(String(s)));
 
 /* ---------- ładowanie sprawy ---------- */
 /* 2.1.2: sprawa rozpoczęta (otwarte akta, sznurek, wykluczenie albo podpowiedź) i nierozwiązana przy wyjściu
@@ -447,7 +449,7 @@ function travelTable() {
   if (!CASE.travel) return "";
   const nm = id => byId[id] ? byId[id].name : id;
   return t("ui.game.czasy_dojscia_pieszo_html", { join: CASE.travel.map(([a, b, m]) =>
-    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : "" });
+    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${rich(CASE.travel_note)}</p>` : "" });
 }
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
@@ -482,7 +484,7 @@ $("tab-notes").onclick = () => { if (S.tab === "notes") return; S.tab = "notes";
 const toastEl = $("toast"); let toastT;
 function toast(title, txt, ms = 6000) { toastEl.innerHTML = `<b>${title}</b>${txt}`; toastEl.hidden = false; clearTimeout(toastT); if (ms) toastT = setTimeout(hideToast, ms); }
 function hideToast() { toastEl.hidden = true; }
-toastEl.addEventListener("click", hideToast);
+toastEl.addEventListener("click", e => { if (!(e.target.closest && e.target.closest(".gl"))) hideToast(); });
 $("hintBtn").onclick = () => {
   const max = Math.min(3, CASE.hints.length);
   if (S.hints >= max || S.done) return;
@@ -777,5 +779,5 @@ function caseInfo() {
   return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
 /* caseInOtherLang: dla Ustawień, bieżąca sprawa została w języku, w którym ją zaczęto (stary zapis bez opcji generowania) */
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
+window.SiatkaGame = { openHowto: () => openHowto(), caseData: () => CASE, haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
 })();

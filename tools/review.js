@@ -119,5 +119,6 @@ jobs.forEach((job, k) => {
 const dir = path.join(__dirname, "..", "cases", "generated");
 fs.mkdirSync(dir, { recursive: true });
 const file = path.join(dir, fileArg || "review-2.1.2.txt");
-fs.writeFileSync(file, out.join("\n"));
+// znaczniki Kartoteki {g:id|tekst} (akta EN) jako sam tekst
+fs.writeFileSync(file, out.join("\n").replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1"));
 console.log(`Zapisano ${jobs.length} spraw do ${file}`);

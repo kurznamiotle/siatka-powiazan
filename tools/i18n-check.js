@@ -21,7 +21,7 @@ const I = require(path.join(root, "data/i18n/i18n.js"));
 const pl = I.packs.pl.messages;
 let enMsgs = null; try { require(path.join(root, "data/i18n/en.js")); if (fs.existsSync(path.join(root, "data/i18n/en/changelog.js"))) require(path.join(root, "data/i18n/en/changelog.js")); enMsgs = I.packs.en.messages; } catch (_) {}
 const strict = process.argv.includes("--strict");
-const CODE = ["engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/archetypes/timeline.js", "js/game.js", "js/settings.js", "js/tutorial.js", "js/stats.js", "js/achievements.js", "js/history.js", "js/shareimg.js", "js/track.js", "js/audio.js"];
+const CODE = ["engine/engine.js", "engine/solver.js", "engine/archetypes/classic.js", "engine/archetypes/timeline.js", "js/game.js", "js/settings.js", "js/glossary.js", "js/tutorial.js", "js/stats.js", "js/achievements.js", "js/history.js", "js/shareimg.js", "js/track.js", "js/audio.js"];
 const DYNAMIC = [/^gen\.size\./, /^gen\.police_dat\./, /^ui\.changelog$/, /^ui\.game\.n_\w+_[125]$/]; // n_*: liczniki składane w kodzie (k + "_1")
 // polskie litery w kodzie poza komentarzami: dozwolone tylko tu (wyrażenia regularne i dane, nie teksty dla gracza)
 const EXPECT = [/„Hasło”/];

@@ -425,8 +425,29 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
         const i = pair.indexOf(":"); el.setAttribute(pair.slice(0, i), this.t(pair.slice(i + 1)));
       }));
     },
-    /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
-    glossary(id, label) { return label != null ? label : id; },
+    /* znacznik Kartoteki {g:hasło|tekst} w szablonach generatora: tekst + niewidoczny znacznik z prywatnego obszaru Unicode
+       (U+E000, długość tekstu, id, U+E001) PO tekście, więc wielka litera na początku zdania, przedimek a/an i wyrażenia
+       textRe działają jak na samym tekście. Na końcu generateCase glossaryPass zamienia go w aktach, notatniku i podpowiedziach
+       na „{g:id|tekst}” (podkreślenie w grze), a w pozostałych polach na sam tekst. */
+    glossary(id, label) {
+      const s = label != null ? label : id;
+      if (!s || s.length > 255) return s;
+      return s + "\uE000" + String.fromCharCode(0xE100 + s.length) + [...id].map(ch => String.fromCharCode(0xE200 + ch.charCodeAt(0))).join("") + "\uE001";
+    },
+    /* znaczniki z glossary() w gotowym tekście: keep = true → „{g:id|tekst}”, inaczej sam tekst */
+    glossaryResolve(s, keep) {
+      if (typeof s !== "string" || s.indexOf("\uE000") < 0) return s;
+      let out = "", last = 0; const re = /\uE000([\uE100-\uE1FF])([\uE200-\uE2FF]+)\uE001/g; let m;
+      while ((m = re.exec(s))) {
+        const before = out + s.slice(last, m.index), len = m[1].charCodeAt(0) - 0xE100;
+        const id = [...m[2]].map(ch => String.fromCharCode(ch.charCodeAt(0) - 0xE200)).join("");
+        out = keep && len <= before.length ? before.slice(0, before.length - len) + "{g:" + id + "|" + before.slice(before.length - len) + "}" : before;
+        last = re.lastIndex;
+      }
+      return out + s.slice(last);
+    },
+    /* „{g:id|tekst}” w tekście sprawy → sam tekst (tam, gdzie nie ma podkreślenia: udostępnianie, podpisy) */
+    glossaryPlain(s) { return typeof s === "string" && s.indexOf("{g:") >= 0 ? s.replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1") : s; },
     /* hasło Kartoteki { term, text, note? } w bieżącym języku, a gdy go brak, po polsku (data/i18n/<język>/glossary.js) */
     glossaryEntry(id, lang) {
       const cur = this.packs[lang || this.lang], pl = this.packs.pl, g = p => p && p.content && p.content.glossary;
@@ -718,6 +739,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Zainstaluj grę</button><p class=\"set-note\">Ikona na ekranie głównym, pełny ekran i gra bez internetu.</p>",
     "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">Gra jest zainstalowana na tym urządzeniu.</p>",
     "ui.settings.co_nowego_wroc_html": "<h3>Co nowego</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Wróć</button></div>",
+    "ui.gloss.title": "Kartoteka",
+    "ui.gloss.close": "Zamknij",
+    "ui.gloss.count": "Hasła z przeczytanych akt: {n} z {all}. Słowa podkreślone kropkami w aktach i notatniku można stuknąć.",
+    "ui.gloss.empty": "Kartoteka jest jeszcze pusta. Słowa podkreślone kropkami w aktach i notatniku (dawne sklepy, urzędy, auta, słowa z epoki) trafiają tu, gdy pojawią się w przeczytanych aktach.",
+    "ui.gloss.list_html": "<h3>Kartoteka</h3>{body}\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"glBack\">Wróć</button></div>",
     "ui.settings.pelny_ekran": "Pełny ekran",
     "ui.settings.wyjdz_z_pelnego_ekranu": "Wyjdź z pełnego ekranu",
     "ui.settings.zgloszenie_uwagi": "Zgłoszenie uwagi: ",
@@ -734,7 +760,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.stuknij_menu_b_b_potem_b_4": "Stuknij menu <b>☰</b>, potem <b>„Dodaj stronę do”</b> → <b>„Ekran startowy”</b>.",
     "ui.settings.w_safari_stuknij_b_udostepnij_b": "W Safari stuknij <b>Udostępnij</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, a potem <b>„Do ekranu początkowego”</b>.",
     "ui.settings.gra_zainstalowana": "Gra zainstalowana",
-    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick wide\" id=\"setNews\">Co nowego{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Ustawienia</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">Jak grać</button><button class=\"pick\" id=\"setStats\">Statystyki</button>\n      <button class=\"pick\" id=\"setNews\">Co nowego{v}</button><button class=\"pick\" id=\"setGloss\">Kartoteka</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Zgłoś uwagę lub błąd</button></div>\n    <div class=\"lbl\">Dźwięk</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Postaw komisarzowi kawę</b><small>Gra jest darmowa i bez reklam. Jeśli Ci się podoba, możesz wesprzeć twórcę.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Zamknij</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
     "ui.settings.case_lang_next": "Ta sprawa zostaje w języku, w którym ją zaczęto. Nowy język obowiązuje od następnej sprawy.",
     "ui.settings.cases_in_progress": "(sprawy: tłumaczenie w toku)",
@@ -1307,7 +1333,24 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       if (v && typeof v === "object") for (const k of Object.keys(v)) if (k !== "used" && k !== "facts") v[k] = walk(v[k]);
       return v;
     };
-    return walk(c);
+    walk(c);
+    /* Znaczniki z glossary() (niewidoczne, po tekście): w aktach, notatniku i podpowiedziach zostają jako „{g:id|tekst}”
+       (gra je podkreśla i otwiera hasło), wszędzie indziej (także w used i facts) zostaje sam tekst. */
+    if (!I || !I.glossaryResolve) return c;
+    const res = (v, keep) => {
+      if (typeof v === "string") return I.glossaryResolve(v, keep);
+      if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) v[i] = res(v[i], keep); return v; }
+      if (v && typeof v === "object") for (const k of Object.keys(v)) v[k] = res(v[k], keep);
+      return v;
+    };
+    const keep = { intro: 1, hints: 1, travel_note: 1 };
+    for (const k of Object.keys(c)) {
+      if (keep[k]) c[k] = res(c[k], true);
+      else if (k === "rules") c.rules.forEach(r => { for (const f of Object.keys(r)) r[f] = res(r[f], f === "text"); });
+      else if (k === "nodes") c.nodes.forEach(n => { for (const f of Object.keys(n)) n[f] = res(n[f], f === "text"); });
+      else c[k] = res(c[k], false);
+    }
+    return c;
   }
   function generateCase(world, seed, opts = {}) {
     // miasto, rok i wielkość losujemy raz, żeby ponowne próby nie zmieniały proporcji
@@ -19801,65 +19844,65 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  */
 (function (root) {
   const GLOSSARY = {
-    mo: { term:"MO (Milicja Obywatelska)", note:"do V 1990", text:"Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja." },
-    dzielnicowy: { term:"Dzielnicowy", note:"cały okres", text:"Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca." },
-    dozorca: { term:"Dozorca / dozorczyni", note:"cały okres", text:"Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki." },
-    ksiazeczka: { term:"Książeczka mieszkaniowa", note:"cały okres", text:"Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku." },
-    komitet: { term:"Komitet kolejkowy", note:"do ok. 1990", text:"Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności." },
-    inkasent: { term:"Inkasent gazowni", note:"cały okres", text:"Chodził po domach, spisywał liczniki i pobierał opłaty." },
-    spolem: { term:"Społem", text:"Sieć spółdzielczych sklepów spożywczych, obecna w każdej dzielnicy." },
-    ruch: { term:"Ruch (kiosk Ruchu)", text:"Zielone kioski z gazetami, papierosami i biletami." },
-    pewex: { term:"Pewex", note:"do ok. połowy lat 90.", text:"Sklep z zachodnimi towarami za dolary i bony." },
-    cpn: { term:"CPN", text:"Państwowe stacje benzynowe, do połowy lat 90. jedyne w kraju." },
-    pzu: { term:"PZU", text:"Państwowy ubezpieczyciel, u którego obowiązkowo ubezpieczało się auta." },
-    pko: { term:"PKO", text:"Państwowy bank oszczędnościowy, u którego trzymało się książeczki i oszczędności." },
-    mpo: { term:"MPO", text:"Miejskie służby oczyszczania, czyli śmieciarze." },
-    mpk: { term:"MPK", text:"Miejskie tramwaje i autobusy." },
-    pkp: { term:"PKP", text:"Polskie Koleje Państwowe." },
-    wopr: { term:"WOPR", text:"Ratownicy wodni na plażach i kąpieliskach." },
-    talon: { term:"Talon", note:"do ok. 1990", text:"Przydział na towar, którego nie dało się po prostu kupić, np. auto." },
-    szczeka: { term:"Szczęka", text:"Blaszany rozkładany stragan na bazarze." },
-    saksy: { term:"Saksy", text:"Wyjazd do pracy na Zachód, zwykle do Niemiec, „na czarno”." },
-    cinkciarz: { term:"Cinkciarz", note:"do ok. 1990", text:"Uliczny handlarz walutą. Zaczepiał hasłem „change money?”." },
-    totek: { term:"Totek / Lotto", text:"Gry liczbowe Totalizatora Sportowego. Skreślanie w środy i soboty." },
-    pekin: { term:"Pekin", note:"Warszawa", text:"Potoczna nazwa Pałacu Kultury i Nauki." },
-    hejnal: { term:"Hejnał", note:"Kraków", text:"Melodia grana co godzinę z wieży Mariackiej, urwana w połowie." },
-    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"Główny targ Bałut: budki, handel i ciasno." },
-    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"Fabryka przędzy. Łódź była polskim zagłębiem włókienniczym." },
-    familok: { term:"Familok", note:"Śląsk", text:"Ceglany dom robotniczy na Śląsku, jak na Nikiszowcu." },
-    lampownia: { term:"Lampownia", note:"Śląsk", text:"Pomieszczenie w kopalni, gdzie górnicy pobierali lampy przed zjazdem." },
-    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Wielki letni jarmark w Gdańsku, od średniowiecza." },
-    szychta: { term:"Szychta", note:"Śląsk", text:"Zmiana w kopalni lub hucie." },
-    barborka: { term:"Barbórka", note:"Śląsk, 4 grudnia", text:"Święto górników w dzień świętej Barbary, z orkiestrami i galowymi mundurami." },
-    fajrant: { term:"Fajrant", text:"Koniec pracy." },
-    kamrat: { term:"Kamrat", note:"Śląsk", text:"Kolega z pracy, kumpel." },
-    gryfnie: { term:"Gryfnie", note:"Śląsk", text:"Ładnie, fajnie." },
-    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"Powiedzonko z gwary lwowskiej, przywiezione do Wrocławia po wojnie." },
-    mankut: { term:"Mańkut", text:"Osoba leworęczna." },
-    matura: { term:"Matura", text:"Egzamin na koniec liceum, przepustka na studia." },
-    ortalion: { term:"Ortalion", text:"Szeleszcząca nylonowa kurtka, hit lat 80. i 90." },
-    relaks: { term:"Relaks", text:"Popularne polskie buty, zwłaszcza zimowe." },
-    mebloscianka: { term:"Meblościanka", text:"Rząd szafek na całą ścianę, w każdym mieszkaniu." },
-    kredens: { term:"Kredens", text:"Stara szafa kuchenna na naczynia i „specjalne okazje”." },
-    trzepak: { term:"Trzepak", text:"Metalowa rama na podwórku do trzepania dywanów, a dla dzieci plac zabaw." },
-    lucznik: { term:"Łucznik", text:"Polska maszyna do pisania z Radomia." },
-    zenit: { term:"Zenit", text:"Radziecki aparat fotograficzny, ciężki i niezniszczalny." },
-    pegasus: { term:"Pegasus", note:"od ok. 1993", text:"Bazarowa konsola do gier, podróbka Nintendo." },
-    wigry: { term:"Wigry", text:"Polski składany rower, w każdej piwnicy." },
-    polsilver: { term:"Polsilver", text:"Polskie żyletki." },
-    denaturat: { term:"Denaturat", text:"Fioletowy, skażony spirytus do czyszczenia. „Nie do picia”, ale bywało różnie." },
-    luminal: { term:"Luminal", text:"Silny lek nasenny z dawnych aptek." },
-    maluch: { term:"Maluch (Fiat 126p)", text:"Najmniejsze i najpopularniejsze auto w Polsce." },
-    polonez: { term:"Polonez", text:"Większe polskie auto z FSO, marzenie wielu rodzin." },
-    syrenka: { term:"Syrenka", text:"Stare polskie auto, produkowane do 1983 roku. W latach 90. już zabytek." },
-    zuk: { term:"Żuk", text:"Polski dostawczak: do sklepu, przeprowadzki i na budowę." },
-    cinquecento: { term:"Cinquecento", note:"od 1991", text:"Mały Fiat produkowany w Tychach, następca Malucha." },
-    tico: { term:"Daewoo Tico", note:"od ok. 1996", text:"Małe koreańskie auto, popularne pod koniec lat 90." },
-    sygnal: { term:"Sygnał czasu", text:"Piknięcia w Polskim Radiu o pełnej godzinie." },
-    trojka: { term:"Trójka", text:"Program Trzeci Polskiego Radia, kultowa stacja z muzyką." },
-    discopolo: { term:"Disco polo", note:"lata 90.", text:"Prosta muzyka taneczna, sprzedawana na kasetach z bazaru." },
-    wyborcza: { term:"„Gazeta Wyborcza”", note:"od V 1989", text:"Pierwszy niezależny dziennik, założony przed wyborami w 1989 roku." },
-    sporty: { term:"Sporty", text:"Najtańsze polskie papierosy bez filtra." }
+    mo: { term:"MO (Milicja Obywatelska)", note:"do V 1990", text:"Milicja, czyli policja w PRL. W maju 1990 zastąpiła ją Policja.", forms:["MO","milicja","milicji","milicję","milicją"] },
+    dzielnicowy: { term:"Dzielnicowy", note:"cały okres", text:"Milicjant, a potem policjant, przypisany do kilku ulic. Znał każdego mieszkańca.", forms:["dzielnicowy","dzielnicowego","dzielnicowemu","dzielnicowym","dzielnicowa","dzielnicowej","dzielnicową"] },
+    dozorca: { term:"Dozorca / dozorczyni", note:"cały okres", text:"Opiekun kamienicy: klucze, podwórko, śmieci i wszystkie plotki.", forms:["dozorca","dozorcy","dozorcę","dozorcą","dozorcom","dozorców","dozorczyni","dozorczynię","dozorczynią"] },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", note:"cały okres", text:"Oszczędności na własne mieszkanie. Czekało się na nie latami, często bez skutku.", forms:["książeczka mieszkaniowa","książeczkę mieszkaniową","książeczki mieszkaniowej","książeczce mieszkaniowej","książeczką mieszkaniową","książeczka","książeczkę","książeczki","książeczce","książeczką"] },
+    komitet: { term:"Komitet kolejkowy", note:"do ok. 1990", text:"Kolejka pilnowana przez samych klientów, z numerami i sprawdzaniem obecności.", forms:["komitet kolejkowy","komitetu kolejkowego","komitetem kolejkowym","komitecie kolejkowym"] },
+    inkasent: { term:"Inkasent gazowni", note:"cały okres", text:"Chodził po domach, spisywał liczniki i pobierał opłaty.", forms:["inkasent","inkasenta","inkasentowi","inkasentem","inkasentka","inkasentki","inkasentkę","inkasentką","inkasentce"] },
+    spolem: { term:"Społem", text:"Sieć spółdzielczych sklepów spożywczych, obecna w każdej dzielnicy.", forms:["Społem","Społemu"] },
+    ruch: { term:"Ruch (kiosk Ruchu)", text:"Zielone kioski z gazetami, papierosami i biletami.", forms:["Ruchu","kiosk Ruchu","kiosku Ruchu","kioskiem Ruchu","kiosków Ruchu"] },
+    pewex: { term:"Pewex", note:"do ok. połowy lat 90.", text:"Sklep z zachodnimi towarami za dolary i bony.", forms:["Pewex","Pewexu","Peweksu","Peweksie","Peweksem","Pewexie"] },
+    cpn: { term:"CPN", text:"Państwowe stacje benzynowe, do połowy lat 90. jedyne w kraju.", forms:["CPN","CPN-u","CPN-ie"] },
+    pzu: { term:"PZU", text:"Państwowy ubezpieczyciel, u którego obowiązkowo ubezpieczało się auta.", forms:["PZU"] },
+    pko: { term:"PKO", text:"Państwowy bank oszczędnościowy, u którego trzymało się książeczki i oszczędności.", forms:["PKO"] },
+    mpo: { term:"MPO", text:"Miejskie służby oczyszczania, czyli śmieciarze.", forms:["MPO"] },
+    mpk: { term:"MPK", text:"Miejskie tramwaje i autobusy.", forms:["MPK"] },
+    pkp: { term:"PKP", text:"Polskie Koleje Państwowe.", forms:["PKP"] },
+    wopr: { term:"WOPR", text:"Ratownicy wodni na plażach i kąpieliskach.", forms:["WOPR","WOPR-u"] },
+    talon: { term:"Talon", note:"do ok. 1990", text:"Przydział na towar, którego nie dało się po prostu kupić, np. auto.", forms:["talon","talonu","talonem","talony","talonów"] },
+    szczeka: { term:"Szczęka", text:"Blaszany rozkładany stragan na bazarze.", forms:["szczęka","szczęki","szczęce","szczękę","szczęką","szczęk","szczękach"] },
+    saksy: { term:"Saksy", text:"Wyjazd do pracy na Zachód, zwykle do Niemiec, „na czarno”.", forms:["saksy","saksach","saksów"] },
+    cinkciarz: { term:"Cinkciarz", note:"do ok. 1990", text:"Uliczny handlarz walutą. Zaczepiał hasłem „change money?”.", forms:["cinkciarz","cinkciarza","cinkciarzem","cinkciarzy","cinkciarka","cinkciarki","cinkciarką"] },
+    totek: { term:"Totek / Lotto", text:"Gry liczbowe Totalizatora Sportowego. Skreślanie w środy i soboty.", forms:["Totek","Totka","Totku","totek","totka","totku","Lotto"] },
+    pekin: { term:"Pekin", note:"Warszawa", text:"Potoczna nazwa Pałacu Kultury i Nauki.", forms:["Pekin","Pekinie","Pekinu"] },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"Melodia grana co godzinę z wieży Mariackiej, urwana w połowie.", forms:["hejnał","hejnału","hejnałem"] },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"Główny targ Bałut: budki, handel i ciasno.", forms:["Bałucki Rynek","Bałuckim Rynku","Bałuckiego Rynku","Bałuckiemu Rynkowi"] },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"Fabryka przędzy. Łódź była polskim zagłębiem włókienniczym.", forms:["przędzalnia","przędzalni","przędzalnię","przędzalnią","przędzalnie"] },
+    familok: { term:"Familok", note:"Śląsk", text:"Ceglany dom robotniczy na Śląsku, jak na Nikiszowcu.", forms:["familok","familoka","familoku","familokiem","familoki","familoków","familokach"] },
+    lampownia: { term:"Lampownia", note:"Śląsk", text:"Pomieszczenie w kopalni, gdzie górnicy pobierali lampy przed zjazdem.", forms:["lampownia","lampowni","lampownię","lampownią"] },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Wielki letni jarmark w Gdańsku, od średniowiecza.", forms:["Jarmark Dominikański","Jarmarku Dominikańskim","Jarmarku Dominikańskiego","Jarmark Dominikańskiego"] },
+    szychta: { term:"Szychta", note:"Śląsk", text:"Zmiana w kopalni lub hucie.", forms:["szychta","szychty","szychcie","szychtę","szychtą"] },
+    barborka: { term:"Barbórka", note:"Śląsk, 4 grudnia", text:"Święto górników w dzień świętej Barbary, z orkiestrami i galowymi mundurami.", forms:["Barbórka","Barbórki","Barbórkę","Barbórką","Barbórce"] },
+    fajrant: { term:"Fajrant", text:"Koniec pracy.", forms:["fajrant","fajrantu","fajrancie"] },
+    kamrat: { term:"Kamrat", note:"Śląsk", text:"Kolega z pracy, kumpel.", forms:["kamrat","kamrata","kamratem","kamraci","kamratów","kamratami"] },
+    gryfnie: { term:"Gryfnie", note:"Śląsk", text:"Ładnie, fajnie.", forms:["gryfnie"] },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"Powiedzonko z gwary lwowskiej, przywiezione do Wrocławia po wojnie.", forms:["ta joj"] },
+    mankut: { term:"Mańkut", text:"Osoba leworęczna.", forms:["mańkut","mańkuta","mańkutem","mańkutka","mańkutki","mańkuty","mańkutów"] },
+    matura: { term:"Matura", text:"Egzamin na koniec liceum, przepustka na studia.", forms:["matura","matury","maturę","maturą","maturze","maturalne","maturalnego","maturalnym"] },
+    ortalion: { term:"Ortalion", text:"Szeleszcząca nylonowa kurtka, hit lat 80. i 90.", forms:["ortalion","ortalionu","ortalionem","ortalionie","ortalionowa","ortalionową","ortalionowej","ortalionowy","ortalionowego","ortalionowym","ortalionowe"] },
+    relaks: { term:"Relaks", text:"Popularne polskie buty, zwłaszcza zimowe.", forms:["Relaks","Relaksu","Relaksy","Relaksach"] },
+    mebloscianka: { term:"Meblościanka", text:"Rząd szafek na całą ścianę, w każdym mieszkaniu.", forms:["meblościanka","meblościanki","meblościankę","meblościance","meblościanką"] },
+    kredens: { term:"Kredens", text:"Stara szafa kuchenna na naczynia i „specjalne okazje”.", forms:["kredens","kredensu","kredensie","kredensem"] },
+    trzepak: { term:"Trzepak", text:"Metalowa rama na podwórku do trzepania dywanów, a dla dzieci plac zabaw.", forms:["trzepak","trzepaka","trzepaku","trzepakiem"] },
+    lucznik: { term:"Łucznik", text:"Polska maszyna do pisania z Radomia.", forms:["Łucznik","Łucznika","Łucznikiem","Łuczniku"] },
+    zenit: { term:"Zenit", text:"Radziecki aparat fotograficzny, ciężki i niezniszczalny.", forms:["Zenit","Zenita","Zenitem","Zenicie"] },
+    pegasus: { term:"Pegasus", note:"od ok. 1993", text:"Bazarowa konsola do gier, podróbka Nintendo.", forms:["Pegasus","Pegasusa","Pegasusem","Pegasusie"] },
+    wigry: { term:"Wigry", text:"Polski składany rower, w każdej piwnicy.", forms:["Wigry","Wigrach","Wigrami"] },
+    polsilver: { term:"Polsilver", text:"Polskie żyletki.", forms:["Polsilver","Polsilvera","Polsilverem","Polsilvery"] },
+    denaturat: { term:"Denaturat", text:"Fioletowy, skażony spirytus do czyszczenia. „Nie do picia”, ale bywało różnie.", forms:["denaturat","denaturatu","denaturatem"] },
+    luminal: { term:"Luminal", text:"Silny lek nasenny z dawnych aptek.", forms:["luminal","luminalu","luminalem"] },
+    maluch: { term:"Maluch (Fiat 126p)", text:"Najmniejsze i najpopularniejsze auto w Polsce.", forms:["Maluch","Malucha","Maluchem","Maluchu","Maluchy","Maluchów"] },
+    polonez: { term:"Polonez", text:"Większe polskie auto z FSO, marzenie wielu rodzin.", forms:["Polonez","Poloneza","Polonezem","Polonezie","Polonezy","Polonezów"] },
+    syrenka: { term:"Syrenka", text:"Stare polskie auto, produkowane do 1983 roku. W latach 90. już zabytek.", forms:["Syrenka","Syrenki","Syrenkę","Syrenką","Syrence"] },
+    zuk: { term:"Żuk", text:"Polski dostawczak: do sklepu, przeprowadzki i na budowę.", forms:["Żuk","Żuka","Żukiem","Żuku","Żuki"] },
+    cinquecento: { term:"Cinquecento", note:"od 1991", text:"Mały Fiat produkowany w Tychach, następca Malucha.", forms:["Cinquecento"] },
+    tico: { term:"Daewoo Tico", note:"od ok. 1996", text:"Małe koreańskie auto, popularne pod koniec lat 90.", forms:["Daewoo Tico","Tico"] },
+    sygnal: { term:"Sygnał czasu", text:"Piknięcia w Polskim Radiu o pełnej godzinie.", forms:["sygnał czasu","sygnału czasu","sygnałem czasu"] },
+    trojka: { term:"Trójka", text:"Program Trzeci Polskiego Radia, kultowa stacja z muzyką.", forms:["Trójka","Trójki","Trójkę","Trójką","Trójce"] },
+    discopolo: { term:"Disco polo", note:"lata 90.", text:"Prosta muzyka taneczna, sprzedawana na kasetach z bazaru.", forms:["disco polo"] },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"od V 1989", text:"Pierwszy niezależny dziennik, założony przed wyborami w 1989 roku.", forms:["Gazeta Wyborcza","Gazety Wyborczej","Gazetę Wyborczą","Gazecie Wyborczej","Gazetą Wyborczą","Wyborcza","Wyborczej","Wyborczą"] },
+    sporty: { term:"Sporty", text:"Najtańsze polskie papierosy bez filtra.", forms:["Sporty","Sportów","Sportami","Klubowe","Klubowych","Klubowymi"] }
   };
   const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
   if (I18N) I18N.register("pl", { content: { glossary: GLOSSARY } });
@@ -20144,6 +20187,11 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.zainstaluj_gre_ikona_na_ekranie_html": "<button class=\"btn red set-install\" id=\"setInstall\">Install the game</button><p class=\"set-note\">An icon on your home screen, full screen, and it works offline.</p>",
     "ui.settings.gra_jest_zainstalowana_na_tym_html": "<p class=\"set-note\">The game is installed on this device.</p>",
     "ui.settings.co_nowego_wroc_html": "<h3>What's new</h3><div class=\"news\">{join}</div>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"newsBack\">Back</button></div>",
+    "ui.gloss.title": "Glossary",
+    "ui.gloss.close": "Close",
+    "ui.gloss.count": "Entries from the files you have read: {n} of {all}. Tap any word with a dotted underline in the files or the notebook.",
+    "ui.gloss.empty": "The glossary is still empty. Words with a dotted underline in the files and the notebook (old shops, offices, cars, words of the era) are added here once they turn up in files you have read.",
+    "ui.gloss.list_html": "<h3>Glossary</h3>{body}\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"glBack\">Back</button></div>",
     "ui.settings.pelny_ekran": "Full screen",
     "ui.settings.wyjdz_z_pelnego_ekranu": "Exit full screen",
     "ui.settings.zgloszenie_uwagi": "Feedback: ",
@@ -20160,7 +20208,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     "ui.settings.stuknij_menu_b_b_potem_b_4": "Tap the <b>☰</b> menu, then <b>“Add page to”</b> → <b>“Home screen”</b>.",
     "ui.settings.w_safari_stuknij_b_udostepnij_b": "In Safari, tap <b>Share</b> <span class=\"ios-ico\" aria-hidden=\"true\">⬆</span>, then <b>“Add to Home Screen”</b>.",
     "ui.settings.gra_zainstalowana": "Game installed",
-    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick wide\" id=\"setNews\">What's new{v}</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
+    "ui.settings.ustawienia_jak_grac_statystyki_co_html": "<h3>Settings</h3>\n    <div class=\"set-go\"><button class=\"pick\" id=\"setHowto\">How to play</button><button class=\"pick\" id=\"setStats\">Statistics</button>\n      <button class=\"pick\" id=\"setNews\">What's new{v}</button><button class=\"pick\" id=\"setGloss\">Glossary</button>\n      {v2}\n      <button class=\"pick wide\" id=\"setFeedback\">Report a problem or a bug</button></div>\n    <div class=\"lbl\">Sound</div>\n    {sw}\n    {sw2}\n    {v3}\n    {v4}\n    {v5}\n    <a class=\"support-link\" id=\"setSupport\" href=\"{SUPPORT_URL}\" target=\"_blank\" rel=\"noopener\"><b>☕ Buy the commissioner a coffee</b><small>The game is free and has no ads. If you enjoy it, you can support the creator.</small></a>\n    <div class=\"foot\"><button class=\"btn ghost\" id=\"menuClose\">Close</button></div>\n    <p class=\"set-foot\">siatkapowiazan.pl</p>",
     "ui.settings.language_html": "<div class=\"lbl\">Język / Language</div>\n    <div class=\"set-lang\"><button class=\"pick{plOn}\" id=\"langPl\">Polski</button><button class=\"pick{enOn}\" id=\"langEn\">English</button></div>{note}",
     "ui.settings.case_lang_next": "This case stays in the language it was started in. The new language applies from the next case.",
     "ui.settings.cases_in_progress": "(cases: translation in progress)",
@@ -23056,15 +23104,15 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
  */
 (function (root) {
   const GLOSSARY = {
-    mo: { term:"MO (Milicja Obywatelska)", text:"The Citizens' Militia, communist Poland's police force. In May 1990 it was replaced by the Policja." },
-    dzielnicowy: { term:"Dzielnicowy", text:"The neighbourhood beat officer, assigned to a few streets and expected to know every face on them." },
-    dozorca: { term:"Dozorca / dozorczyni", text:"Building caretaker. Kept the keys, swept the yard, and knew everyone's business." },
-    ksiazeczka: { term:"Książeczka mieszkaniowa", text:"A savings book for a cooperative flat. People paid in for decades and many never got the keys." },
-    komitet: { term:"Komitet kolejkowy", text:"A queue run by the people in it. You got a number and had to turn up for roll call, sometimes for days." },
-    inkasent: { term:"Inkasent gazowni", text:"The gas board's meter man, who went door to door reading meters and collecting money. He saw inside every flat." },
+    mo: { term:"MO (Milicja Obywatelska)", note:"until May 1990", text:"The Citizens' Militia, communist Poland's police force. In May 1990 it was replaced by the Policja." },
+    dzielnicowy: { term:"Dzielnicowy", note:"the whole period", text:"The neighbourhood beat officer, assigned to a few streets and expected to know every face on them." },
+    dozorca: { term:"Dozorca / dozorczyni", note:"the whole period", text:"Building caretaker. Kept the keys, swept the yard, and knew everyone's business." },
+    ksiazeczka: { term:"Książeczka mieszkaniowa", note:"the whole period", text:"A savings book for a cooperative flat. People paid in for decades and many never got the keys." },
+    komitet: { term:"Komitet kolejkowy", note:"until c. 1990", text:"A queue run by the people in it. You got a number and had to turn up for roll call, sometimes for days." },
+    inkasent: { term:"Inkasent gazowni", note:"the whole period", text:"The gas board's meter man, who went door to door reading meters and collecting money. He saw inside every flat." },
     spolem: { term:"Społem", text:"The cooperative grocery chain. Every neighbourhood had one, with the same scales, the same smell, the same queue." },
     ruch: { term:"Ruch (kiosk Ruchu)", text:"The green newspaper kiosks. Papers, cigarettes, tram tickets, and a kiosk lady who saw everything." },
-    pewex: { term:"Pewex", text:"Hard-currency shops selling Western goods (jeans, chocolate, whisky) for dollars or vouchers, never złoty." },
+    pewex: { term:"Pewex", note:"until the mid-1990s", text:"Hard-currency shops selling Western goods (jeans, chocolate, whisky) for dollars or vouchers, never złoty." },
     cpn: { term:"CPN", text:"The state petrol stations, for years the only ones in the country. Look for the orange sign." },
     pzu: { term:"PZU", text:"The state insurer. Compulsory car insurance meant a trip to PZU and a stamped policy." },
     pko: { term:"PKO", text:"The state savings bank. Your savings book, your pension and your patience all lived there." },
@@ -23072,24 +23120,24 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     mpk: { term:"MPK", text:"The municipal transport company: trams, buses and tickets punched by hand." },
     pkp: { term:"PKP", text:"Polish State Railways. Conductors with ticket punches and timetables nobody fully trusted." },
     wopr: { term:"WOPR", text:"The volunteer lifeguard service, the people in red at every beach and river bathing spot." },
-    talon: { term:"Talon", text:"An allocation voucher for things you couldn't simply buy, like a car. Often worth more than the car." },
+    talon: { term:"Talon", note:"until c. 1990", text:"An allocation voucher for things you couldn't simply buy, like a car. Often worth more than the car." },
     szczeka: { term:"Szczęka", text:"A folding tin market stall, nicknamed \"the jaw\" for the way it opened. Half of Poland's new businesses started in one." },
     saksy: { term:"Saksy", text:"Going to work in the West, usually Germany, often off the books. Came back with marks and a used car." },
-    cinkciarz: { term:"Cinkciarz", text:"A black-market money changer, named after his whispered \"change money?\". Better rates than the bank, and a fair chance of being cheated." },
+    cinkciarz: { term:"Cinkciarz", note:"until c. 1990", text:"A black-market money changer, named after his whispered \"change money?\". Better rates than the bank, and a fair chance of being cheated." },
     totek: { term:"Totek / Lotto", text:"The state lottery. Numbers ticked every Wednesday and Saturday, and dreams of a Polonez." },
-    pekin: { term:"Pekin", text:"Locals' nickname for the Palace of Culture and Science, Stalin's \"gift\" towering over Warsaw." },
-    hejnal: { term:"Hejnał", text:"The bugle call played every hour from St Mary's tower, broken off mid-note, as it has been for centuries." },
-    baluckirynek: { term:"Bałucki Rynek", text:"The market at the heart of Bałuty, a crush of stalls and traders." },
-    przedzalnia: { term:"Przędzalnia", text:"A spinning mill. Łódź was Poland's textile city, and in the nineties its mills were closing one by one." },
-    familok: { term:"Familok", text:"A red-brick Silesian miners' tenement. Nikiszowiec is built entirely of them." },
-    lampownia: { term:"Lampownia", text:"The lamp room at a coal mine, where miners collected their lamps before going down. Every lamp counted back in." },
-    jarmark: { term:"Jarmark Dominikański", text:"Gdańsk's great summer fair, running since the Middle Ages. Every August the whole city goes." },
-    szychta: { term:"Szychta", text:"A shift at the mine or steelworks." },
-    barborka: { term:"Barbórka", text:"The miners' feast on St Barbara's Day, 4 December. Brass bands, dress uniforms, and nobody sober by evening." },
+    pekin: { term:"Pekin", note:"Warsaw", text:"Locals' nickname for the Palace of Culture and Science, Stalin's \"gift\" towering over Warsaw." },
+    hejnal: { term:"Hejnał", note:"Kraków", text:"The bugle call played every hour from St Mary's tower, broken off mid-note, as it has been for centuries." },
+    baluckirynek: { term:"Bałucki Rynek", note:"Łódź", text:"The market at the heart of Bałuty, a crush of stalls and traders." },
+    przedzalnia: { term:"Przędzalnia", note:"Łódź", text:"A spinning mill. Łódź was Poland's textile city, and in the nineties its mills were closing one by one." },
+    familok: { term:"Familok", note:"Silesia", text:"A red-brick Silesian miners' tenement. Nikiszowiec is built entirely of them." },
+    lampownia: { term:"Lampownia", note:"Silesia", text:"The lamp room at a coal mine, where miners collected their lamps before going down. Every lamp counted back in." },
+    jarmark: { term:"Jarmark Dominikański", note:"Gdańsk", text:"Gdańsk's great summer fair, running since the Middle Ages. Every August the whole city goes." },
+    szychta: { term:"Szychta", note:"Silesia", text:"A shift at the mine or steelworks." },
+    barborka: { term:"Barbórka", note:"Silesia, 4 December", text:"The miners' feast on St Barbara's Day, 4 December. Brass bands, dress uniforms, and nobody sober by evening." },
     fajrant: { term:"Fajrant", text:"Clocking-off time." },
-    kamrat: { term:"Kamrat", text:"Workmate, mate." },
-    gryfnie: { term:"Gryfnie", text:"Nice, lovely, in Silesian dialect." },
-    tajoj: { term:"„Ta joj”", text:"A Lwów expression brought to Wrocław by families resettled after the war. Roughly \"oh, come on\"." },
+    kamrat: { term:"Kamrat", note:"Silesia", text:"Workmate, mate." },
+    gryfnie: { term:"Gryfnie", note:"Silesia", text:"Nice, lovely, in Silesian dialect." },
+    tajoj: { term:"„Ta joj”", note:"Wrocław", text:"A Lwów expression brought to Wrocław by families resettled after the war. Roughly \"oh, come on\"." },
     mankut: { term:"Mańkut", text:"A left-hander. In school they tied your hand to the desk. It rarely worked." },
     matura: { term:"Matura", text:"The school-leaving exam, the ticket to university and the subject of every family's anxiety." },
     ortalion: { term:"Ortalion", text:"A rustling nylon jacket, the uniform of the eighties and nineties. You heard it before you saw it." },
@@ -23099,7 +23147,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     trzepak: { term:"Trzepak", text:"A metal frame in the courtyard for beating carpets. For kids, a climbing frame. For pensioners, an observation post." },
     lucznik: { term:"Łucznik", text:"The Polish typewriter, made in Radom. Every office had one, and every one had a wonky letter." },
     zenit: { term:"Zenit", text:"A Soviet film camera, heavy and indestructible." },
-    pegasus: { term:"Pegasus", text:"The bazaar clone of the Nintendo. Every boy in the block had one, and a cartridge with \"9999 in 1\" games." },
+    pegasus: { term:"Pegasus", note:"from c. 1993", text:"The bazaar clone of the Nintendo. Every boy in the block had one, and a cartridge with \"9999 in 1\" games." },
     wigry: { term:"Wigry", text:"The Polish folding bicycle. Every cellar had one, usually with a flat tyre." },
     polsilver: { term:"Polsilver", text:"Polish razor blades, in a little cardboard sleeve." },
     denaturat: { term:"Denaturat", text:"Purple methylated spirits for cleaning. \"Not for drinking\", the label said. Not everyone listened." },
@@ -23108,12 +23156,12 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     polonez: { term:"Polonez", text:"The bigger Polish car, built by FSO in Warsaw. Every family dreamt of one." },
     syrenka: { term:"Syrenka", text:"An old Polish car, made until 1983. By the nineties, a museum piece still clattering around the courtyards." },
     zuk: { term:"Żuk", text:"The Polish delivery van: groceries, house moves, building sites, and the occasional getaway." },
-    cinquecento: { term:"Cinquecento", text:"The small Fiat built in Tychy, the Maluch's successor." },
-    tico: { term:"Daewoo Tico", text:"A small Korean car that flooded Polish streets in the late nineties." },
+    cinquecento: { term:"Cinquecento", note:"from 1991", text:"The small Fiat built in Tychy, the Maluch's successor." },
+    tico: { term:"Daewoo Tico", note:"from c. 1996", text:"A small Korean car that flooded Polish streets in the late nineties." },
     sygnal: { term:"Sygnał czasu", text:"The pips on Polish Radio marking the full hour. The whole country set its watches by them." },
     trojka: { term:"Trójka", text:"Polish Radio Three, the cult music station. Its chart show was a national ritual." },
-    discopolo: { term:"Disco polo", text:"Cheesy Polish dance pop sold on bazaar cassettes. Mocked by everyone, danced to by everyone." },
-    wyborcza: { term:"„Gazeta Wyborcza”", text:"The first independent daily newspaper, founded just before the 1989 elections." },
+    discopolo: { term:"Disco polo", note:"the 1990s", text:"Cheesy Polish dance pop sold on bazaar cassettes. Mocked by everyone, danced to by everyone." },
+    wyborcza: { term:"„Gazeta Wyborcza”", note:"from May 1989", text:"The first independent daily newspaper, founded just before the 1989 elections." },
     sporty: { term:"Sporty", text:"The cheapest Polish cigarettes, unfiltered and unforgiving." }
   };
   const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
@@ -23806,6 +23854,203 @@ window.SiatkaHistory = { record, has, dailyResult, summary, gamesDone, data, fro
 </script>
 <script>
 /*
+ * Siatka Powiązań — Kartoteka w grze: hasła w aktach, notatniku i podpowiedziach (kropkowane podkreślenie),
+ * karta hasła (fiszka z kartoteki) po stuknięciu i lista widzianych haseł w Ustawieniach.
+ *
+ * Skąd gra wie, gdzie jest hasło:
+ *  - treści z znacznikami (EN): generator zostawia w aktach, notatniku i podpowiedziach „{g:id|tekst}” (glossaryPass w engine.js),
+ *  - treści bez znaczników (PL): formy słowa z pola `forms` w data/i18n/<język>/glossary.js, wyszukiwane w tekście
+ *    (całe słowa; forma z małej litery pasuje też z wielkiej). Sprawy się nie zmieniają, działa też dla starych zapisów.
+ * Hasło pokazuje się w języku interfejsu (SiatkaI18n.glossaryEntry), formy biorą się z języka treści sprawy.
+ * Widziane hasła (wyświetlone w aktach albo notatniku): siatka-glossary (lista id).
+ * API: SiatkaGloss.html(tekst, rich, językSprawy), open(id, element), close(), seen(), listHtml(), plain(tekst)
+ */
+(() => {
+const I = window.SiatkaI18n;
+const SKEY = "siatka-glossary";
+const MARK = /\{g:([\w-]+)\|([^{}]*)\}/g;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/* ---------- widziane hasła ---------- */
+let SEEN = (() => { try { const a = JSON.parse(localStorage.getItem(SKEY) || "[]"); return new Set(Array.isArray(a) ? a : []); } catch (_) { return new Set(); } })();
+let saveT = 0;
+function see(id) {
+  if (SEEN.has(id)) return;
+  SEEN.add(id); clearTimeout(saveT);
+  saveT = setTimeout(() => { try { localStorage.setItem(SKEY, JSON.stringify([...SEEN])); } catch (_) {} }, 200);
+}
+
+/* ---------- formy haseł języka bez znaczników ---------- */
+const FORMS = {};
+function formsRe(lang) {
+  if (lang in FORMS) return FORMS[lang];
+  const p = I.packs[lang], g = p && p.content && p.content.glossary, map = new Map();
+  if (g) for (const [id, e] of Object.entries(g)) for (const f of e.forms || []) {
+    map.set(f, id);
+    if (f[0] !== f[0].toUpperCase()) map.set(f[0].toUpperCase() + f.slice(1), id);
+  }
+  const alts = [...map.keys()].sort((a, b) => b.length - a.length).map(reEsc);
+  return (FORMS[lang] = alts.length ? { re: new RegExp(`(?<![\\p{L}\\d])(?:${alts.join("|")})(?![\\p{L}\\d])`, "gu"), map } : null);
+}
+
+/* tekst bez znaczników + odcinki z hasłami [{ a, b, id }] (pozycje w tym tekście) */
+function spans(s, lang) {
+  s = String(s);
+  const out = [];
+  if (s.indexOf("{g:") >= 0) {
+    let plain = "", last = 0, m;
+    MARK.lastIndex = 0;
+    while ((m = MARK.exec(s))) {
+      plain += s.slice(last, m.index);
+      out.push({ a: plain.length, b: plain.length + m[2].length, id: m[1] });
+      plain += m[2]; last = MARK.lastIndex;
+    }
+    return { plain: plain + s.slice(last), spans: out };
+  }
+  const F = formsRe(lang);
+  if (F) { F.re.lastIndex = 0; let m; while ((m = F.re.exec(s))) out.push({ a: m.index, b: m.index + m[0].length, id: F.map.get(m[0]) }); }
+  return { plain: s, spans: out };
+}
+
+/* HTML: rich(tekst) z podkreślonymi hasłami. rich nie zmienia znaków tekstu, tylko dokłada znaczniki <b …>, więc
+   pozycje hasła liczymy w tekście, a w HTML pomijamy znaczniki; hasło przecięte znacznikiem dzieli się na dwa kawałki. */
+function html(s, rich, lang) {
+  const { plain, spans: sp } = spans(s, lang || I.lang);
+  const h = rich ? rich(plain) : esc(plain);
+  const use = sp.filter(x => I.glossaryEntry(x.id));
+  if (!use.length) return h;
+  use.forEach(x => see(x.id));
+  const open = id => `<span class="gl" data-g="${id}" role="button" tabindex="0">`;
+  let out = "", pos = 0, k = 0, cur = null;
+  for (let i = 0; i < h.length; i++) {
+    const ch = h[i];
+    if (ch === "<") {
+      const j = h.indexOf(">", i); const tag = h.slice(i, j + 1);
+      out += cur ? "</span>" + tag + open(cur.id) : tag;
+      i = j; continue;
+    }
+    if (!cur && k < use.length && pos === use[k].a) { cur = use[k]; out += open(cur.id); }
+    out += ch; pos++;
+    if (cur && pos === cur.b) { out += "</span>"; cur = null; k++; }
+  }
+  if (cur) out += "</span>";
+  return out.replace(/<span class="gl"[^>]*><\/span>/g, "");
+}
+const plain = s => (I.glossaryPlain ? I.glossaryPlain(s) : s);
+
+/* ---------- karta hasła ---------- */
+const st = document.createElement("style");
+st.textContent = `
+.gl{border-bottom:1.5px dotted currentColor;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:1px}
+.gl:hover,.gl:focus-visible{background:rgba(217,166,72,.28);outline:none}
+.gl.on{background:rgba(217,166,72,.42)}
+.gl-card{position:fixed;z-index:30;left:8px;top:8px;width:min(21em,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box;
+  background:#f6efdc;color:var(--ink);font-family:var(--f-type);font-size:14px;line-height:1.45;padding:.6em .9em .8em;
+  border-radius:3px;box-shadow:0 6px 18px rgba(0,0,0,.55);
+  background-image:linear-gradient(transparent 2.15em,rgba(179,38,30,.55) 2.15em,rgba(179,38,30,.55) calc(2.15em + 1.5px),transparent calc(2.15em + 1.5px)),
+    repeating-linear-gradient(transparent 0 1.45em,rgba(70,110,160,.16) 1.45em calc(1.45em + 1px));
+  background-position:0 0,0 .55em;transform-origin:50% 100%;animation:glIn .18s ease-out}
+.gl-card[hidden]{display:none}
+@keyframes glIn{from{opacity:0;transform:translateY(6px) rotate(-.4deg)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.gl-card{animation:none}}
+.gl-card .gl-top{display:flex;align-items:center;gap:.5em;min-height:1.6em;margin-bottom:.45em}
+.gl-card .gl-k{flex:1;font-family:var(--f-body);font-size:.75em;letter-spacing:.14em;text-transform:uppercase;color:var(--stamp)}
+.gl-card .gl-x{flex:none;min-width:2.75em;min-height:2.75em;margin:-.5em -.6em -.5em 0;border:none;background:transparent;color:var(--ink);
+  font:700 1.25em/1 var(--f-body);cursor:pointer;border-radius:50%}
+.gl-card .gl-x:focus-visible{outline:2px solid var(--stamp)}
+.gl-card h4{margin:0;font-family:var(--f-pixel);font-weight:600;font-size:1.15em;line-height:1.25}
+.gl-card .gl-n{font-family:var(--f-body);font-size:.8em;color:var(--ink-soft);margin-top:.1em}
+.gl-card p{margin:.45em 0 0}
+.gl-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.gl-list .gl-e{background:#f6efdc;color:var(--ink);padding:8px 10px;border-left:3px solid var(--stamp);font-family:var(--f-type);font-size:13.5px;line-height:1.45}
+.gl-list .gl-e b{font-family:var(--f-pixel);font-weight:600;font-size:15px}
+.gl-list .gl-e small{font-family:var(--f-body);color:var(--ink-soft);margin-left:6px;font-size:12px}
+.gl-list .gl-e p{margin:3px 0 0}
+.gl-empty{font-size:13.5px;line-height:1.45;opacity:.85}`;
+document.head.appendChild(st);
+
+let card = null, anchor = null;
+function ensureCard() {
+  if (card) return card;
+  card = document.createElement("div");
+  card.className = "gl-card"; card.id = "glCard"; card.hidden = true;
+  card.setAttribute("role", "dialog"); card.setAttribute("aria-modal", "false"); card.setAttribute("aria-labelledby", "glTerm");
+  document.body.appendChild(card);
+  return card;
+}
+function close() {
+  if (!card || card.hidden) return;
+  card.hidden = true;
+  if (anchor) { anchor.classList.remove("on"); if (document.body.contains(anchor)) try { anchor.focus({ preventScroll: true }); } catch (_) {} }
+  anchor = null;
+}
+function place(el) {
+  const r = el.getBoundingClientRect(), vw = innerWidth, vh = innerHeight, M = 8;
+  // przyciski akcji (Podpowiedź, Oskarż) i pasek wyniku zostają odkryte: karta kończy się nad nimi
+  const acts = [...document.querySelectorAll(".actions")].map(a => a.getBoundingClientRect()).filter(a => a.height && a.top > 0);
+  const floor = Math.min(vh - M, ...acts.map(a => a.top - M));
+  card.style.maxHeight = ""; card.style.left = M + "px"; card.style.top = M + "px";
+  const w = card.offsetWidth;
+  card.style.left = Math.max(M, Math.min(vw - w - M, r.left + r.width / 2 - w / 2)) + "px";
+  let h = card.offsetHeight, top;
+  if (r.top - M - h >= M) top = r.top - M - h;                        // nad hasłem (zwykle nad aktami, na tablicy)
+  else if (r.bottom + M + h <= floor) top = r.bottom + M;             // pod hasłem
+  else { top = M; const room = Math.max(120, Math.min(r.top - 2 * M, floor - M)); card.style.maxHeight = room + "px"; h = Math.min(h, room); if (r.top - M - h >= M) top = r.top - M - h; }
+  card.style.top = Math.max(M, top) + "px";
+}
+function open(id, el) {
+  const e = I.glossaryEntry(id);
+  if (!e) return;
+  ensureCard();
+  if (anchor) anchor.classList.remove("on");
+  anchor = el || null; if (anchor) anchor.classList.add("on");
+  see(id);
+  card.innerHTML = `<div class="gl-top"><span class="gl-k">${esc(t("ui.gloss.title"))}</span>`
+    + `<button class="gl-x" id="glClose" aria-label="${esc(t("ui.gloss.close"))}" title="${esc(t("ui.gloss.close"))}">×</button></div>`
+    + `<h4 id="glTerm">${esc(e.term)}</h4>${e.note ? `<div class="gl-n">${esc(e.note)}</div>` : ""}<p>${esc(e.text)}</p>`;
+  card.dataset.g = id;
+  card.hidden = false;
+  if (el) place(el); else { card.style.left = "8px"; card.style.top = "8px"; }
+  card.querySelector("#glClose").onclick = ev => { ev.stopPropagation(); close(); };
+  if (window.SiatkaAudio && window.SiatkaAudio.sfx) window.SiatkaAudio.sfx("paper");
+  if (window.SiatkaTrack) window.SiatkaTrack("kartoteka/" + id);
+}
+
+/* stuknięcie albo klik w hasło (myszka i dotyk dają click), Enter/spacja z klawiatury; poza kartą zamyka */
+document.addEventListener("click", ev => {
+  const g = ev.target.closest && ev.target.closest(".gl");
+  if (g) { ev.stopPropagation(); ev.preventDefault(); if (card && !card.hidden && anchor === g) close(); else open(g.dataset.g, g); return; }
+  if (card && !card.hidden && !card.contains(ev.target)) close();
+}, true);
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape" && card && !card.hidden) { ev.stopPropagation(); close(); return; }
+  const g = ev.target.closest && ev.target.closest(".gl");
+  if (g && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); open(g.dataset.g, g); }
+}, true);
+addEventListener("resize", close);
+document.addEventListener("scroll", ev => { if (card && !card.hidden && !card.contains(ev.target)) close(); }, true);
+
+/* ---------- lista w Ustawieniach ---------- */
+function listHtml() {
+  const all = [...SEEN].map(id => ({ id, e: I.glossaryEntry(id) })).filter(x => x.e);
+  const coll = (() => { try { return new Intl.Collator(I.lang); } catch (_) { return null; } })();
+  const key = s => s.replace(/^[„“"«»]+/, "");
+  all.sort((a, b) => coll ? coll.compare(key(a.e.term), key(b.e.term)) : key(a.e.term) < key(b.e.term) ? -1 : 1);
+  const total = Object.keys((I.packs.pl.content && I.packs.pl.content.glossary) || {}).length;
+  const body = all.length
+    ? `<p class="gl-empty">${esc(t("ui.gloss.count", { n: all.length, all: total }))}</p><div class="gl-list">` + all.map(({ id, e }) =>
+      `<div class="gl-e" data-g="${id}"><b>${esc(e.term)}</b>${e.note ? `<small>${esc(e.note)}</small>` : ""}<p>${esc(e.text)}</p></div>`).join("") + "</div>"
+    : `<p class="gl-empty">${esc(t("ui.gloss.empty"))}</p>`;
+  return t("ui.gloss.list_html", { body });
+}
+
+window.SiatkaGloss = { html, spans, open, close, seen: () => [...SEEN], listHtml, plain };
+})();
+
+</script>
+<script>
+/*
  * Siatka Powiązań — interfejs gry (tablica, sznurki, akta, oskarżenie, wynik).
  * Wymaga: engine/sprites.js, engine/engine.js, data/base.js, data/cities.js, js/audio.js
  */
@@ -23929,10 +24174,12 @@ function buildRich() {
   ];
   RICH = new RegExp(`(?<![\\p{L}\\d])(?:${parts.join("|")})(?![\\p{L}\\d])`, "giu");
 }
-const rich = s => String(s).replace(RICH, (m, ...a) => {
+const richRaw = s => String(s).replace(RICH, (m, ...a) => {
   const g = a[a.length - 1];
   return `<b class="fx fx-${g.t ? "t" : g.l ? "l" : g.k ? "k" : "v"}">${m}</b>`;
 });
+// Kartoteka (js/glossary.js): hasła podkreślone kropkami; gdy treść sprawy nie ma znaczników {g:…}, formy z języka treści
+const rich = s => window.SiatkaGloss ? SiatkaGloss.html(s, richRaw, caseLang) : richRaw(SiatkaI18n.glossaryPlain(String(s)));
 
 /* ---------- ładowanie sprawy ---------- */
 /* 2.1.2: sprawa rozpoczęta (otwarte akta, sznurek, wykluczenie albo podpowiedź) i nierozwiązana przy wyjściu
@@ -24254,7 +24501,7 @@ function travelTable() {
   if (!CASE.travel) return "";
   const nm = id => byId[id] ? byId[id].name : id;
   return t("ui.game.czasy_dojscia_pieszo_html", { join: CASE.travel.map(([a, b, m]) =>
-    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${CASE.travel_note}</p>` : "" });
+    t("ui.game.min_html", { nm: nm(a), nm2: nm(b), m })).join(""), v: CASE.travel_note ? `<p class="tt-note">${rich(CASE.travel_note)}</p>` : "" });
 }
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
@@ -24289,7 +24536,7 @@ $("tab-notes").onclick = () => { if (S.tab === "notes") return; S.tab = "notes";
 const toastEl = $("toast"); let toastT;
 function toast(title, txt, ms = 6000) { toastEl.innerHTML = `<b>${title}</b>${txt}`; toastEl.hidden = false; clearTimeout(toastT); if (ms) toastT = setTimeout(hideToast, ms); }
 function hideToast() { toastEl.hidden = true; }
-toastEl.addEventListener("click", hideToast);
+toastEl.addEventListener("click", e => { if (!(e.target.closest && e.target.closest(".gl"))) hideToast(); });
 $("hintBtn").onclick = () => {
   const max = Math.min(3, CASE.hints.length);
   if (S.hints >= max || S.done) return;
@@ -24584,7 +24831,7 @@ function caseInfo() {
   return t("ui.game.label_city_name_year_size_seed", { label: S.label, city_name: CASE.city_name, year: CASE.year, size: CASE.size, seed: CASE.seed, caseVersion: Siatka.caseVersion(CASE), st, wrong: S.wrong, hints: S.hints });
 }
 /* caseInOtherLang: dla Ustawień, bieżąca sprawa została w języku, w którym ją zaczęto (stary zapis bez opcji generowania) */
-window.SiatkaGame = { openHowto: () => openHowto(), haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
+window.SiatkaGame = { openHowto: () => openHowto(), caseData: () => CASE, haptic: p => haptic(p), caseInfo, caseInOtherLang: () => !!CASE && caseLang !== SiatkaI18n.genLang() };
 })();
 
 </script>
@@ -25193,8 +25440,15 @@ const langRow = () => !(LANG && LANG.enAvailable && LANG.enAvailable()) ? ""
     note: (LANG.packs.en && LANG.packs.en.content && LANG.packs.en.content.base ? "" : `<small class="set-note">${t("ui.settings.cases_in_progress", null, "en")}</small>`)
       + (window.SiatkaGame && window.SiatkaGame.caseInOtherLang && window.SiatkaGame.caseInOtherLang() ? `<small class="set-note" id="langNext">${t("ui.settings.case_lang_next")}</small>` : "") });
 const setLanguage = lang => { if (lang !== LANG.lang) { track("ustawienia/jezyk-" + lang); LANG.setLang(lang); } };
+/* Kartoteka: hasła, które gracz już widział w aktach (js/glossary.js, siatka-glossary), alfabetycznie */
+function renderGloss() {
+  $("menuCard").innerHTML = window.SiatkaGloss.listHtml();
+  $("glBack").onclick = () => { view = "main"; render(); };
+  $("menuCard").scrollTop = 0;
+}
 function render() {
   if (view === "news") return renderNews();
+  if (view === "gloss") return renderGloss();
   let app;
   if (installed()) app = t("ui.settings.gra_jest_zainstalowana_na_tym_html");
   else if (deferred) app = t("ui.settings.zainstaluj_gre_ikona_na_ekranie_html");
@@ -25204,6 +25458,7 @@ function render() {
   $("menuClose").onclick = close;
   $("setHowto").onclick = () => { close(); if (window.SiatkaGame) window.SiatkaGame.openHowto(); };
   $("setNews").onclick = () => { view = "news"; track("ustawienia/co-nowego", t("ui.settings.co_nowego")); render(); };
+  if ($("setGloss")) { $("setGloss").hidden = !window.SiatkaGloss; $("setGloss").onclick = () => { view = "gloss"; track("ustawienia/kartoteka", t("ui.gloss.title")); render(); }; }
   $("setStats").onclick =() => { close(); if (window.SiatkaStats) window.SiatkaStats.open(); };
   if ($("setAch")) $("setAch").onclick = () => { close(); window.SiatkaAch.open(); };
   $("setFeedback").onclick = () => feedback("ustawienia");

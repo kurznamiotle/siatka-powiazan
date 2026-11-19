@@ -38,9 +38,13 @@ for (const [city, crime] of tries) for (let i = 0; i < 150; i++) {
 }
 for (const it of plItems) if (!seen[it.id]) errors.push(`przedmiot ${it.name} nie pojawił się w żadnej sprawie testowej`);
 console.log("Przedmioty w liczbie mnogiej w sprawach testowych:", seen);
-// 3) (i18n) znacznik Kartoteki {g:hasło} zostaje samym tekstem, a odmiana i podstawianie działają jak dotąd
-if (S.tx("To {g:dozorca} z {street}.", "m", { street: "Ząbkowskiej" }) !== "To dozorca z Ząbkowskiej.") errors.push("{g:hasło} bez tekstu");
-if (S.tx("[Był|Była] {g:dozorca|dozorcą}.", "f") !== "Była dozorcą.") errors.push("{g:hasło|tekst} razem z [a|b]");
+// 3) (i18n) znacznik Kartoteki {g:hasło}: tx zostawia tekst z niewidocznym znacznikiem, który glossaryPass zamienia na sam tekst
+//    albo (akta, notatnik, podpowiedzi) na „{g:id|tekst}”; odmiana i podstawianie działają jak dotąd
+const GI = globalThis.SiatkaI18n, plainG = s => GI.glossaryResolve(s, false), keepG = s => GI.glossaryResolve(s, true);
+if (plainG(S.tx("To {g:dozorca} z {street}.", "m", { street: "Ząbkowskiej" })) !== "To dozorca z Ząbkowskiej.") errors.push("{g:hasło} bez tekstu");
+if (plainG(S.tx("[Był|Była] {g:dozorca|dozorcą}.", "f")) !== "Była dozorcą.") errors.push("{g:hasło|tekst} razem z [a|b]");
+if (keepG(S.tx("[Był|Była] {g:dozorca|dozorcą}.", "f")) !== "Była {g:dozorca|dozorcą}.") errors.push("{g:hasło|tekst}: znacznik w aktach");
+if (GI.glossaryPlain("Była {g:dozorca|dozorcą}.") !== "Była dozorcą.") errors.push("glossaryPlain");
 if (S.t("gen.size.XL") !== "Ogromna" || S.t("nie.ma.takiego.klucza") !== "nie.ma.takiego.klucza") errors.push("t(): klucz z paczki albo sam klucz");
 if (S.t("gen.timeline.name_d_min", { name: "Kiosk", d: 10 }) !== "Kiosk: 10 min") errors.push("t(): wstawki {zmienne}");
 if (errors.length) { console.log("BŁĄD liczby mnogiej:", errors.slice(0, 10)); process.exit(1); }

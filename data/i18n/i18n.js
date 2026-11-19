@@ -60,8 +60,29 @@
         const i = pair.indexOf(":"); el.setAttribute(pair.slice(0, i), this.t(pair.slice(i + 1)));
       }));
     },
-    /* znacznik Kartoteki {g:hasło} w szablonach: miejsce na podmianę (np. na odnośnik do hasła); na razie sam tekst */
-    glossary(id, label) { return label != null ? label : id; },
+    /* znacznik Kartoteki {g:hasło|tekst} w szablonach generatora: tekst + niewidoczny znacznik z prywatnego obszaru Unicode
+       (U+E000, długość tekstu, id, U+E001) PO tekście, więc wielka litera na początku zdania, przedimek a/an i wyrażenia
+       textRe działają jak na samym tekście. Na końcu generateCase glossaryPass zamienia go w aktach, notatniku i podpowiedziach
+       na „{g:id|tekst}” (podkreślenie w grze), a w pozostałych polach na sam tekst. */
+    glossary(id, label) {
+      const s = label != null ? label : id;
+      if (!s || s.length > 255) return s;
+      return s + "\uE000" + String.fromCharCode(0xE100 + s.length) + [...id].map(ch => String.fromCharCode(0xE200 + ch.charCodeAt(0))).join("") + "\uE001";
+    },
+    /* znaczniki z glossary() w gotowym tekście: keep = true → „{g:id|tekst}”, inaczej sam tekst */
+    glossaryResolve(s, keep) {
+      if (typeof s !== "string" || s.indexOf("\uE000") < 0) return s;
+      let out = "", last = 0; const re = /\uE000([\uE100-\uE1FF])([\uE200-\uE2FF]+)\uE001/g; let m;
+      while ((m = re.exec(s))) {
+        const before = out + s.slice(last, m.index), len = m[1].charCodeAt(0) - 0xE100;
+        const id = [...m[2]].map(ch => String.fromCharCode(ch.charCodeAt(0) - 0xE200)).join("");
+        out = keep && len <= before.length ? before.slice(0, before.length - len) + "{g:" + id + "|" + before.slice(before.length - len) + "}" : before;
+        last = re.lastIndex;
+      }
+      return out + s.slice(last);
+    },
+    /* „{g:id|tekst}” w tekście sprawy → sam tekst (tam, gdzie nie ma podkreślenia: udostępnianie, podpisy) */
+    glossaryPlain(s) { return typeof s === "string" && s.indexOf("{g:") >= 0 ? s.replace(/\{g:[\w-]+\|([^{}]*)\}/g, "$1") : s; },
     /* hasło Kartoteki { term, text, note? } w bieżącym języku, a gdy go brak, po polsku (data/i18n/<język>/glossary.js) */
     glossaryEntry(id, lang) {
       const cur = this.packs[lang || this.lang], pl = this.packs.pl, g = p => p && p.content && p.content.glossary;

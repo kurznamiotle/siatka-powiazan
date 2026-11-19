@@ -188,6 +188,63 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   if (/undefined|NaN|object Object/.test(akta + notes)) fail("„undefined”/„NaN”/„object Object” w aktach albo notatniku");
   ok(`sprawa dnia (${line.replace(/\s+/g, " ")}): akta i notatnik`);
 
+  /* 4b. Kartoteka: hasło podkreślone w aktach (albo w notatniku), karta po stuknięciu i po kliknięciu myszką, karta nie
+     zasłania przycisków akcji, zapis widzianych haseł i lista w Ustawieniach (alfabetycznie) */
+  const findGloss = () => ev(`(() => { const c = SiatkaGame.caseData(), L = SiatkaI18n.genLang();
+    const has = s => SiatkaGloss.spans(s, L).spans.some(x => SiatkaI18n.glossaryEntry(x.id));
+    const n = c.nodes.find(n => n.text.some(has)); if (n) return { node: n.id };
+    return c.rules.some(r => has(r.text)) ? { notes: true } : null; })()`);
+  let gf = await findGloss();
+  for (let k = 0; k < 4 && !gf; k++) { // w sprawie dnia nie ma hasła: kolejna sprawa z „Nowej sprawy”
+    await click("newBtn");
+    await waitFor(visible("newCase") + ` || document.querySelector("#board .node")`, "„Nowa sprawa” się nie otworzyła");
+    if (await ev(visible("newCase"))) await click("newGo");
+    await sleep(500); await dismissTimeline();
+    gf = await findGloss();
+  }
+  if (!gf) fail("Kartoteka: w 5 sprawach ani jednego hasła w aktach i notatniku");
+  if (gf.node) await tapSel(`#board .node[data-node="${gf.node}"]`, "zdjęcia z hasłem w aktach"); else await click("tab-notes");
+  await waitFor(`document.querySelector("#sheet .gl")`, "Kartoteka: w aktach brak podkreślonego hasła");
+  const gid = await ev(`document.querySelector("#sheet .gl").dataset.g`);
+  const gEntry = await ev(`SiatkaI18n.glossaryEntry(${JSON.stringify(gid)})`);
+  const gStyle = await ev(`getComputedStyle(document.querySelector("#sheet .gl")).borderBottomStyle`);
+  if (gStyle !== "dotted") fail("Kartoteka: hasło bez kropkowanego podkreślenia (" + gStyle + ")");
+  const cardOk = async how => {
+    await waitFor(visible("glCard"), `Kartoteka: karta hasła nie otworzyła się (${how})`);
+    const st = await ev(`(() => { const c = document.getElementById("glCard"), r = c.getBoundingClientRect();
+      const hit = [...document.querySelectorAll(".actions button")].filter(b => b.offsetWidth).some(b => { const q = b.getBoundingClientRect(); return !(r.bottom <= q.top || r.top >= q.bottom || r.right <= q.left || r.left >= q.right); });
+      return { term: c.querySelector("h4").textContent, text: c.querySelector("p").textContent, hit, inView: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }; })()`);
+    if (st.term !== gEntry.term || st.text !== gEntry.text) fail(`Kartoteka: karta pokazuje „${st.term}”, a powinna „${gEntry.term}”`);
+    if (st.hit) fail("Kartoteka: karta zasłania przyciski akcji");
+    if (!st.inView) fail("Kartoteka: karta wychodzi poza ekran");
+  };
+  await tapSel("#sheet .gl", "hasła w aktach");
+  await cardOk("dotyk");
+  // SMOKE_SHOT=katalog: zrzut ekranu z otwartą kartą hasła (do obejrzenia)
+  if (process.env.SMOKE_SHOT) { const { result: { data } } = await C("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(process.env.SMOKE_SHOT, `kartoteka-${LANG}.png`), Buffer.from(data, "base64")); }
+  await tapSel("#glClose", "przycisku zamknięcia karty");
+  if (await ev(visible("glCard"))) fail("Kartoteka: przycisk zamknięcia nie zamknął karty");
+  // myszką: klik w hasło otwiera, klik obok zamyka
+  const mpt = await ev(`(() => { const g = document.querySelector("#sheet .gl"); g.scrollIntoView({ block: "center" }); const r = g.getClientRects()[0]; return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  const mouse = async (x, y) => { for (const type of ["mousePressed", "mouseReleased"]) await C("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 }); await sleep(200); };
+  await mouse(mpt.x, mpt.y);
+  await cardOk("myszka");
+  await mouse(5, 5);
+  if (await ev(visible("glCard"))) fail("Kartoteka: klik poza kartą jej nie zamknął");
+  await sleep(400);
+  if (!(await ev(`JSON.parse(localStorage.getItem("siatka-glossary") || "[]")`)).includes(gid)) fail("Kartoteka: hasło nie zapisało się w siatka-glossary");
+  await click("menuBtn");
+  await waitFor(visible("menu") + ` && document.getElementById("setGloss")`, "Ustawienia: brak pozycji Kartoteka");
+  await click("setGloss");
+  await waitFor(`document.querySelector('.gl-list .gl-e[data-g="${gid}"]')`, "Ustawienia → Kartoteka: brak widzianego hasła na liście");
+  const gl = await ev(`(() => { const terms = [...document.querySelectorAll(".gl-list .gl-e b")].map(b => b.textContent.replace(/^[„“"«»]+/, "")), c = new Intl.Collator(SiatkaI18n.lang);
+    return { n: terms.length, sorted: terms.every((x, i) => !i || c.compare(terms[i - 1], x) <= 0), title: document.querySelector("#menuCard h3").textContent }; })()`);
+  if (!gl.sorted) fail("Ustawienia → Kartoteka: lista nie jest alfabetyczna");
+  if (gl.title !== await tl("ui.gloss.title")) fail("Ustawienia → Kartoteka: zły tytuł " + gl.title);
+  await click("glBack");
+  await click("menuClose");
+  ok(`Kartoteka: „${gEntry.term}” z ${gf.node ? "akt" : "notatnika"} (dotyk i myszka), karta nie zasłania przycisków, lista w Ustawieniach (${gl.n})`);
+
   if (LANG === "en") {
     /* 5. EN: sprawa dnia i sprawa z „New case” bez polskich słów (całe słowa, poza tekstem w cudzysłowach: tytuły, nazwy) */
     const PL_WORDS = ["przy", "się", "jest", "nikt", "ulic", "ulicy", "że", "nie", "był", "była", "było", "tego", "wieczoru", "sprawca", "sprawcy",
@@ -260,6 +317,31 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
     await click("menuBtn");
     await waitFor(visible("menu") + ` && document.getElementById("langNext")`, "w Ustawieniach brak informacji, że sprawa zostaje w swoim języku");
     ok("stary zapis bez opcji: sprawa w swoim języku, informacja w Ustawieniach");
+
+    /* 9. przełącznik w Ustawieniach (#dev): Polski, potem English; sprawa dnia ta sama, postęp zostaje (mechanizm z pkt 6) */
+    const dsv = () => ev(`(() => { const sv = JSON.parse(localStorage.getItem("siatka-save-daily") || "null"); return sv && { lang: sv.lang, num: sv.case.title, read: sv.read, hints: sv.hints }; })()`);
+    const viaSwitch = async lang => {
+      if (!(await ev(visible("menu")))) await click("menuBtn");
+      await waitFor(visible("menu") + ` && document.getElementById("langPl")`, "w #dev brak przełącznika języka");
+      await tapSel(lang === "pl" ? "#langPl" : "#langEn", "przycisku języka " + lang);
+      await waitFor(`document.readyState === "complete" && document.querySelector("#board .node") && SiatkaI18n.lang === ${JSON.stringify(lang)}`, `po kliknięciu ${lang} gra nie wstała w tym języku`, 15000);
+      const st = await ev(`({ html: document.documentElement.lang, saved: localStorage.getItem("siatka-lang"), q: location.search, dev: location.hash })`);
+      if (st.html !== lang || st.saved !== lang || /lang=/.test(st.q) || st.dev !== "#dev") fail("przełącznik języka: " + JSON.stringify(st));
+      await click("dailyBtn");
+      await waitFor(`/·/.test(document.getElementById("caseLine").textContent)`, "sprawa dnia się nie wczytała po zmianie języka");
+      await dismissTimeline();
+      await sleep(400);
+    };
+    // po kroku 8 gra jest po polsku: najpierw English, potem z powrotem Polski
+    if (await ev(`SiatkaI18n.lang`) !== "pl") await viaSwitch("pl");
+    const d0 = await dsv();
+    await viaSwitch("en");
+    const d1 = await dsv();
+    if (d1.lang !== "en" || (d0.lang === "en" && d1.num !== d0.num) || d1.hints !== d0.hints || !d0.read.every(x => d1.read.includes(x))) fail("przełącznik → English: postęp sprawy dnia się nie zgadza: " + JSON.stringify({ d0, d1 }));
+    await viaSwitch("pl");
+    const d2 = await dsv();
+    if (d2.lang !== "pl" || d2.num === d1.num || d2.hints !== d0.hints || !d0.read.every(x => d2.read.includes(x))) fail("przełącznik → Polski: sprawa albo postęp się nie zgadza: " + JSON.stringify({ d0, d2 }));
+    ok("przełącznik w Ustawieniach (#dev): English → Polski, ta sama sprawa dnia, postęp zachowany");
   }
 
   await sleep(500);
