@@ -67,6 +67,7 @@ const SLIDES = [
     title: t("ui.tutorial.notatnik_i_wykluczanie"),
     text: t("ui.tutorial.sprawca_spelnia_wszystkie_reguly_z_notatnika"),
     tip: t("ui.tutorial.ten_kto_nie_lamie_zadnej_reguly"),
+    more: t("ui.game.tl_card_tab"),
     scene() {
       const { P, L } = demo();
       const tag = (txt, y, cls) => `<span class="hw-tag2 ${cls}" style="top:${y}px">${txt}</span>`;
@@ -179,13 +180,15 @@ const CSS = `
 @keyframes hw-star{0%,58%{opacity:0;scale:.3}64%{opacity:1;scale:1.3}68%,94%{opacity:1;scale:1}100%{opacity:0}}
 `;
 
-let i = 0, after = null, styled = false, withInstall = false, quitSent = false;
+let i = 0, after = null, styled = false, withInstall = false, withMore = false, quitSent = false;
 function render() {
   const s = SLIDES[i], stage = $("hwStage");
   stage.className = "hw-stage hw-s" + s.s; // s = numer sceny (CSS animacji)
   stage.innerHTML = s.scene();
   stage.setAttribute("aria-label", t("ui.tutorial.ilustracja_title", { title: s.title }));
   $("hwTitle").textContent = s.title; $("hwTxt").textContent = s.text; $("hwTip").textContent = s.tip;
+  // „Jak grać” z Ustawień: przy notatniku zdanie o zakładce „Oś czasu” (przy pierwszym uruchomieniu bez niego)
+  const more = $("hwMore"); if (more) { more.hidden = !(withMore && s.more); more.textContent = withMore && s.more ? s.more : ""; }
   $("hwStep").textContent = t("ui.tutorial.krok_v_z_length", { v: i + 1, length: SLIDES.length });
   $("hwPrev").disabled = i === 0;
   $("hwNext").textContent = i === SLIDES.length - 1 ? t("ui.tutorial.do_roboty") : t("ui.tutorial.dalej");
@@ -206,7 +209,7 @@ function go(d) {
   i = j; AU.sfx("paper"); render();
 }
 function open(cb, opts = {}) {
-  withInstall = !!opts.install;
+  withInstall = !!opts.install; withMore = !!opts.more;
   if (!styled) { const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st); styled = true; }
   after = cb || null; i = 0; quitSent = false; render();
   // 2.1.2: samouczek otwiera się sam tylko przy pierwszej wizycie; flaga od razu przy otwarciu, nie dopiero przy zamknięciu

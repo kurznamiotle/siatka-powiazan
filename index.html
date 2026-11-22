@@ -130,7 +130,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .overlay:not([hidden]) .card.shake{animation:shake .35s}
 
 .hint-toast{position:absolute;left:12px;right:12px;bottom:12px;z-index:4;background:var(--paper);color:var(--ink);font-family:var(--f-type);font-size:13.5px;padding:10px 12px;box-shadow:0 4px 12px rgba(0,0,0,.5);transform:rotate(-.6deg)}
-.hint-toast b{font-family:var(--f-pixel);font-weight:600;color:var(--stamp);display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+.hint-toast>b{font-family:var(--f-pixel);font-weight:600;color:var(--stamp);display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
 
 /* desk drawer */
 .desk{flex:0 0 auto;background:var(--desk);border-top:3px solid var(--desk-edge);border-radius:4px;display:flex;flex-direction:column;gap:10px;padding:10px}
@@ -149,6 +149,36 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
 .tt td:last-child{text-align:right;white-space:nowrap;width:4.5em;font-weight:700}
 .tt-note{font-family:var(--f-body);font-size:12px;color:var(--ink-soft)}
 .tl-card .tt{margin:8px 0}
+.tl-card .tl-new{font-family:var(--f-body);font-size:13px}
+.tl-card .tl-new.hl{background:#fff3b0;padding:8px;border-left:3px solid var(--brass)}
+.tl-tag{font-family:var(--f-pixel);font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:var(--stamp);color:#fff4ea;padding:1px 5px;margin-right:4px}
+/* oś czasu w notatniku: jednostki em, żeby rosła z czcionką */
+.tab[hidden]{display:none}
+.tlx{position:relative;margin-top:.5em;padding-top:1.5em}
+.tlx-band{position:absolute;top:0;bottom:0;left:var(--a);width:var(--w);min-width:3px;background:rgba(178,34,34,.2);border-left:2px solid #b22222;border-right:2px solid #b22222;pointer-events:none;z-index:0}
+.tlx-ax{position:absolute;top:0;left:0;right:0;height:1.4em;border-bottom:1px solid var(--ink-soft);font-family:var(--f-type);font-size:.8em}
+.tlx-ax span{position:absolute;bottom:0;height:.5em;border-left:1px solid var(--ink-soft)}
+.tlx-ax span:not(.h){height:1.5em;padding-left:.15em;line-height:1;white-space:nowrap}
+.tlx-ax span:last-child:not(.h){translate:-100%;border-left:0;border-right:1px solid var(--ink-soft);padding:0 .15em 0 0}
+.tlx-row{position:relative;z-index:1;border-bottom:1px dashed var(--paper-shade);padding:.35em 0 .1em}
+.tlx-nm{display:flex;align-items:center;justify-content:space-between;gap:.5em;font-family:var(--f-body);font-size:.95em}
+.tlx-nm b{font-weight:700}
+.tlx-x{font-size:.85em;padding:.25em .6em;min-height:2.2em}
+.tlx-row.cut .tlx-nm b{text-decoration:line-through;text-decoration-thickness:2px;color:var(--ink-soft)}
+.tlx-row.cut .tlx-tr{opacity:.35}
+.tlx-row.cut::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid var(--stamp);opacity:.7;pointer-events:none}
+.tlx-tr{position:relative;height:3.5em}
+.tlx-tr::before{content:"";position:absolute;left:0;right:0;top:.9em;border-top:2px solid var(--paper-shade)}
+.tlx-dot,.tlx-bar{position:absolute;top:0;background:none;border:0;padding:0;color:var(--ink);font-family:var(--f-body);cursor:pointer}
+.tlx-dot{width:2.2em;height:1.8em;margin-left:-1.1em}
+.tlx-dot i{position:absolute;left:50%;top:.9em;width:.8em;height:.8em;margin:-.4em 0 0 -.4em;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--paper)}
+.tlx-dot.doc i{border-radius:1px;background:var(--brass)}
+.tlx-dot span,.tlx-bar span{position:absolute;left:50%;top:1.85em;translate:-50%;font-size:.75em;line-height:1.1;white-space:nowrap;background:var(--paper);padding:0 .15em}
+.tlx-dot.alt span{top:3.05em}
+.tlx-bar{top:.55em;height:.7em;background:var(--ink);border-radius:.35em;min-width:.7em}
+.tlx-bar.doc{background:var(--brass)}
+.tlx-bar span{top:1.4em}
+.tlx-tt{display:block;margin-top:.4em;font-weight:700}
 .tl-card .ex{font-family:var(--f-body);font-size:13px;background:rgba(0,0,0,.05);padding:8px;border-left:3px solid var(--stamp)}
 .sheet .how{font-family:var(--f-body);font-size:12.5px;color:var(--ink-soft);border-top:1px dashed var(--paper-shade);margin-top:10px;padding-top:8px}
 .sheet .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -287,6 +317,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
     <div class="tabs" role="tablist">
       <button class="tab" id="tab-akta" role="tab" aria-selected="true" data-i18n="ui.html.tab_files"></button>
       <button class="tab" id="tab-notes" role="tab" aria-selected="false" data-i18n="ui.html.tab_notes"></button>
+      <button class="tab" id="tab-tl" role="tab" aria-selected="false" data-i18n="ui.html.tab_timeline" hidden></button>
     </div>
     <div class="sheet" id="sheet" tabindex="0"></div>
     <div class="actions">
@@ -334,6 +365,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--brass);out
       <h3 id="hwTitle"></h3>
       <p class="hw-txt" id="hwTxt"></p>
       <p class="hw-tip" id="hwTip"></p>
+      <p class="hw-tip hw-more" id="hwMore" hidden></p>
       <div class="hw-install" id="hwInstall" hidden></div>
       <div class="hw-dots" id="hwDots"></div>
       <div class="foot"><button class="btn ghost" id="hwPrev" data-i18n="ui.html.back"></button><button class="btn red" id="hwNext" data-i18n="ui.tutorial.dalej"></button></div>

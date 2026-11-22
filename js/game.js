@@ -75,7 +75,7 @@ function saveNow() {
   clearTimeout(saveT);
   if (!S || !META) return;
   if (closedElsewhere()) return;
-  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, opts: META.gen, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read],
+  ls.set(SAVE[META.kind], { v: 1, gen: Siatka.caseVersion(CASE), lang: caseLang, opts: META.gen, case: CASE, label: S.label, strings: [...S.strings], out: [...S.out], read: [...S.read], tlx: [...S.tlx],
     hints: S.hints, wrong: S.wrong, done: S.done, win: S.win, at: Date.now(), elapsed: (S.tEnd || Date.now()) - S.t0 });
   ls.set(SAVE.last, META.kind);
 }
@@ -161,11 +161,14 @@ function abandonSaved() {
 }
 window.addEventListener("pagehide", () => abandonCheck());
 /* 2.2: jednorazowa karta przy pierwszej sprawie z osią czasu (flaga siatka-new-timeline); zegar stoi, gdy jest otwarta */
+const TL_CARD = 2;
 function timelineIntro() {
-  if (ls.get("siatka-new-timeline") || !CASE || CASE.archetype !== "timeline" || ($("howto") && !$("howto").hidden)) return;
-  ls.set("siatka-new-timeline", 1);
+  /* wersja karty: 1 = 2.2 (bez zakładki), 2 = z akapitem o zakładce „Oś czasu”; kto widział 1, dostaje ją raz jeszcze z wyróżnionym akapitem */
+  const seen = +ls.get("siatka-new-timeline") || 0;
+  if (seen >= TL_CARD || !CASE || CASE.archetype !== "timeline" || ($("howto") && !$("howto").hidden)) return;
+  ls.set("siatka-new-timeline", TL_CARD);
   const ov = document.createElement("div"); ov.className = "overlay"; const t0 = Date.now();
-  ov.innerHTML = t("ui.game.nowy_typ_sprawy_os_czasu_html");
+  ov.innerHTML = t("ui.game.nowy_typ_sprawy_os_czasu_html", { tl: seen ? `<p class="tl-new hl"><b class="tl-tag">${t("ui.game.tl_nowe")}</b> ${t("ui.game.tl_card_tab")}</p>` : `<p class="tl-new">${t("ui.game.tl_card_tab")}</p>` });
   document.body.appendChild(ov); AU.sfx("paper");
   ov.querySelector("#tlGo").onclick = () => { ov.remove(); if (S && !S.done) S.t0 += Date.now() - t0; saveSoon(); };
   track("os-czasu/karta", t("ui.game.os_czasu_karta_wprowadzajaca"));
@@ -178,12 +181,13 @@ function load(c, label, meta, saved) {
   byId = Object.fromEntries(c.nodes.map(n => [n.id, n]));
   supportedSet = new Set(c.supported_connections.map(([a, b]) => key(a, b)));
   chainKeys = c.culprit_chain.map(([a, b]) => key(a, b));
-  S = { strings: new Set(), out: new Set(), read: new Set(), sel: null, tab: "akta", hints: 0, wrong: 0, done: false, win: false,
+  S = { strings: new Set(), out: new Set(), read: new Set(), tlx: new Set(), sel: null, tab: "akta", hints: 0, wrong: 0, done: false, win: false,
     t0: Date.now(), tEnd: null, pending: null, pick: { who: null, what: null }, label };
   if (saved) {
     const ok = id => !!byId[id];
     S.strings = new Set((saved.strings || []).filter(k => k.split("|").every(ok)));
     S.out = new Set((saved.out || []).filter(ok)); S.read = new Set((saved.read || []).filter(ok));
+    S.tlx = new Set((saved.tlx || []).filter(id => ok(id) && byId[id].type === "person"));
     S.hints = saved.hints || 0; S.wrong = saved.wrong || 0; S.done = !!saved.done; S.win = !!saved.win;
     S.t0 = Date.now() - (saved.elapsed || 0); if (S.done) S.tEnd = Date.now();
   }
@@ -443,7 +447,68 @@ function select(id) {
   AU.sfx("paper");
   renderTabs(); renderSheet();
 }
-function renderTabs() { $("tab-akta").setAttribute("aria-selected", S.tab === "akta"); $("tab-notes").setAttribute("aria-selected", S.tab === "notes"); }
+function renderTabs() {
+  if (S.tab === "tl" && !isTl()) S.tab = "akta";
+  $("tab-akta").setAttribute("aria-selected", S.tab === "akta"); $("tab-notes").setAttribute("aria-selected", S.tab === "notes");
+  $("tab-tl").hidden = !isTl(); $("tab-tl").setAttribute("aria-selected", S.tab === "tl");
+}
+/* ---------- oś czasu (sprawy typu oś czasu): wiersz na podejrzanego, godziny tylko z przeczytanych akt, bez wniosków ---------- */
+const isTl = () => !!CASE && CASE.archetype === "timeline" && !!(CASE.time && CASE.time.crime);
+const hm2m = s => { const [h, m] = String(s).split(":").map(Number); return h * 60 + m; };
+const m2hm = m => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+/* fakty z godziną: obecność (kropka) i alibi od–do (pasek); źródło = akta osoby albo dowód, na który fakt przeszedł (src) */
+function tlFacts() {
+  const out = [];
+  for (const f of CASE.facts) {
+    const p = f.who && byId[f.who]; if (!p || p.type !== "person") continue;
+    const src = f.src && byId[f.src] ? f.src : f.who;
+    if (f.type === "presence" && f.at) out.push({ f, who: f.who, src, a: hm2m(f.at), b: null, at: [f.at] });
+    else if (f.type === "alibi" && f.from && f.to) out.push({ f, who: f.who, src, a: hm2m(f.from), b: hm2m(f.to), at: [f.from, f.to] });
+  }
+  return out;
+}
+function tlSentence(x) { const n = byId[x.src]; return (n.text || []).find(l => x.at.some(h => l.includes(h))) || ""; }
+function tlTravel(where) {
+  const scene = CASE.nodes.find(n => n.type === "location");
+  if (!where || !scene) return "";
+  if (where === scene.id) return t("ui.game.tl_na_miejscu");
+  const tr = (CASE.travel || []).find(([a, b]) => (a === scene.id && b === where) || (b === scene.id && a === where));
+  return tr ? t("ui.game.tl_dojscie", { m: tr[2] }) : "";
+}
+function timelineSheet() {
+  const all = tlFacts(), cr = CASE.time.crime, A = hm2m(cr.from), Bm = hm2m(cr.to);
+  const ts = all.flatMap(x => x.b === null ? [x.a] : [x.a, x.b]).concat([A, Bm]);
+  const lo = Math.floor((Math.min(...ts) - 15) / 30) * 30, hi = Math.ceil((Math.max(...ts) + 15) / 30) * 30;
+  const pos = m => (100 * (m - lo) / (hi - lo)).toFixed(2) + "%";
+  const step = hi - lo > 300 ? 60 : 30, ticks = [];
+  for (let m = lo; m <= hi; m += step) ticks.push(`<span class="${m % 60 ? "h" : ""}" style="left:${pos(m)}">${m % 60 ? "" : m2hm(m)}</span>`);
+  const vis = all.filter(x => S.read.has(x.src));
+  const rows = CASE.nodes.filter(n => n.type === "person").map(p => {
+    const mine = vis.filter(x => x.who === p.id).sort((u, v) => u.a - v.a);
+    let prev = -1e9, alt = false;
+    const marks = mine.map(x => {
+      const k = all.indexOf(x), place = x.f.where && byId[x.f.where] ? byId[x.f.where].label : "";
+      const p0 = 100 * (x.a - lo) / (hi - lo); alt = p0 - prev < 16 ? !alt : false; prev = p0;
+      const doc = x.src !== x.who ? " doc" : "", aria = `${place ? place + ", " : ""}${x.at.join("–")}`;
+      if (x.b !== null) return `<button class="tlx-bar${doc}" data-k="${k}" style="left:${pos(x.a)};width:${(100 * (x.b - x.a) / (hi - lo)).toFixed(2)}%" aria-label="${aria}"><span>${place}</span></button>`;
+      return `<button class="tlx-dot${doc}${alt ? " alt" : ""}" data-k="${k}" style="left:${pos(x.a)}" aria-label="${aria}"><i></i><span>${place}</span></button>`;
+    }).join("");
+    const cut = S.tlx.has(p.id);
+    return `<div class="tlx-row${cut ? " cut" : ""}" data-row="${p.id}"><div class="tlx-nm"><b>${p.label}</b><button class="chip tlx-x${cut ? " on" : ""}" data-cut="${p.id}" aria-pressed="${cut}">${cut ? t("ui.game.przywroc") : (p.g === "f" ? t("ui.game.tl_nie_zdazyla") : t("ui.game.tl_nie_zdazyl"))}</button></div><div class="tlx-tr">${marks}</div></div>`;
+  }).join("");
+  sheet.innerHTML = t("ui.game.tl_h_html") + `<div class="tlx" style="--a:${pos(A)};--w:${(100 * (Bm - A) / (hi - lo)).toFixed(2)}%"><div class="tlx-band" aria-hidden="true"></div><div class="tlx-ax" aria-hidden="true">${ticks.join("")}</div>${rows}</div>`
+    + `<p class="how">${t("ui.game.tl_okno", { a: cr.from, b: cr.to })}${vis.length ? "" : " " + t("ui.game.tl_pusto")}</p>`;
+  sheet.querySelectorAll("[data-k]").forEach(b => b.onclick = () => {
+    const x = all[+b.dataset.k], src = byId[x.src], place = x.f.where && byId[x.f.where];
+    const title = `${byId[x.who].label} · ${x.at.join("–")}${place ? " · " + place.label : ""}`;
+    toast(title, `<span>${src.type === "evidence" ? `<i>${src.name}:</i> ` : ""}${rich(tlSentence(x))}</span>${place ? `<span class="tlx-tt">${tlTravel(place.id)}</span>` : ""}`, 9000);
+    AU.sfx("paper"); haptic(8);
+  });
+  sheet.querySelectorAll("[data-cut]").forEach(b => b.onclick = () => {
+    const id = b.dataset.cut; S.tlx.has(id) ? S.tlx.delete(id) : S.tlx.add(id);
+    AU.sfx("out"); haptic(14); renderSheet(true); saveSoon();
+  });
+}
 /* 2.2: tabela czasów dojścia (oś czasu): wiersze „skąd → dokąd | min”, mieści się w 360 px */
 function travelTable() {
   if (!CASE.travel) return "";
@@ -453,6 +518,7 @@ function travelTable() {
 }
 function renderSheet(keep) {
   if (!keep) { sheet.scrollTop = 0; bounce(sheet, "flip"); }
+  if (S.tab === "tl" && isTl()) { timelineSheet(); return; }
   if (S.tab === "notes") {
     sheet.innerHTML = t("ui.game.notatnik_detektywa_ustalenia_technikow_i_html", { join: CASE.rules.map(r => `<li>${rich(r.text)}</li>`).join(""), travelTable: travelTable() });
     return;
@@ -478,6 +544,7 @@ function renderSheet(keep) {
   $("backBtn").onclick = () => { S.sel = null; Object.values(els).forEach(o => o.card.classList.remove("sel")); AU.sfx("paper"); renderSheet(); };
 }
 $("tab-akta").onclick = () => { if (S.tab === "akta") return; S.tab = "akta"; AU.sfx("paper"); renderTabs(); renderSheet(); };
+$("tab-tl").onclick = () => { if (S.tab === "tl") return; S.tab = "tl"; AU.sfx("page"); renderTabs(); renderSheet(); };
 $("tab-notes").onclick = () => { if (S.tab === "notes") return; S.tab = "notes"; AU.sfx("page"); renderTabs(); renderSheet(); };
 
 /* ---------- dymek, podpowiedzi, zegar ---------- */
@@ -769,7 +836,7 @@ function openHowto(auto) {
   const H = window.SiatkaHowto; if (!H) return;
   track(auto === true ? "samouczek/start-auto" : "samouczek/start-przycisk", auto === true ? t("ui.game.samouczek_pierwsze_uruchomienie") : t("ui.game.samouczek_przycisk"));
   const opened = Date.now(); setPending(null);
-  H.open(() => { if (S && !S.done) S.t0 += Date.now() - opened; saveSoon(); }, { install: auto === true });
+  H.open(() => { if (S && !S.done) S.t0 += Date.now() - opened; saveSoon(); }, { install: auto === true, more: auto !== true });
 }
 window.addEventListener("load", () => { if (window.SiatkaHowto && !window.SiatkaHowto.seen()) openHowto(true); });
 /* opis bieżącej sprawy do zgłoszeń: wystarczy, żeby ją odtworzyć (seed + miasto, rok, wielkość) */

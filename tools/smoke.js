@@ -245,6 +245,69 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   await click("menuClose");
   ok(`Kartoteka: „${gEntry.term}” z ${gf.node ? "akt" : "notatnika"} (dotyk i myszka), karta nie zasłania przycisków, lista w Ustawieniach (${gl.n})`);
 
+  /* 4c. Oś czasu w notatniku: sprawa z osią czasu z zapisu (karta wprowadzająca v2 dla gracza, który widział v1, z wyróżnionym
+     akapitem), zakładka „Oś czasu”, godziny tylko z przeczytanych akt, dymek z czasem dojścia, skreślenie zapisane po id */
+  {
+    const prep = await ev(`(() => {
+      const W = SiatkaI18n.world();
+      for (let i = 0; i < 60; i++) {
+        const seed = "smoke-tl-" + i, c = Siatka.generateCase(W, seed, { archetype: "timeline", size: "M" });
+        if (c.archetype !== "timeline") continue;
+        const own = c.nodes.filter(n => n.type === "person" && c.facts.some(f => f.type === "presence" && f.who === n.id && !f.src));
+        if (own.length < 2) continue;
+        const sv = JSON.stringify({ v: 1, gen: Siatka.caseVersion(c), lang: SiatkaI18n.genLang(), opts: { seed, size: "M", archetype: "timeline" },
+          case: c, label: "SMOKE", strings: [], out: [], read: [], hints: 0, wrong: 0, done: false, win: false, at: Date.now(), elapsed: 0 });
+        // gra zapisuje się na pagehide, więc nasz zapis wpisujemy po niej (jak w kroku 7)
+        const put = () => { localStorage.setItem("siatka-save-random", sv); localStorage.setItem("siatka-last", JSON.stringify("random")); localStorage.setItem("siatka-new-timeline", "1"); };
+        addEventListener("pagehide", put); document.addEventListener("visibilitychange", put); put();
+        return { seed, a: own[0].id, b: own[1].id };
+      }
+      return null; })()`);
+    if (!prep) fail("oś czasu: nie znaleziono sprawy z osią czasu do testu");
+    await C("Page.reload", { ignoreCache: true }); // ten sam adres z #dev to tylko zmiana kotwicy, więc przeładowanie
+    for (let t = 0; t < 15000 && !await ev(`document.readyState === "complete" && /SMOKE/.test(document.getElementById("caseLine").textContent)`); t += 200) await sleep(200);
+    if (!await ev(`/SMOKE/.test(document.getElementById("caseLine").textContent)`)) fail("oś czasu: sprawa z zapisu się nie wczytała: " + await ev(`JSON.stringify({ line: document.getElementById("caseLine").textContent, last: localStorage.getItem("siatka-last"), sv: (s => s && { lang: s.lang, label: s.label, gen: s.gen })(JSON.parse(localStorage.getItem("siatka-save-random") || "null")) })`));
+    for (let t = 0; t < 1500 && !await ev(`!!document.getElementById("tlGo")`); t += 100) await sleep(100);
+    const card = await ev(`(() => { const p = document.querySelector(".tl-card .tl-new"); return p && { hl: p.classList.contains("hl"), txt: p.textContent }; })()`);
+    if (!card || !card.hl || !card.txt.includes(await tl("ui.game.tl_card_tab"))) fail("oś czasu: karta v2 bez wyróżnionego akapitu o zakładce: " + JSON.stringify(card));
+    if (await ev(`localStorage.getItem("siatka-new-timeline")`) !== "2") fail("oś czasu: karta nie zapisała wersji 2");
+    await dismissTimeline();
+    if (await ev(`document.getElementById("tab-tl").hidden`)) fail("oś czasu: brak zakładki w sprawie z osią czasu");
+    await click("tab-tl");
+    const dots = id => ev(`document.querySelectorAll('#sheet [data-row="${id}"] [data-k]').length`);
+    const st0 = await ev(`({ rows: document.querySelectorAll("#sheet .tlx-row").length, band: !!document.querySelector("#sheet .tlx-band"), all: document.querySelectorAll("#sheet [data-k]").length })`);
+    if (!st0.band || st0.rows < 3) fail("oś czasu: brak wierszy albo czerwonego pasa: " + JSON.stringify(st0));
+    if (st0.all) fail("oś czasu: fakty na osi przed otwarciem akt (" + st0.all + ")");
+    await tapSel(`#board .node[data-node="${prep.a}"]`, "zdjęcia podejrzanego (oś czasu)");
+    await click("tab-tl");
+    const na = await dots(prep.a), nb = await dots(prep.b);
+    if (!na) fail("oś czasu: po otwarciu akt fakt nie pojawił się na osi");
+    if (nb) fail("oś czasu: fakt z nieprzeczytanych akt jest na osi");
+    await tapSel(`#sheet [data-row="${prep.a}"] [data-k]`, "kropki na osi czasu");
+    const tt = await ev(`(() => { const e = document.getElementById("toast"); return e && !e.hidden ? e.innerText : ""; })()`);
+    if (!/\d+:\d\d/.test(tt) || /undefined|NaN|object Object/.test(tt)) fail("oś czasu: dymek kropki bez zdania źródłowego: " + tt);
+    if (process.env.SMOKE_SHOT) { await sleep(300); const { result: { data } } = await C("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(process.env.SMOKE_SHOT, `os-czasu-${LANG}.png`), Buffer.from(data, "base64")); }
+    await ev(`document.getElementById("toast").hidden = true`);
+    await tapSel(`#sheet [data-cut="${prep.a}"]`, "przycisku „nie zdążył/a”");
+    await sleep(500);
+    const cut = await ev(`({ row: document.querySelector('#sheet [data-row="${prep.a}"]').classList.contains("cut"), saved: (JSON.parse(localStorage.getItem("siatka-save-random")).tlx || []) })`);
+    if (!cut.row || !cut.saved.includes(prep.a)) fail("oś czasu: skreślenie nie działa albo nie zapisało się: " + JSON.stringify(cut));
+    if (/undefined|NaN|object Object/.test(await ev(`document.getElementById("sheet").innerHTML`))) fail("oś czasu: „undefined”/„NaN” w zakładce");
+    if (process.env.SMOKE_SHOT) for (const [nm, fs_] of [["skreslony", ""], ["duza-czcionka", "20px"]]) {
+      await ev(`(() => { const sh = document.getElementById("sheet"); sh.style.fontSize = ${JSON.stringify(fs_)}; sh.style.height = "${"auto"}"; sh.style.maxHeight = "none"; sh.scrollTop = 0; document.getElementById("toast").hidden = true; document.querySelector(".tabs").scrollIntoView(); })()`);
+      await sleep(300);
+      const { result: { data } } = await C("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+      fs.writeFileSync(path.join(process.env.SMOKE_SHOT, `os-czasu-${nm}-${LANG}.png`), Buffer.from(data, "base64"));
+    }
+    await ev(`(() => { const sh = document.getElementById("sheet"); sh.style.fontSize = ""; sh.style.height = ""; sh.style.maxHeight = ""; })()`);
+    ok(`oś czasu: karta v2, zakładka, ${na} godz. po otwarciu akt, 0 z nieprzeczytanych, dymek, skreślenie w zapisie`);
+    await ev(`(() => { const put = () => { localStorage.removeItem("siatka-save-random"); localStorage.setItem("siatka-last", JSON.stringify("daily")); };
+      addEventListener("pagehide", put); document.addEventListener("visibilitychange", put); put(); })()`);
+    await C("Page.reload", { ignoreCache: true }); // ten sam adres z #dev to tylko zmiana kotwicy, więc przeładowanie
+    await waitFor(`document.readyState === "complete" && document.querySelector("#board .node")`, "gra nie wstała po teście osi czasu", 15000);
+    await dismissTimeline();
+  }
+
   if (LANG === "en") {
     /* 5. EN: sprawa dnia i sprawa z „New case” bez polskich słów (całe słowa, poza tekstem w cudzysłowach: tytuły, nazwy) */
     const PL_WORDS = ["przy", "się", "jest", "nikt", "ulic", "ulicy", "że", "nie", "był", "była", "było", "tego", "wieczoru", "sprawca", "sprawcy",
