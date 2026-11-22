@@ -141,7 +141,8 @@ const fail = msg => { console.error("smoke: BŁĄD – " + msg); if (errors.leng
   await waitFor(visible("menu") + ` && document.getElementById("setHowto")`, "Ustawienia się nie otworzyły");
   // język: przełącznik tylko w #dev, <html lang> i <title> zgodne z językiem
   const hasSwitch = await ev(`!!document.getElementById("langEn")`);
-  if (hasSwitch !== (LANG === "en")) fail(LANG === "en" ? "w #dev brak przełącznika języka w Ustawieniach" : "przełącznik języka widoczny poza #dev");
+  const devUrl = /#dev$/.test(URL); // na produkcji test idzie z #dev (bez analityki), a w #dev przełącznik jest zawsze
+  if (hasSwitch !== (LANG === "en" || devUrl)) fail(LANG === "en" ? "w #dev brak przełącznika języka w Ustawieniach" : "przełącznik języka widoczny poza #dev");
   const doc = await ev(`({ lang: document.documentElement.lang, title: document.title, i18n: SiatkaI18n.lang })`);
   if (doc.lang !== LANG || doc.i18n !== LANG || doc.title !== await tl("ui.html.title")) fail(`język strony: ${JSON.stringify(doc)}, a powinno być ${LANG}`);
   // dopisek „(cases: translation in progress)” tylko wtedy, gdy angielski nie ma własnych treści spraw (data/i18n/en/)
