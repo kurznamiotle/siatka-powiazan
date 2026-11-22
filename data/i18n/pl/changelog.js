@@ -11,7 +11,8 @@
       "Kartoteka: słowa z tamtych lat (dozorca, Pewex, talon, szychta…) są podkreślone. Stuknij, żeby przeczytać, co znaczą. Wszystkie poznane hasła znajdziesz w Ustawieniach.",
       "Świadkowie, godziny i miejsca lepiej do siebie pasują: sklepy mają godziny otwarcia, nazwy miejsc w aktach zgadzają się z tablicą, a listonosz chodzi tylko tam, dokąd nosi listy.",
       "Milicja zmienia się w Policję dokładnie 10 maja 1990 roku.",
-      "Kilka obserwacji tej samej osoby w jednym miejscu to teraz jedno zdanie."
+      "Kilka obserwacji tej samej osoby w jednym miejscu to teraz jedno zdanie.",
+      "Sprawy z osią czasu mają w notatniku zakładkę, która sama zbiera godziny z przeczytanych akt."
     ] },
     { v: "2.2.1", date: "2026-11-18", items: [
       "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",

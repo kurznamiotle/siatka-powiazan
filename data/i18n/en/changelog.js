@@ -10,7 +10,8 @@
       "Glossary: words from the era (dozorca, Pewex, talon, szychta…) are underlined. Tap one to see what it means. Every entry you've found is listed in Settings.",
       "Witnesses, times and places fit together better: shops keep opening hours, place names in the files match the board, and the postman only goes where he delivers letters.",
       "The Militia becomes the Policja on exactly 10 May 1990.",
-      "Several sightings of the same person in one place are now a single sentence."
+      "Several sightings of the same person in one place are now a single sentence.",
+      "Timeline cases have a new notebook tab that collects the times from the files you've read."
     ] },
     { v: "2.2.1", date: "2026-11-18", items: [
       "Motives fit the victim: a feud with the estate office only when something breaks in the building, a rival only when it's someone's business, barking only when there's a dog.",
