@@ -407,7 +407,7 @@
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
           cands.push({ kind: "keys", f, Pp, li, mark: "flat", defs: B.evidence.keys, ess: isC && f.where === wLocId });
         else if (f.type === "alibi" && !Pp.s.fakeAlibi && iniOk(Pp)) {
-          const docs = alibisFor(Pp).filter(a => a.doc).map(a => Object.assign({ alibi: a }, a.doc));
+          const docs = alibisFor(Pp).filter(a => a.doc && (!a.max || toMin(f.to) - toMin(f.from) <= a.max)).map(a => Object.assign({ alibi: a }, a.doc));
           // dokument potwierdza alibi albo (u kogoś bez alibi) je obala: inne godziny albo inny dzień
           if (f.confirmed && !lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: !isC && elim[Pp.idx].rule.type === "alibi" });
           else if (!f.confirmed && lieMode) cands.push({ kind: "alibi", f, Pp, li: -1, mark: "initials", defs: docs, ess: false, lie: true });
@@ -521,7 +521,7 @@
           if (gr && gr.pa.form === pa.form) { gr.ts.push(p.t); gr.pts.add(pa.pt); } else groups.push({ pa, ts: [p.t], pts: new Set([pa.pt]) });
         }
         for (const gr of groups) parts.push(gr.ts.length === 1
-          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0], loc).replace("{in}", gr.pa.form).replace("{t}", toHM(gr.ts[0]))
+          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0], loc).replace("{in}", gr.pa.form).replace("{out}", loc.out || gr.pa.form).replace("{t}", toHM(gr.ts[0]))
           : pickT(B.presence2Tpl.filter(o => [...gr.pts].every(pt => fitsAt(o, pt))), gr.pa.pt).replace("{in}", gr.pa.form).replace("{ts}", timesPhrase(gr.ts.map(toHM))));
         if (parts.length) text.push(T(parts.join(" "), g));
       });
@@ -535,7 +535,8 @@
       }
       else if (al.confirmed) {
         // alibi z pracy tylko dla pasującej roli; zawodowe wybieramy mniej więcej co drugi raz, gdy rola je ma
-        const pool = alibisFor(Pp).filter(x => !s.fakeAlibi || x.debunk), own = pool.filter(x => x.roles);
+        const dur = toMin(al.to) - toMin(al.from); // 2.2.2: alibi z max (kolejka: 45 min) tylko na krótsze okno
+        const pool = alibisFor(Pp).filter(x => (!s.fakeAlibi || x.debunk) && (!x.max || dur <= x.max)), own = pool.filter(x => x.roles);
         const a = pickU(own.length && R.chance(.5) ? own : pool);
         usedAlibi.push(a.text);
         text.push(T(t("gen.classic.alibi_from_to", { from: al.from, to: al.to, text: a.text }), g) + " " + cap(T(a.witness, g)) + "."); Pp.alibiTxt = T(a.text, g);

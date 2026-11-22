@@ -61,7 +61,7 @@ const staticErrors = [];
   }
   // 3. rodzaje miejsc: każde miejsce ma pt, a każdy pt dość szablonów świadków i dowodów
   // 2.2.2: drobniejsze rodzaje; szablony liczymy dla rodzajów, w których stoją miejsca (świadkowie i dowody są tylko tam)
-  const PT = ["street", "kiosk", "stall", "marina", "park", "yard", "garage", "site", "field", "shop", "office", "stair", "cellar", "flat", "work", "plant", "boiler", "stable", "shed"];
+  const PT = ["street", "kiosk", "stall", "marina", "park", "yard", "garage", "site", "field", "shop", "office", "stair", "cellar", "flat", "work", "backroom", "plant", "boiler", "stable", "shed"];
   const locs = [...B.locations, ...Object.values(WORLD.cities).flatMap(ct => ct.locations || [])];
   for (const l of locs) if (!PT.includes(l.pt)) bad(`miejsce ${l.id}: brak albo zły rodzaj miejsca pt (${l.pt})`);
   for (const [k, v] of Object.entries(B.timeline.places)) v.forEach((p, i) => { if (!PT.includes(p.pt)) bad(`oś czasu ${k}[${i}]: zły rodzaj miejsca ${p.pt}`); });

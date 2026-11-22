@@ -254,7 +254,7 @@
         if (PLACE_ANC.includes(m.anc)) { placeUsed.add(o.w); if (m.anc === "close" && ["shop", "kiosk", "stall"].includes(loc.pt)) closedAt[o.w] = o.t; }
         else genUsed.add(m.anc);
       }
-      obsText.set(o, T(pickedT.replace("{in}", pa.form).replace("{t}", toHM(o.t)), Pp.s.g));
+      obsText.set(o, T(pickedT.replace("{in}", pa.form).replace("{out}", loc.out || pa.form).replace("{t}", toHM(o.t)), Pp.s.g));
     }
     if (textFail) return null;
     persons.forEach(Pp => {

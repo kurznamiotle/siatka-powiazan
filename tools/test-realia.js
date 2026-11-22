@@ -129,7 +129,7 @@ check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja 
 //    B osobno: współpracownik w ok. 1/3 reguł relacji, zawsze z jednego rodzaju pracy (wp).
 {
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
-  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{ts\}|\{t\})/).map(p => p === "{in}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
+  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{out\}|\{ts\}|\{t\})/).map(p => p === "{in}" || p === "{out}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
     : p === "{ts}" ? "(?<ts>(?:\\S+ \\d+:\\d\\d,? )+\\S+ (?:\\S+ )*?\\S+ \\d+:\\d\\d)" : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""), "g");
   const tpls = [...B.presenceTpl, ...B.presence2Tpl, ...B.timeline.obsTpl].map(o => ({ o, re: toRe(o.t) }));
   const evDefs = [...B.evidence.presence, ...B.timeline.evidence];
@@ -144,7 +144,7 @@ check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja 
   for (const { o } of tpls) if (o.at.includes("stall") && /wózkiem|z okna|przez okno|z parteru/.test(o.t)) bad8.push(`przy straganie świadek z ulicy: ${o.t}`);
   // E: zmiana i kwity
   for (const { o } of tpls) if (/Szef zmiany|Kierownik zmiany/.test(o.t) && o.at.some(x => x !== "plant")) bad8.push(`zmiana poza zakładem: ${o.t}`);
-  for (const d of evDefs) if (/^Kwit z godziną|Lista obecności|Książka wejść/.test(d.name) && d.at.some(x => !["plant", "shop", "office", "stall"].includes(x))) bad8.push(`dowód „${d.name}” poza zakładem i lokalem: ${d.at}`);
+  for (const d of evDefs) if (/^Kwit z godziną|Lista obecności|Książka wejść/.test(d.name) && d.at.some(x => !["plant", "shop", "office", "stall", "backroom"].includes(x))) bad8.push(`dowód „${d.name}” poza zakładem i lokalem: ${d.at}`);
   let nW = 0, nE = 0, nM = 0, nOut = 0, winter = 0;
   for (let i = 0; i < 2000; i++) {
     const c = S.generateCase(W, "realia-at-" + i, i % 4 === 3 ? { archetype: "timeline", size: ["M", "L", "XL"][i % 3] } : {});
@@ -165,10 +165,10 @@ check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja 
         if (!def) { if (worldLocs.some(l => l.in === h.form || l.out === h.form)) bad8.push(`${c.seed}: miejsca „${h.form}” nie ma na tablicy: ${h.txt}`); return; }
         nW++; if (h.times.length > 1) nM++;
         if (seenT.has(h.o)) bad8.push(`${c.seed}: ${n.name}: szablon dwa razy: ${h.txt}`); seenT.add(h.o);
-        if (k > 0 && hits[k - 1].form === h.form && byForm[hits[k - 1].form]) bad8.push(`${c.seed}: ${n.name}: dwa zdania z rzędu o tym samym miejscu: ${hits[k - 1].txt} | ${h.txt}`);
+        if (k > 0 && hits[k - 1].form === h.form && byForm[hits[k - 1].form] && !/{out}/.test(hits[k - 1].o.t + h.o.t)) bad8.push(`${c.seed}: ${n.name}: dwa zdania z rzędu o tym samym miejscu: ${hits[k - 1].txt} | ${h.txt}`);
         for (const tm of h.times.map(S.util.toMin)) {
           const pa = S.util.placeAt(B, def, tm);
-          if (pa.form !== h.form) bad8.push(`${c.seed}: o ${S.util.toHM(tm)} forma „${h.form}”, a powinna „${pa.form}”: ${h.txt}`);
+          if ((/\{out\}/.test(h.o.t) ? def.out || pa.form : pa.form) !== h.form) bad8.push(`${c.seed}: o ${S.util.toHM(tm)} forma „${h.form}”, a powinna „${pa.form}”: ${h.txt}`);
           if (!h.o.at.includes(pa.pt)) bad8.push(`${c.seed}: świadek poza listą (${pa.pt}): ${h.txt}`);
           if (h.o.time && !(tm >= S.util.toMin(h.o.time[0]) && tm < S.util.toMin(h.o.time[1]))) bad8.push(`${c.seed}: świadek o złej porze: ${h.txt}`);
           if (pa.closed) nOut++;
@@ -267,6 +267,37 @@ check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja 
   bad9.slice(0, 10).forEach(b => console.log("BŁĄD " + b)); fails += bad9.length;
   check(cnt.night > 20 && cnt.day > 300 && cnt.queue > 50 && cnt.tab > 5 && cnt.appt > 5 && cnt.hour + cnt.tv > 5, `test pór i lady ma dość danych (${JSON.stringify(cnt)})`);
   console.log(`Pory i lada (2400 spraw): ${JSON.stringify(cnt)}`);
+}
+// 10. (2.2.2, przed wydaniem) A listonosz w lokalu i biurze tylko „przed …” ({out}), nigdy „w aptece”, „w biurze”;
+//     B alibi z kolejką najwyżej 45 min (max), u fryzjera strzyżenie i farbowanie zamiast kolejki;
+//     C zaplecze sklepu (backroom) to nie warsztat: ekspedientka, kierowniczka, dostawca, dzielnicowy, bez kolegi z zakładu i załogi.
+{
+  const bad10 = [], TL = B.timeline;
+  const worldLocs = [...B.locations, ...Object.values(W.cities).flatMap(c => c.locations || [])];
+  const witness = [...B.presenceTpl, ...B.presence2Tpl, ...TL.obsTpl];
+  for (const o of witness) if (/Listonosz/.test(o.t) && o.at.some(x => ["shop", "office"].includes(x)) && !/\{out\}/.test(o.t)) bad10.push(`listonosz w lokalu bez {out}: ${o.t}`);
+  for (const a of B.alibiConfirmed) if (/kolejce|kolejk/.test(a.text) && !(a.max && a.max <= 45)) bad10.push(`alibi z kolejką bez max ≤ 45: ${a.text}`);
+  check(worldLocs.find(l => l.id === "sklep").pt === "backroom", "zaplecze sklepu to rodzaj backroom");
+  const WORKY = /z zakładu|załog|zmiany zanotował|Kierownik zmiany|zamówienie/;
+  for (const o of witness) if (o.at.includes("backroom") && WORKY.test(o.t)) bad10.push(`świadek z zakładu na zapleczu sklepu: ${o.t}`);
+  const inside = worldLocs.filter(l => ["shop", "office"].includes(l.pt)).map(l => l.in);
+  const back = worldLocs.filter(l => l.pt === "backroom").map(l => l.in);
+  let nPost = 0, nBack = 0, nAl = 0;
+  for (let i = 0; i < 2000; i++) {
+    const c = S.generateCase(W, "realia-10-" + i, i % 3 === 2 ? { archetype: "timeline", size: ["M", "L", "XL"][i % 3] } : {});
+    for (const n of c.nodes.filter(n => n.type === "person")) for (const line of n.text) {
+      for (const s of line.split(/(?<=\.)\s+/)) {
+        if (/^Listonosz/.test(s)) { nPost++; if (inside.some(f => s.includes(" " + f + " "))) bad10.push(`${c.seed}: listonosz w środku: ${s}`); }
+        if (back.some(f => s.includes(f))) { nBack++; if (WORKY.test(s)) bad10.push(`${c.seed}: zaplecze sklepu ze świadkiem z zakładu: ${s}`); }
+      }
+      const m = line.match(/^Od (\d+:\d\d) do (\d+:\d\d) .*kolejce/);
+      if (m) { nAl++; if (S.util.toMin(m[2]) - S.util.toMin(m[1]) > 45) bad10.push(`${c.seed}: kolejka dłuższa niż 45 min: ${line}`); }
+      if (/czekał[a]? w kolejce do strzyżenia/.test(line)) bad10.push(`${c.seed}: kolejka do strzyżenia: ${line}`);
+    }
+  }
+  bad10.slice(0, 10).forEach(b => console.log("BŁĄD " + b)); fails += bad10.length;
+  check(nPost > 50 && nBack > 50, `test listonosza i zaplecza ma dość danych (listonosz ${nPost}, zaplecze ${nBack})`);
+  console.log(`Listonosz, kolejka, zaplecze (2000 spraw): listonosz ${nPost}, zaplecze sklepu ${nBack}, alibi z kolejką ${nAl}`);
 }
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);
