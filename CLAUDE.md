@@ -217,7 +217,7 @@ Wydanie 2.2.1 (łatka treści, **obowiązuje od 17.11.2026**; 2.2 zamrożone w `
 - **Test produkcji**: `SMOKE_URL="https://siatkapowiazan.pl/index.html#dev" node tools/smoke.js` (z `#dev`, żeby nie wysyłać analityki).
 - **Nieprzejrzane (wszystko z 2.2.1)**: nowe zdania motywów i podejrzeń z `vt`, nowe szablony świadków i dowodów (`at`), godziny scen, rodzaje miejsc (`pt`).
 
-Wydanie 2.2.2 (**obowiązuje od 22.11.2026**; 2.2.1 zamrożone w `engine/versions/v2_2_1.js` z commita 6026b81 na wip/i18n, który daje te same sprawy PL co wdrożony f900cef; wzorzec `cases/fixtures/daily-2.2.1.json` z dniami 18–21.11 policzony kodem f900cef; cache `siatka-v20`). Zakres: punkty z `docs/todo-generator.md` (tam też lista zrobionych):
+Wydanie 2.2.2 (**obowiązuje od 23.11.2026**, wdrożone wieczorem 22.11; 2.2.1 zamrożone w `engine/versions/v2_2_1.js` z commita 6026b81 na wip/i18n, który daje te same sprawy PL co wdrożony f900cef; wzorzec `cases/fixtures/daily-2.2.1.json` z dniami 18–22.11 policzony kodem f900cef; cache `siatka-v20`). Zakres: punkty z `docs/todo-generator.md` (tam też lista zrobionych):
 - Kiosk Ruchu: forma `in` „przy kiosku”.
 - Listonosz mija tylko na ulicy, na klatce i w lokalu (`at:["street","stair","shop"]` w `presenceTpl` i `timeline.obsTpl`, PL i EN).
 - Milicja → Policja 10 maja 1990 (`context()` w `engine.js`, dzień maja z `seed/day`; test w `test-realia.js`).

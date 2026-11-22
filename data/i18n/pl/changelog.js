@@ -7,6 +7,12 @@
 (function (root) {
   const I18N = root.SiatkaI18n || (typeof module !== "undefined" && module.exports ? require("../i18n.js") : null);
   if (I18N) I18N.register("pl", { messages: { "ui.changelog": [
+    { v: "2.2.2", date: "2026-11-23", items: [
+      "Kartoteka: słowa z tamtych lat (dozorca, Pewex, talon, szychta…) są podkreślone. Stuknij, żeby przeczytać, co znaczą. Wszystkie poznane hasła znajdziesz w Ustawieniach.",
+      "Świadkowie, godziny i miejsca lepiej do siebie pasują: sklepy mają godziny otwarcia, nazwy miejsc w aktach zgadzają się z tablicą, a listonosz chodzi tylko tam, dokąd nosi listy.",
+      "Milicja zmienia się w Policję dokładnie 10 maja 1990 roku.",
+      "Kilka obserwacji tej samej osoby w jednym miejscu to teraz jedno zdanie."
+    ] },
     { v: "2.2.1", date: "2026-11-18", items: [
       "Motywy pasują do poszkodowanego: spór z administracją tylko przy awarii w budynku, konkurencja tylko przy cudzym interesie, szczekanie tylko przy psach.",
       "Świadkowie pasują do miejsca: dzieci w kapsle na podwórku, a nie w hali przędzalni; w zakładach zeznają koledzy z załogi.",

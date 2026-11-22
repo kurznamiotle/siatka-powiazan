@@ -2,7 +2,7 @@
 
 Zmiany, które zmieniają tekst polskich spraw. Nie wchodzą bez nowej wersji generatora (patrz „Nowe wydanie, krok po kroku” w CLAUDE.md), bo zmieniłyby bieżącą sprawę dnia.
 
-## Zrobione w 2.2.2 (od 22.11.2026)
+## Zrobione w 2.2.2 (od 23.11.2026)
 
 - „w kiosku” → „przy kiosku”: forma `in` miejsca Kiosk Ruchu (`data/i18n/pl/base.js`). EN bez zmian (`at the kiosk`).
 - Listonosz: szablon „Listonosz minął [go|ją] {in} o {t}.” (świadkowie `presenceTpl` i oś czasu `timeline.obsTpl`, PL i EN) ma `at:["street","kiosk","stair","shop","office"]` i `time:["00:00","19:00"]`. Bez działek, garażu, podwórka i budowy.

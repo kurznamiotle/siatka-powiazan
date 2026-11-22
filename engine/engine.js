@@ -297,8 +297,8 @@
     { id: "2.1.1", from: "2026-11-06", frozen: "engine/versions/v2_1_1.js" }, // commit 7b359e1
     { id: "2.1.2", from: "2026-11-11", frozen: "engine/versions/v2_1_2.js" }, // commit 0891a91 (obowiązuje do 14.11 włącznie)
     { id: "2.2", from: "2026-11-15", frozen: "engine/versions/v2_2.js" }, // commit 3838b51 (obowiązuje 15–16.11)
-    { id: "2.2.1", from: "2026-11-18", frozen: "engine/versions/v2_2_1.js" }, // wdrożony f900cef, zamrożony z 6026b81 (obowiązuje 18–21.11)
-    { id: "2.2.2", from: "2026-11-22" }                                    // bieżący kod; data = północ po wdrożeniu (przesuń, gdy wdrożenie się opóźni)
+    { id: "2.2.1", from: "2026-11-18", frozen: "engine/versions/v2_2_1.js" }, // wdrożony f900cef, zamrożony z 6026b81 (obowiązuje 18–22.11)
+    { id: "2.2.2", from: "2026-11-23" }                                    // bieżący kod; data = północ po wdrożeniu (przesuń, gdy wdrożenie się opóźni)
   ];
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   function versionFor(date = new Date()) {
