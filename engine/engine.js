@@ -61,9 +61,16 @@
   /* 2.2.2: świadkowie i dowody obecności mają listę dopuszczalnych rodzajów miejsc (`at`, pt: street, kiosk, marina, park,
      yard, garage, site, field, shop, office, stair, cellar, flat, work, plant). Bez listy szablon nie jest używany nigdzie.
      `time:["od","do"]` (opcjonalnie) ogranicza porę obserwacji t (minuty od północy, „do” wyłączone). */
-  const fitsAt = (o, pt, t) => !!o && typeof o === "object" && Array.isArray(o.at) && !!pt && o.at.includes(pt)
-    && (!o.time || t === undefined || (t >= toMin(o.time[0]) && t < toMin(o.time[1])));
-  const atTexts = (list, pt, t) => list.filter(o => fitsAt(o, pt, t)).map(o => o.t);
+  /* time:[od, do] może przejść przez północ (stróż nocny 20:00–06:00); mins = dozwolone minuty (sygnał czasu, dzwony: [0]),
+     times = dozwolone godziny co do minuty (programy w godzinie emisji); need = cecha miejsca (loc.feat: queue = lada albo
+     okienko z kolejką, tab = zeszyt na kreskę, appt = zapisy na wizyty) */
+  const inSpan = (tm, t) => { const a = toMin(tm[0]), b = toMin(tm[1]), m = ((t % 1440) + 1440) % 1440; return a <= b ? m >= a && m < b : m >= a || m < b; };
+  const fitsAt = (o, pt, t, loc) => !!o && typeof o === "object" && Array.isArray(o.at) && !!pt && o.at.includes(pt)
+    && (!o.time || t === undefined || inSpan(o.time, t))
+    && (!o.mins || t === undefined || o.mins.includes(((t % 60) + 60) % 60))
+    && (!o.times || t === undefined || o.times.some(x => toMin(x) === t))
+    && (!o.need || !!(loc && Array.isArray(loc.feat) && loc.feat.includes(o.need)));
+  const atTexts = (list, pt, t, loc) => list.filter(o => fitsAt(o, pt, t, loc)).map(o => o.t);
   /* 2.2.2: sezon rodzajów miejsc (base.placeTypes): dark.months [od, do] (może przejść przez Nowy Rok) od godziny dark.after.
      Gra dzieje się wieczorem, więc takie miejsca w tych miesiącach w ogóle nie trafiają do spraw. */
   /* 2.2.2: godziny otwarcia: loc.hours albo base.placeTypes[pt].open. Obecność o czasie t poza godzinami (+30 min po zamknięciu)

@@ -401,7 +401,7 @@
         const Pp = byPid[f.who]; if (!Pp) continue;
         const isC = Pp.idx === cIdx, li = f.where ? LOCS.findIndex(l => l.id === f.where) : -1;
         if (f.type === "presence" && iniOk(Pp))
-          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => li >= 0 && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at)))),
+          cands.push({ kind: "presence", f, Pp, li, mark: "initials", defs: noJanitor(B.evidence.presence.filter(d => li >= 0 && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at), LOCS[li]))),
             ess: isC && hasW && f.where === wLocId && toMin(f.at) >= win[wIdx][0] && toMin(f.at) <= win[wIdx][1] });
         // tylko klucz zapasowy: klucz „z urzędu” zdradza sama rola (stolarz ↔ warsztat)
         else if (f.type === "has_key" && B.keyBookLocs.includes(f.where) && !accessOf(Pp.role).includes(f.where))
@@ -504,8 +504,8 @@
     let textFail = false;
     persons.forEach(Pp => {
       const s = Pp.s, g = s.g, text = [], tplUsed = new Set();
-      const pickT = (list, pt, tm) => {
-        const objs = list.filter(o => fitsAt(o, pt, tm) && !tplUsed.has(o) && !(absentRule && janRe.test(o.t)));
+      const pickT = (list, pt, tm, loc) => {
+        const objs = list.filter(o => fitsAt(o, pt, tm, loc) && !tplUsed.has(o) && !(absentRule && janRe.test(o.t)));
         if (!objs.length) { textFail = true; return ""; }
         const str = pickU(objs.map(o => o.t)); tplUsed.add(objs.find(o => o.t === str)); return str;
       };
@@ -521,7 +521,7 @@
           if (gr && gr.pa.form === pa.form) { gr.ts.push(p.t); gr.pts.add(pa.pt); } else groups.push({ pa, ts: [p.t], pts: new Set([pa.pt]) });
         }
         for (const gr of groups) parts.push(gr.ts.length === 1
-          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0]).replace("{in}", gr.pa.form).replace("{t}", toHM(gr.ts[0]))
+          ? pickT(B.presenceTpl, gr.pa.pt, gr.ts[0], loc).replace("{in}", gr.pa.form).replace("{t}", toHM(gr.ts[0]))
           : pickT(B.presence2Tpl.filter(o => [...gr.pts].every(pt => fitsAt(o, pt))), gr.pa.pt).replace("{in}", gr.pa.form).replace("{ts}", timesPhrase(gr.ts.map(toHM))));
         if (parts.length) text.push(T(parts.join(" "), g));
       });

@@ -202,5 +202,71 @@ check(mo.maj[0] > 0 && mo.maj[1] > 0, `maj 1990: i milicja (do 9.05), i policja 
   check(nW > 3000 && nE > 300 && winter > 500 && nM > 100 && nOut > 100, `test miejsc ma dość danych (świadkowie ${nW}, łączone ${nM}, przed lokalem ${nOut}, dowody ${nE}, zimą ${winter})`);
   console.log(`Miejsca (2000 spraw): ${nW} zdań świadków (${nM} łączonych, ${nOut} obserwacji przed lokalem po godzinach), ${nE} dowodów obecności; współpracownik ${wm}/${rel} relacji`);
 }
+// 9. (2.2.2) pory i miejsca świadków i dowodów:
+//    A kotwice czasu: sygnał czasu i dzwony tylko o pełnej godzinie (mins:[0]), programy telewizyjne tylko w godzinie emisji (times),
+//    B raport stróża nocnego tylko 20:00–6:00 (w dzień inny dowód z listy miejsca),
+//    C kolejka tylko przy ladzie albo okienku (feat queue), zeszyt na kreskę tylko w spożywczym, barze, kiosku i na straganie (tab),
+//      u fryzjera zeszyt zapisów (appt); świetlica, klub i fryzjer bez kolejki i kreski.
+{
+  const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, m => "\\" + m);
+  const toRe = t => new RegExp(t.split(/(\[[^\]]+\]|\{in\}|\{t\})/).map(p => p === "{in}" ? "(?<in>.+?)" : p === "{t}" ? "(?<t>\\d+:\\d\\d)"
+    : /^\[.*\]$/.test(p) ? "(?:" + p.slice(1, -1).split("|").map(esc).join("|") + ")" : esc(p)).join(""));
+  const TL = B.timeline, tm = S.util.toMin, bad9 = [];
+  const witness = [...B.presenceTpl, ...TL.obsTpl], evDefs = [...B.evidence.presence, ...TL.evidence];
+  const worldLocs = [...B.locations, ...Object.values(W.cities).flatMap(c => c.locations || [])];
+  const ANC_HOUR = /sygnał czasu|biły dzwony|dzwony|hejnał/i, ANC_TV = /Teleexpress|Wiadomości|Dziennik Telewizyjny|Panorama|Dobranoc/;
+  const NIGHT = /stróża nocnego|Raport stróża/;
+  // A, B, C: dane
+  for (const o of witness) {
+    if (ANC_HOUR.test(o.t) && !(o.mins && o.mins.length === 1 && o.mins[0] === 0)) bad9.push(`kotwica bez pełnej godziny (mins:[0]): ${o.t}`);
+    if (ANC_TV.test(o.t) && !(o.times && o.times.length)) bad9.push(`program bez godziny emisji (times): ${o.t}`);
+    if (/kolejk/i.test(o.t) && o.need !== "queue") bad9.push(`kolejka bez need:"queue": ${o.t}`);
+  }
+  check(TL.obsTpl.some(o => o.times && o.times.includes("17:00") && /Teleexpress/.test(o.t)), "Teleexpress o 17:00 w kotwicach osi czasu");
+  for (const d of evDefs) {
+    if (NIGHT.test(d.name) && !(d.time && d.time[0] === "20:00" && d.time[1] === "06:00")) bad9.push(`raport stróża bez pory 20:00–06:00: ${d.name}`);
+    if (/kresk/i.test(d.name) && d.need !== "tab") bad9.push(`zeszyt na kreskę bez need:"tab": ${d.name}`);
+    if (/fryzjer/i.test(d.name) && d.need !== "appt") bad9.push(`zeszyt fryzjera bez need:"appt": ${d.name}`);
+  }
+  const places = [...worldLocs.map(l => ({ name: l.name, feat: l.feat, id: l.id })), ...Object.values(TL.places).flat()];
+  const QUEUE_OK = /^(Sklep|Kiosk|Apteka|Poczta|Bank|Kasa|Kantor|Bar|Piekarnia|Cukiernia|Stragan|Budka (?!dozorcy)|Szczęka)/;
+  const TAB_OK = /^(Sklep spożywczy|Sklep przy|Bar|Kiosk|Stragan|Budka \{market_on\}|Budka z warzywami|Szczęka)/;
+  for (const p of places) {
+    const f = p.feat || [];
+    if (f.includes("queue") && !QUEUE_OK.test(p.name)) bad9.push(`kolejka w miejscu bez lady: ${p.name}`);
+    if (f.includes("tab") && !TAB_OK.test(p.name)) bad9.push(`na kreskę w miejscu, gdzie się tak nie kupuje: ${p.name}`);
+    if (/fryzjer|Świetlica|Piwnica jazzowa|klub/i.test(p.name) && (f.includes("queue") || f.includes("tab"))) bad9.push(`kolejka albo kreska: ${p.name}`);
+    if (/fryzjer/i.test(p.name) && !f.includes("appt")) bad9.push(`fryzjer bez zapisów (appt): ${p.name}`);
+  }
+  // sprawy: każda kotwica, raport stróża, kolejka, kreska i zapisy w wygenerowanym tekście spełniają warunki
+  const tpls = witness.map(o => ({ o, re: toRe(o.t) }));
+  const nameRe = n => new RegExp("^" + n.split(/\{\w+\}/).map(esc).join(".+"));
+  const featOf = (c, id) => { const l = worldLocs.find(l => l.id === id); if (l) return l.feat || [];
+    const node = c.nodes.find(n => n.id === id), p = (TL.places[c.crime] || []).find(p => nameRe(p.name).test(node.name)); return (p && p.feat) || []; };
+  const cnt = { hour: 0, tv: 0, night: 0, day: 0, queue: 0, tab: 0, appt: 0 };
+  for (let i = 0; i < 2400; i++) {
+    const c = S.generateCase(W, "realia-anc-" + i, i % 2 ? { archetype: "timeline", size: ["M", "L", "XL"][i % 3] } : {});
+    const locs = c.nodes.filter(n => n.type === "location");
+    for (const n of c.nodes.filter(n => n.type === "person")) for (const line of n.text) for (const { o, re } of tpls) {
+      const m = line.match(re); if (!m) continue;
+      const t = tm(m.groups.t), loc = locs.find(l => (l.forms || []).includes(m.groups.in));
+      if (o.mins) { cnt.hour++; if (!o.mins.includes(t % 60)) bad9.push(`${c.seed}: kotwica nie o pełnej godzinie: ${m[0]}`); }
+      if (o.times) { cnt.tv++; if (!o.times.some(x => tm(x) === t)) bad9.push(`${c.seed}: program poza godziną emisji: ${m[0]}`); }
+      if (o.years && !(c.year >= o.years[0] && c.year <= o.years[1])) bad9.push(`${c.seed}: kotwica spoza lat ${o.years} (${c.year}): ${m[0]}`);
+      if (o.need) { cnt[o.need]++; if (!loc || !featOf(c, loc.id).includes(o.need)) bad9.push(`${c.seed}: „${o.need}” w miejscu bez tej cechy: ${m[0]}`); }
+    }
+    for (const n of c.nodes.filter(n => n.type === "evidence")) {
+      const d = evDefs.find(d => d.name === n.name), f = c.facts.find(f => f.type === "presence" && f.src === n.id);
+      if (!d || !f) continue;
+      const t = tm(f.at) % 1440;
+      if (NIGHT.test(d.name)) { cnt.night++; if (!(t >= 20 * 60 || t < 6 * 60)) bad9.push(`${c.seed}: raport stróża nocnego o ${f.at}`); }
+      else if (t < 20 * 60) cnt.day++;
+      if (d.need) { cnt[d.need]++; if (!featOf(c, f.where).includes(d.need)) bad9.push(`${c.seed}: „${d.name}” w miejscu bez cechy ${d.need}`); }
+    }
+  }
+  bad9.slice(0, 10).forEach(b => console.log("BŁĄD " + b)); fails += bad9.length;
+  check(cnt.night > 20 && cnt.day > 300 && cnt.queue > 50 && cnt.tab > 5 && cnt.appt > 5 && cnt.hour + cnt.tv > 5, `test pór i lady ma dość danych (${JSON.stringify(cnt)})`);
+  console.log(`Pory i lada (2400 spraw): ${JSON.stringify(cnt)}`);
+}
 console.log(fails ? `Test realiów: ${fails} błędów` : `Test realiów: wszystko się zgadza (1989: sty–lip ${early} spraw, w ${earlyK} kartki; sie–gru ${late} bez kartek)`);
 process.exit(fails ? 1 : 0);

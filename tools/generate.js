@@ -69,13 +69,16 @@ const staticErrors = [];
     if (typeof o !== "object" || !Array.isArray(o.at) || !o.at.length || o.at.some(x => !PT.includes(x))) bad(`szablon bez listy rodzajów miejsc albo z nieznanym rodzajem: ${JSON.stringify(o).slice(0, 80)}`);
   // godziny otwarcia: miejsce z godzinami ma formę „przed lokalem” (out); poza godzinami świadkowie uliczni
   for (const l of locs) if ((l.hours || (B.placeTypes[l.pt] || {}).open) && !l.out && !/^(kiosk|stall)$/.test(l.pt)) bad(`miejsce ${l.id}: godziny otwarcia bez formy out`);
-  for (const pt of [...new Set(locs.map(l => l.pt))]) {
-    if (!B.presence2Tpl.some(o => S.util.fitsAt(o, pt))) bad(`zdania łączone (presence2Tpl) dla ${pt}: brak`);
-    const n = (list, f = S.util.fitsAt) => list.filter(o => f(o, pt)).length;
-    if (pt !== "stair" && n(B.presenceTpl) < 5) bad(`świadkowie (presenceTpl) dla ${pt}: ${n(B.presenceTpl)} szablonów`);
-    if (n(B.timeline.obsTpl) < (pt === "stair" ? 2 : 4)) bad(`świadkowie osi czasu dla ${pt}: ${n(B.timeline.obsTpl)} szablonów`);
-    if (n(B.timeline.evidence) < 1) bad(`dowody osi czasu dla ${pt}: brak`);
-    if (pt !== "stair" && n(B.evidence.presence) < 2) bad(`zapiski obecności dla ${pt}: ${n(B.evidence.presence)}`);
+  // 2.2.2: liczymy dla każdego miejsca z jego cechami (feat: kolejka, kreska, zapisy), bo szablony z need pasują tylko tam
+  const ptLocs = [...new Map(locs.map(l => [l.pt + "|" + (l.feat || []).join(","), l])).values()];
+  for (const l of ptLocs) {
+    const pt = l.pt, nm = pt + (l.feat ? "[" + l.feat + "]" : "");
+    if (!B.presence2Tpl.some(o => S.util.fitsAt(o, pt, undefined, l))) bad(`zdania łączone (presence2Tpl) dla ${nm}: brak`);
+    const n = list => list.filter(o => S.util.fitsAt(o, pt, undefined, l)).length;
+    if (pt !== "stair" && n(B.presenceTpl) < 5) bad(`świadkowie (presenceTpl) dla ${nm}: ${n(B.presenceTpl)} szablonów`);
+    if (n(B.timeline.obsTpl) < (pt === "stair" ? 2 : 4)) bad(`świadkowie osi czasu dla ${nm}: ${n(B.timeline.obsTpl)} szablonów`);
+    if (n(B.timeline.evidence) < 1) bad(`dowody osi czasu dla ${nm}: brak`);
+    if (pt !== "stair" && n(B.evidence.presence) < 2) bad(`zapiski obecności dla ${nm}: ${n(B.evidence.presence)}`);
   }
 }
 /* świadek pasuje do miejsca: szablon z `at` nie może trafić do miejsca innego rodzaju */

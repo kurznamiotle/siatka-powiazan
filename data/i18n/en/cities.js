@@ -24,7 +24,7 @@
         outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Has been bolting Polonezes together at Żerań for twenty years.","Dreads the redundancies everyone at the plant is talking about."] },
       locations:[
-        { id:"szczeka", pt:"stall", name:"Stall at the Różycki bazaar", label:"Stall", gen:"the stall", in:"by the stall in the bazaar", from:"from the stall in the bazaar", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+        { id:"szczeka", feat:["queue","tab"], pt:"stall", name:"Stall at the Różycki bazaar", label:"Stall", gen:"the stall", in:"by the stall in the bazaar", from:"from the stall in the bazaar", icon:"stall", roles:["handlarz","prywaciarz","praski"],
           open:["At the bazaar everyone hangs around other people's stalls all day.", "You can simply lift the tarpaulin at the back of the stall.",
                 "The traders at the next stalls watch their own goods and nobody else's.", "The tin at the back of the stall sticks out. One tug and it bends."],
           desc:["A tin stall with dumplings in jars and cabbage sold by weight.","Between the stalls it smells of tripe soup and cheap perfume.",

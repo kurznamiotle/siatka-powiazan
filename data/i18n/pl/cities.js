@@ -23,7 +23,7 @@
         outfit:{shape:"plain",c:"#4d5a44",d:"#7f8c6e"}, headwear:{m:["kaszkiet"],f:["chustka"]},
         flavor:["Od dwudziestu lat skręca Polonezy na Żeraniu.","Boi się zwolnień, o których mówią w zakładzie."] },
       locations:[
-        { id:"szczeka", pt:"stall", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"przy szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
+        { id:"szczeka", feat:["queue","tab"], pt:"stall", name:"Szczęka na bazarze Różyckiego", label:"Szczęka", gen:"szczęki", in:"przy szczęce na bazarze", from:"ze szczęki na bazarze", icon:"stall", roles:["handlarz","prywaciarz","praski"],
           open:["Na bazarze w ciągu dnia każdy kręci się przy cudzych budkach.", "Plandekę z tyłu budki można po prostu odchylić.",
                 "Handlarze z sąsiednich szczęk pilnują swojego, a cudzej budki nikt.", "Blacha z tyłu szczęki odstaje i wystarczy ją odgiąć."],
           desc:["Blaszana budka z pyzami w słoikach i kapustą na wagę.","Między budkami pachnie flakami i tanimi perfumami.",

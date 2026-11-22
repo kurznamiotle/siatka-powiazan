@@ -228,7 +228,8 @@ Wydanie 2.2.2 (**obowiązuje od 22.11.2026**; 2.2.1 zamrożone w `engine/version
 - **Akta (druga tura):** kolejne obserwacje tej samej osoby w tym samym miejscu w jednym zdaniu (`presence2Tpl`, `{ts}` = „o 20:50 i jeszcze raz o 21:10”, `timesPhrase`); szablon świadka najwyżej raz w aktach osoby; etykieta polaroidu w każdej formie miejsca (gen, in, out, from).
 - **Godziny otwarcia:** `placeTypes.<pt>.open` albo `hours` na miejscu; „w środku” tylko w godzinach + 30 min, poza nimi forma `out` („przed apteką”) i świadkowie uliczni (`placeAt`). Nowe rodzaje: `stall` (stragan, „przy szczęce”), `boiler`, `stable`, `shed` (kotłownia, stajnia, szopa rybacka z własnymi świadkami). Szef i kierownik zmiany tylko w `plant`.
 - **Współpracownik:** przy tej relacji role osób z nią z jednego `wp` (ok. 29% reguł relacji).
-- Test: `tools/test-realia.js` pkt 8 (A–E). Do decyzji: sygnał czasu nie o pełnej godzinie, raport stróża nocnego po południu, kolejka i „na kreskę” w świetlicy i u fryzjera (`docs/todo-generator.md`).
+- Test: `tools/test-realia.js` pkt 8 (A–E).
+- **Pory i lada (trzecia tura):** kotwice czasu w osi czasu z `mins:[0]` (sygnał czasu, dzwony) i `times` (Teleexpress 17:00, Wiadomości 19:30 od 1990); raport stróża nocnego `time:["20:00","06:00"]` (przedział przez północ w `fitsAt`); cechy miejsca `feat` (`queue` lada/okienko, `tab` zeszyt na kreskę, `appt` zapisy u fryzjera) i `need` na szablonie (`fitsAt(o, pt, t, loc)`); cechy mają też miejsca zdarzenia w `timeline.places`. Test: `tools/test-realia.js` pkt 9.
 
 ## Najbliższe kroki
 

@@ -23,19 +23,12 @@ Zmiany, które zmieniają tekst polskich spraw. Nie wchodzą bez nowej wersji ge
 - Miejsce pracy: szef i kierownik zmiany tylko w zakładach (`plant`), kwity w zakładach i lokalach; kotłownia, stajnia i szopa rybacka to `boiler`, `stable`, `shed` z palaczem, stajennym i rybakiem oraz sąsiadem i dzielnicowym; warsztat i zaplecze: klient po zamówienie, zeszyt zamówień.
 - Test: `tools/test-realia.js` pkt 8 (A1–A3, B, C, D, E na 2000 + 1600 spraw).
 
-## Do decyzji (z przeglądu 400 spraw 2.2.2 po drugiej turze)
+- Decyzje z przeglądu 400 spraw (trzecia tura):
+  - Kotwice czasu (oś czasu): `mins:[0]` = sygnał czasu w radiu i dzwony tylko o pełnej godzinie; `times:["HH:MM"]` = program w godzinie emisji: „Teleexpress” o 17:00, „Wiadomości” o 19:30 (1990–1999). Obserwacja o innej minucie bierze inną kotwicę albo zdanie bez kotwicy. Hejnału nie ma wśród szablonów (wszystkie szablony są wspólne dla miast); gdyby wszedł, też `mins:[0]`.
+  - Raport stróża nocnego (classic i oś czasu) tylko 20:00–6:00 (`time:["20:00","06:00"]`, `fitsAt` obsługuje przedział przez północ). W dzień inne dowody z listy miejsca: zeszyt dozorcy, dziennik budowy (nowy, `site`), rejestr stróża ogródków, zeszyt dyżurów (w osi czasu nowe).
+  - Cechy miejsca `feat` i warunek `need` na szablonie: `queue` (lada albo okienko: apteka, kiosk, szczęka, w osi czasu sklepy, kantory, poczta, kasy, bar mleczny, cukiernia, budki i stragany poza budką dozorcy), `tab` (zeszyt na kreskę: kiosk, szczęka, sklep spożywczy, bar mleczny, budki z towarem), `appt` (fryzjer: „Zeszyt zapisów u fryzjera”). Świetlica, klub jazzowy i fryzjer bez kolejki i kreski. Kwit z godziną także w classic (lokale bez kolejki miałyby jeden dowód obecności). Biuro w osi czasu: sprzątaczka zamiast klienta w kolejce.
+  - `generate.js` liczy szablony dla każdego miejsca z jego cechami; test: `tools/test-realia.js` pkt 9 (dane + 2400 spraw).
 
-### 1. Sygnał czasu nie o pełnej godzinie
+## Do decyzji
 
-- Przykłady: „Emerytka z parteru widziała ją przed zakładem fryzjerskim o 19:40, kiedy w radiu nadawali sygnał czasu.”, „…przed biurem administracji o 22:35…”.
-- Kotwica `radio` (oś czasu) pasuje do każdej minuty. Sygnał czasu jest o pełnej godzinie: kotwica tylko dla czasów :00 (albo inna kotwica, np. dziennik radiowy o :00 i :30).
-
-### 2. Raport stróża nocnego po południu
-
-- Przykład: «Godz. 14:35. Spotkano S.P. w kotłowni.» w „Raporcie stróża nocnego”.
-- Dowody i świadkowie mogą mieć `time` tak jak szablony świadków (stróż nocny od 20:00, dyżurny na obchodzie od 18:00).
-
-### 3. Kolejka i „na kreskę” w miejscach bez lady
-
-- Przykłady: „Klient stojący w kolejce widział ją w świetlicy o 18:05.”, «… w zakładzie fryzjerskim, do zapłaty w piątek» w „Zeszycie na kreskę”.
-- `shop` łączy sklep z ladą, fryzjera, świetlicę i klub. Możliwość: świetlica i klub jako osobny rodzaj (`hall`) bez kolejki i bez kreski.
+(nic)

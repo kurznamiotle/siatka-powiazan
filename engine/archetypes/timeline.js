@@ -53,7 +53,7 @@
     const P = TL.places[crimeId][crime.scenes.indexOf(scene)];
     X.name = T(P.name);
     X.label = X.name.split(new RegExp(t("gen.timeline.label_split_re")))[0];
-    X.pt = P.pt;
+    X.pt = P.pt; if (P.feat) X.feat = P.feat;
     if (others.some(o => o.name === X.name)) X.name += t("gen.timeline.miejsce_zdarzenia_2");
     if (others.some(o => o.label === X.label)) X.label = t("gen.timeline.miejsce_zdarz");
     const LOCS = [X, ...others];          // indeks 0 = miejsce zdarzenia
@@ -185,7 +185,7 @@
       // co najmniej jeden dowód dotyczy niewinnego
       const order = [...cands.filter(f => f.who !== C0.id).slice(0, 1), ...cands];
       for (const f of order) {
-        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at))); // dowód pasuje do rodzaju miejsca
+        const li = LOCS.findIndex(l => l.id === f.where), def = defs.find(d => !usedDefs.has(d) && fitsAt(d, placeAt(B, LOCS[li], toMin(f.at)).pt, toMin(f.at), LOCS[li])); // dowód pasuje do rodzaju miejsca
         if (evs.length >= want || evs.some(e => e.f === f) || per[f.who] || !def) continue;
         per[f.who] = 1; usedDefs.add(def); evs.push({ f, def, Pp: persons.find(p => p.id === f.who), li });
       }
@@ -240,7 +240,7 @@
       if (obsText.has(o)) continue;
       const loc = LOCS[o.w], pa = placeAt(B, loc, o.t), meta = new Map(), pool = [];
       for (const e of TL.obsTpl) {
-        if (!fitsAt(e, pa.pt, o.t) || tplOf(Pp).has(e)) continue;
+        if (!fitsAt(e, pa.pt, o.t, loc) || !inYears(e, year, monthIdx) || tplOf(Pp).has(e)) continue;
         const m = e, str = e.t;
         if (m.anc && (PLACE_ANC.includes(m.anc) ? placeUsed.has(o.w) : genUsed.has(m.anc))) continue;
         if (m.open && closedAt[o.w] !== undefined && o.t >= closedAt[o.w]) continue;
